@@ -1,6 +1,6 @@
 """Tests for public event values and handler defaults."""
 
-from apixis.core.event.base import EventType, ApixEventHandler
+from apixis.core.event.base import ApixEventHandler
 
 
 async def _handler(event):

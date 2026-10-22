@@ -93,7 +93,7 @@ async def test_dequeued_handlers_stay_frozen_while_waiting_for_capacity(
         await loop.stop()
 
     @subscribe("work.*", priority=20)
-    async def target(event):
+    async def target(event):  # noqa: F811 - Exercise same-name handler replacement.
         calls.append("new")
 
     @subscribe("work.*", priority=30)

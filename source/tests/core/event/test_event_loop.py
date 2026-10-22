@@ -6,7 +6,7 @@ dispatch logic, background handlers, error handling, and timeouts.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest

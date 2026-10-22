@@ -7,7 +7,6 @@ from typing import Any, Callable
 
 from apixis.core.event.base import suspend_process
 from apixis.core.graph.context.manager import get_graph_context
-from apixis.core.graph.base import GLOBALNS
 from apixis.core.graph.context.graph_context import GraphContext
 from apixis.core.graph.utils.namespace import (
     get_graph_interrupted_name,

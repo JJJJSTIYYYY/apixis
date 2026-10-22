@@ -42,10 +42,12 @@ python -m pip install .
 
 ```bash
 python -m pip install -e ".[dev]"
+python -m ruff check .
 python -m pytest
 ```
 
 使用 uv 时，请使用 `uv sync --extra dev --locked` 和 `uv run --extra dev pytest`。
+运行静态代码检查：`uv run --extra dev ruff check .`。Ruff 检查常见代码错误和未使用的导入等问题，不执行静态类型检查。
 有关构建和发布到 PyPI，请参阅[发布指南](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/releasing.md)。
 
 ## 快速开始
@@ -138,10 +140,12 @@ For development and release tools:
 
 ```bash
 python -m pip install -e ".[dev]"
+python -m ruff check .
 python -m pytest
 ```
 
 With uv, use `uv sync --extra dev --locked` and `uv run --extra dev pytest`.
+Run static code checks with `uv run --extra dev ruff check .`. Ruff checks common code errors and unused imports; it does not perform static type checking.
 See [the release guide](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/releasing.md) for building and publishing to PyPI.
 
 ## Quick start

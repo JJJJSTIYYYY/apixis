@@ -1,6 +1,5 @@
 """Large-scale integration tests for glob-aware event handler dispatch."""
 
-import asyncio
 from collections import Counter
 from collections.abc import Callable
 

@@ -8,7 +8,7 @@ from typing import Literal
 from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, suspend_process
-from apixis.core.event.factory import aget_handler_registry, get_handler_registry
+from apixis.core.event.factory import get_handler_registry
 
 
 def subscribe(

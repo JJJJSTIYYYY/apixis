@@ -97,7 +97,7 @@ def test_put_nowait_only_buffers_events_and_other_queue_values():
 @pytest.mark.parametrize("publication", ["post_event", "put", "put_nowait", "builtin"])
 @pytest.mark.parametrize("event_type, name", [
     (EventType.INFO, "runtime.observed"),
-    (EventType.INTERNAL, "runtime.internal"),
+    (EventType.TRANSIENT, "runtime.transient"),
     (EventType.INFO, ""),
 ])
 async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
@@ -139,7 +139,7 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
         # The consumer may dequeue one event before dispatch capacity is available.
         await asyncio.sleep(0)
         assert pipe.empty()
-        expected = frozenset({name}) if name and event_type != EventType.INTERNAL else frozenset()
+        expected = frozenset({name}) if name and event_type != EventType.TRANSIENT else frozenset()
         assert registry.get_registered_events() == frozenset()
         record.assert_not_called()
         assert observed_in_handler == []

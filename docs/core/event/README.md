@@ -42,14 +42,14 @@ from apixis import EventType
 
 可选值：
 
-- `EventType.INTERNAL`
+- `EventType.TRANSIENT`
 - `EventType.WORKFLOW`
 - `EventType.LIFECYCLE`
 - `EventType.INFO`
 - `EventType.WARNING`
 - `EventType.ERROR`
 
-`INTERNAL` 事件不会被 `ApixEventRegistry` 记录为用户可观察事件名。它是 event core 自身的生命周期事件。
+`TRANSIENT`（值为 `"transient"`）表示临时事件：事件正常分发给订阅的处理器，但其名称不会被 `ApixEventRegistry` 记录。
 
 ## `ApixEvent`
 

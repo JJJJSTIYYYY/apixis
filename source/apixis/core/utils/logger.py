@@ -398,8 +398,8 @@ class Logger:
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write("\n".join(messages))
                     f.write("\n")
-            except Exception as e:
-                print(f"\033[91m=== LOG FLUSH ERROR ===\033[0m")
+            except Exception:
+                print("\033[91m=== LOG FLUSH ERROR ===\033[0m")
                 print(traceback.print_exc())
 
 

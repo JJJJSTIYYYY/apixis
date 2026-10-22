@@ -84,7 +84,7 @@ async def suspend_process():
 
 
 class EventType(str, Enum):
-    INTERNAL = 'internal' # Internal event type for event bus itself.
+    TRANSIENT = 'transient' # Transient events are dispatched without recording their names.
     WORKFLOW = 'workflow'
     LIFECYCLE = 'lifecycle'
     INFO = 'info'

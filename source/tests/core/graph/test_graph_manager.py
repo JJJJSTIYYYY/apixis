@@ -218,7 +218,7 @@ def test_decompose_releases_namespace_by_contextmanager():
 
     assert "reusable" not in namespace_set
     assert "reusable" not in _namespace_graphs
-    assert True == graph._decomposed
+    assert graph._decomposed is True
 
 
 def test_decompose_releases_namespace_for_later_compile():

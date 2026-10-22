@@ -25,6 +25,7 @@ env/
 
 # cache
 .pytest_cache/
+.ruff_cache/
 .mypy_cache/
 
 # Node / Vite / Vue / Electron

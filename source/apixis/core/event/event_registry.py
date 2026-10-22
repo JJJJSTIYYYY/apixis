@@ -38,8 +38,8 @@ class ApixEventRegistry:
         """
         if not isinstance(event, ApixEvent):
             raise TypeError("event must be an ApixEvent instance.")
-        if event.event_type == EventType.INTERNAL:
-            # Internal events are not user-facing and should not be recorded.
+        if event.event_type == EventType.TRANSIENT:
+            # Transient event names are not retained in the registry.
             return
         if not event.event_name:
             raise ValueError("event.event_name must be a non-empty string.")
