@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-22",
+  "kind": "correctness_defect_reproduction",
+  "scope": "Isolated overlay of the current package with only event/base.py and event/event_loop.py restored from the archived HEAD runtime. Current handler indexing and clear() are retained for fixture compatibility. This is not the full performance baseline.",
+  "selected_test": "source/tests/integration/event/test_backpressure_boundaries.py::test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit",
+  "case_filter": "not body",
+  "case_filter_reason": "Select repeated child cancellation and owner cancellation during reacquisition. First owner cancellation in the child body is excluded from this focused defect reproduction.",
+  "python": "3.12.12",
+  "external_watchdog_seconds": 30,
+  "overlay_import_verified": true,
+  "baseline_files_match_head": true,
+  "baseline_file_sha256": {
+    "source/apixis/core/event/base.py": "92034246b91d88823613588b7a688f06238dbe5ac8aeeba503a9a8c25c88cc66",
+    "source/apixis/core/event/event_loop.py": "48dc4cc34a6914df1b4f68e0180686d46c383fa5b05b1a643e157749a8ab119f"
+  },
+  "test_file_sha256": "e433b60ba87112073587707228620960d9f7fe37600cd44a8171f91e0690868f",
+  "exit_code": 1,
+  "counts": {
+    "passed": 8,
+    "failed": 8
+  },
+  "assertion_message": "The parent handler resumed after catching repeated child cancellation while its token held no foreground permit and all configured permits remained occupied.",
+  "cases": [
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity0]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity1]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity2]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity3]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity0]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity1]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity2]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity3]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity0]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity1]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity2]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity3]",
+      "status": "failed",
+      "assertion": "assert not continued.is_set()",
+      "observed": "continued.is_set() is True while all foreground permits remain occupied"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity0]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity1]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity2]",
+      "status": "passed"
+    },
+    {
+      "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity3]",
+      "status": "passed"
+    }
+  ],
+  "reproduction": [
+    "Copy the current source/apixis package into a temporary source overlay.",
+    "Replace only core/event/base.py and core/event/event_loop.py using the archived HEAD files identified by baseline_file_sha256.",
+    "Set PYTHONPATH to the temporary source overlay and verify both event modules import from it.",
+    "Run python -m pytest -q with selected_test, -k \"not body\", --tb=short and a 30 second external subprocess watchdog."
+  ]
+}

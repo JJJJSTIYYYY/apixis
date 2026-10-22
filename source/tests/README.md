@@ -30,6 +30,22 @@ uv run --no-sync pytest source/tests/integration/graph
 
 默认不收集性能测试，原有规模正确性测试仍参与默认测试。CI 在默认测试后额外运行十三组性能 workload 的小规模版本，验证测试本身能执行和清理，不设与硬件绑定的速度阈值。
 
+背压边界回归位于 `integration/event/test_backpressure_boundaries.py`，使用实际前台容量 `1/2` 与队列容量 `1/2` 的交叉组合，检查满队列、嵌套并行图、请求响应、取消、重启以及许可归还。测试有异步 deadline；排查死锁时应另加进程级 watchdog，避免取消清理本身阻塞测试退出。
+
+## 跨版本性能对比
+
+`scripts/benchmark_runtime.py` 使用四个独立进程按 `before → after → after → before` 比较。每个场景先预热，再测量；结果和原始轮次分别保存为 JSON，不覆盖现有 Graph 性能报告。
+
+```bash
+mkdir -p /tmp/apixis-before
+git archive 9743814 source | tar -x -C /tmp/apixis-before
+.venv/bin/python scripts/benchmark_runtime.py \
+  --baseline-source /tmp/apixis-before/source \
+  --output /tmp/apixis-comparison.json --repeats 3
+```
+
+基准包含精确事件名的冷/热查询、临时订阅增删、独立/复用图、串行/并行图、大状态快照、关闭快照，以及三档背压下的异步等待。两版使用相同参数并逐个校验结果。运行时记录总耗时、构建/准备/执行分项、从共同启动门计时的批量完成延迟和事件循环延迟；内存另用 tracemalloc 测量，不能当作进程 RSS。完整场景说明及实测结果见 `docs/performance/2026-10-22.md`。
+
 ## Graph 性能测试
 
 ```bash

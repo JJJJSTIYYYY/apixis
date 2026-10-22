@@ -125,7 +125,7 @@ class BaseNode(ABC):
         the original exception is propagated.
         """
         try:
-            return list(await asyncio.gather(*tasks))
+            return await asyncio.gather(*tasks)
         except BaseException:
             for task in tasks:
                 if not task.done():

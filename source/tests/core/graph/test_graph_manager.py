@@ -1,5 +1,6 @@
 """Unit tests for graph construction and transition validation."""
 
+import asyncio
 import math
 
 import pytest
@@ -10,6 +11,7 @@ from apixis.core.event.factory import get_handler_registry
 from apixis.core.graph import (
     GLOBALNS,
     GRAPH_DISPATCH,
+    Command,
     GraphManager,
     get_graph_dispatch_name,
     namespace_set,
@@ -99,6 +101,87 @@ def test_compile_retains_timeout_on_node():
     )
 
     assert graph._nodes["source"].timeout == 2.5
+
+
+@pytest.mark.parametrize(
+    ("options", "snapshot_count"),
+    [({}, 2), ({"no_snapshot": False}, 2), ({"no_snapshot": True}, 0)],
+    ids=["default", "snapshots", "no-snapshots"],
+)
+async def test_compile_snapshot_policy_preserves_result_and_state_isolation(
+    options, snapshot_count,
+):
+    """Disabling snapshots preserves copying at node and caller boundaries."""
+    initial = {"payload": {"items": ["input"]}}
+    update = {"items": ["committed"]}
+
+    def first(state):
+        state["payload"]["items"].append("first-node-only")
+        return Command(update={"progress": update}, goto="second")
+
+    def second(state):
+        assert state["payload"] == {"items": ["input"]}
+        state["progress"]["items"].append("second-node-only")
+        return {"done": True}
+
+    graph = (
+        GraphManager()
+        .add_nodes([first, second])
+        .compile_graph(entry_point="first", **options)
+    )
+    context = graph.create_context(initial)
+    result = await asyncio.wait_for(graph.invoke(graph_context=context), timeout=1)
+
+    assert result == {
+        "payload": {"items": ["input"]},
+        "progress": {"items": ["committed"]},
+        "done": True,
+    }
+    assert initial == {"payload": {"items": ["input"]}}
+    assert update == {"items": ["committed"]}
+    assert context.steps == 2
+    assert len(context.context_snapshot) == snapshot_count
+    result["progress"]["items"].append("caller-only")
+    assert context.state["progress"] == {"items": ["committed"]}
+
+
+async def test_compile_without_snapshots_aborts_at_committed_state():
+    """Without a checkpoint, abort returns live state and recovery is unavailable."""
+    started, release_node = asyncio.Event(), asyncio.Event()
+
+    def commit(state):
+        return Command(update={"items": ["committed"]}, goto="waiting")
+
+    async def waiting(state):
+        state["items"].append("node-only")
+        started.set()
+        await release_node.wait()
+        return {"items": ["late-update"]}
+
+    graph = (
+        GraphManager()
+        .add_nodes([commit, waiting])
+        .compile_graph(entry_point="commit", no_snapshot=True)
+    )
+    context = graph.create_context({"items": ["initial"]})
+    invocation = asyncio.create_task(graph.invoke(graph_context=context))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=1)
+        context.abort()
+        result = await asyncio.wait_for(invocation, timeout=1)
+
+        assert result == {"items": ["committed"]}
+        assert context.status == "aborted"
+        assert context.context_snapshot == []
+        with pytest.raises(RuntimeError, match="without a snapshot"):
+            graph.restore_context(context)
+        result["items"].append("caller-only")
+        assert context.state == {"items": ["committed"]}
+    finally:
+        release_node.set()
+        if not invocation.done():
+            invocation.cancel()
+        await asyncio.gather(invocation, return_exceptions=True)
 
 
 @pytest.mark.parametrize(

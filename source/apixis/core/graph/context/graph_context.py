@@ -169,7 +169,11 @@ class GraphContext:
             {
                 "timestamp": time.time(),
                 "state": copy.deepcopy(self.state),
-                "target_node_name": copy.deepcopy(self.target_node_name),
+                "target_node_name": (
+                    list(self.target_node_name)
+                    if isinstance(self.target_node_name, list)
+                    else self.target_node_name
+                ),
                 "steps": self.steps,
                 "graph_id": self.graph_id,
             }

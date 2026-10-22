@@ -200,6 +200,11 @@ class ApixEventLoop:
         handler_chain: list[ApixEventHandler],
     ) -> ApixEvent | None:
         """Dispatch an event and notify foreground handlers on cancellation."""
+        chain = handler_chain_context.get()
+        if chain is not None:
+            # Initialize inside the coroutine, before user code, including
+            # when an application installs an eager task factory.
+            chain.owner = asyncio.current_task()
         logger.debug(
             f"Dispatching event `{event.event_name}` "
             f"to {len(handler_chain)} handlers."
@@ -249,6 +254,10 @@ class ApixEventLoop:
     def _on_dispatch_done(self, task: asyncio.Task, *, chain: HandlerChainToken) -> None:
         """Close the chain and release its permit only if it still owns one."""
         chain.closed = True
+        if chain.resuming_task is not None:
+            # A detached child may be waiting after its dispatch has ended.
+            chain.resuming_task.cancel()
+        chain.owner = None
         if chain.held:
             self._event_semaphore.release()
             chain.held = False

@@ -31,7 +31,7 @@ graph = (
 
 批量注册节点。
 
-### `compile_graph(entry_point, *, using_namespace=None, exist_ok=False)`
+### `compile_graph(entry_point, *, using_namespace=None, no_snapshot=False, exist_ok=False)`
 
 显式指定入口并编译为 `NodeGraph`：
 
@@ -53,6 +53,7 @@ def choose(state):
 
 - `using_namespace=None` 或 `""`：自动生成进程内唯一的 namespace，不承诺跨进程唯一；
 - `GLOBALNS`：显式使用全局命名域；
+- `no_snapshot=False`：默认在每批节点执行前保存完整快照；`True` 关闭自动快照，减少大 state 的复制与历史保留开销；
 - `exist_ok=False`：namespace 已占用时抛异常；
 - `exist_ok=True`：释放旧图并由新图接管。
 
@@ -142,6 +143,8 @@ restored = graph.restore_context(snapshot_list, version=-1)
 
 恢复结果属于同一个 `NodeGraph`，不能跨图使用。
 
+通过 `compile_graph(..., no_snapshot=True)` 或 `NodeGraph(..., no_snapshot=True)` 关闭自动快照后，节点输入、命令更新和正常返回结果仍按原来的 state 策略复制。新建 context 不会自动积累历史；没有手动保存的快照时，`restore_context(context)` 会抛异常。
+
 ## Abort
 
 ```python
@@ -151,6 +154,7 @@ context.abort()
 ```
 
 abort 使用最近一次 checkpoint 作为返回边界。已经开始执行的节点可能继续完成自身协程，但其结果不会再提交到已中止 invocation。
+关闭自动快照且没有手动保存 checkpoint 时，abort 返回已提交的当前 state；正在执行的节点尚未返回的更新不会提交。
 
 ## Interrupt / Block
 

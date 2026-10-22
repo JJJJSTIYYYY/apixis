@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Iterator
+from collections import OrderedDict
+from collections.abc import Iterable
 from fnmatch import fnmatchcase
 
 from apixis.core.utils.logger import logger
@@ -16,24 +17,53 @@ from apixis.core.utils.exception import (
 
 
 class ApixHandlerRegistry:
-    """Store current handlers and one ordered name chain per exact event.
+    """Index current subscriptions and cache bounded event-specific chains.
 
     ``priority_buckets`` determines dispatch order. Missing cache keys and
     ``None`` require rebuilding; an empty list is a valid cached result.
     Registration changes invalidate affected entries without modifying lists
     already held by dispatch tasks. The consumer captures handler references
     in this order at dequeue, before waiting for dispatch capacity.
+    ``cache_size`` limits cached names, including empty chains; evicted chains
+    are rebuilt from the current registrations on their next lookup.
     """
 
     registry: dict[str, ApixEventHandler]
     priority_buckets: dict[float, list[str]]
-    cached_chain: dict[str, list[str] | None]
+    cached_chain: OrderedDict[str, list[str] | None]
 
-    def __init__(self, event_registry: ApixEventRegistry) -> None:
+    def __init__(
+        self, event_registry: ApixEventRegistry, *, cache_size: int = 8192,
+    ) -> None:
+        if isinstance(cache_size, bool) or not isinstance(cache_size, int) or cache_size <= 0:
+            raise ValueError("cache_size must be a positive integer.")
         self._event_registry = event_registry
+        self._cache_size = cache_size
         self.registry = {}
         self.priority_buckets = {}
-        self.cached_chain = {}
+        self.cached_chain = OrderedDict()
+        self._exact_subscriptions: dict[str, set[str]] = {}
+        self._handler_exact_names: dict[str, tuple[str, ...]] = {}
+        self._glob_subscriptions: dict[str, tuple[str, ...]] = {}
+        # Sort keys use the actual bucket priority, including relative insertions
+        # whose public handler.priority is None. Removal leaves ordinals intact.
+        self._handler_order: dict[str, tuple[float, int]] = {}
+        self._bucket_next_order: dict[float, int] = {}
+        self._register_order = 0
+
+    def clear(self) -> None:
+        """Remove registrations and cached chains without changing observations.
+
+        Already captured handler references and chain lists remain usable.
+        """
+        self.registry.clear()
+        self.priority_buckets.clear()
+        self.cached_chain.clear()
+        self._exact_subscriptions.clear()
+        self._handler_exact_names.clear()
+        self._glob_subscriptions.clear()
+        self._handler_order.clear()
+        self._bucket_next_order.clear()
         self._register_order = 0
 
     def __contains__(self, item):
@@ -62,49 +92,28 @@ class ApixHandlerRegistry:
         return list(dict.fromkeys(supplied))
 
     @staticmethod
+    def _is_glob(pattern: str) -> bool:
+        return any(character in pattern for character in "*?[")
+
+    @staticmethod
     def _matches_handler(handler: ApixEventHandler, event_name: str) -> bool:
         """Return whether a handler accepts one exact, case-sensitive event."""
         subscribed = any(
             fnmatchcase(event_name, pattern)
             for pattern in handler.subscribe
         )
-        filtered = any(
+        return subscribed and not any(
             fnmatchcase(event_name, pattern)
             for pattern in handler.filter_event
         )
-        return subscribed and not filtered
 
-    def _iter_active_handler_names(self) -> Iterator[str]:
-        """Yield active handler names in deterministic dispatch order."""
-        for priority in sorted(self.priority_buckets, reverse=True):
-            yield from self.priority_buckets[priority]
-
-    def _get_handler_priority(self, handler_name: str) -> float | None:
-        """Return the priority of a registered handler, or None if unknown."""
-        handler = self.registry.get(handler_name)
-        return handler.priority if handler is not None else None
-
-    def _find_handler_position(
-        self,
-        handler_name: str,
-        *,
-        priority: float | None = None,
-    ) -> tuple[float, int] | None:
+    def _find_handler_position(self, handler_name: str) -> tuple[float, int] | None:
         """Return the active bucket and index for a handler name."""
-        if priority is not None:
-            bucket = self.priority_buckets.get(priority)
-            if bucket is None:
-                return None
-            try:
-                return priority, bucket.index(handler_name)
-            except ValueError:
-                return None
-
-        for prio, bucket in self.priority_buckets.items():
-            for index, name in enumerate(bucket):
-                if name == handler_name:
-                    return prio, index
-        return None
+        order = self._handler_order.get(handler_name)
+        if order is None:
+            return None
+        priority = -order[0]
+        return priority, self.priority_buckets[priority].index(handler_name)
 
     def _validate_between_handlers(
         self,
@@ -139,18 +148,12 @@ class ApixHandlerRegistry:
         if handler_name in between_handlers:
             raise ValueError("A handler cannot use itself as an insertion boundary.")
         left_position = (
-            self._find_handler_position(
-                left_name,
-                priority=self._get_handler_priority(left_name),
-            )
+            self._find_handler_position(left_name)
             if left_name is not None
             else None
         )
         right_position = (
-            self._find_handler_position(
-                right_name,
-                priority=self._get_handler_priority(right_name),
-            )
+            self._find_handler_position(right_name)
             if right_name is not None
             else None
         )
@@ -181,18 +184,41 @@ class ApixHandlerRegistry:
         if left_position is not None:
             return left_position[0]
 
-        if right_position is None:
-            raise ValueError("right_position can not be None.")
         return right_position[0]
 
     def _invalidate_matching_chains(self, handler: ApixEventHandler) -> None:
         """Expire existing caches accepted by this handler without rebuilding."""
+        # Exact subscriptions identify their own cache keys. Temporary reply
+        # listeners must not scan unrelated historical event names.
+        event_names = (
+            self.cached_chain
+            if any(self._is_glob(pattern) for pattern in handler.subscribe)
+            else (name for name in handler.subscribe if name in self.cached_chain)
+        )
         need_delete = []
-        for event_name in self.cached_chain:
+        for event_name in event_names:
             if self._matches_handler(handler, event_name):
                 need_delete.append(event_name)
         for event_name in need_delete:
             self.cached_chain.pop(event_name, None)
+
+    def _resolve_handler_chain(self, event_name: str) -> list[str]:
+        """Match exact candidates and glob subscriptions, then apply ordering."""
+        candidates = set(self._exact_subscriptions.get(event_name, ()))
+        for name, patterns in self._glob_subscriptions.items():
+            if name not in candidates and any(
+                fnmatchcase(event_name, pattern) for pattern in patterns
+            ):
+                candidates.add(name)
+        chain = [
+            name for name in candidates
+            if not any(
+                fnmatchcase(event_name, pattern)
+                for pattern in self.registry[name].filter_event
+            )
+        ]
+        chain.sort(key=self._handler_order.__getitem__)
+        return chain
 
     def get_handlers_chain_for_event(self, event_name: str) -> list[str]:
         """Return the current chain, rebuilding only absent or expired entries."""
@@ -201,12 +227,11 @@ class ApixHandlerRegistry:
 
         chain = self.cached_chain.get(event_name)
         if chain is None:
-            chain = []
-            for handler_name in self._iter_active_handler_names():
-                handler = self.registry.get(handler_name)
-                if handler is not None and self._matches_handler(handler, event_name):
-                    chain.append(handler_name)
+            chain = self._resolve_handler_chain(event_name)
             self.cached_chain[event_name] = chain
+            if len(self.cached_chain) > self._cache_size:
+                self.cached_chain.popitem(last=False)
+        self.cached_chain.move_to_end(event_name)
         return chain
 
     def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:
@@ -218,16 +243,36 @@ class ApixHandlerRegistry:
 
     def _remove_from_bucket(self, handler_name: str) -> None:
         """Remove a registered name and discard its bucket when empty."""
-        position = self._find_handler_position(
-            handler_name, 
-            priority=self._get_handler_priority(handler_name)
-        )
-        if position is not None:
-            priority, index = position
-            bucket = self.priority_buckets[priority]
-            bucket.pop(index)
-            if not bucket:
-                del self.priority_buckets[priority]
+        priority = -self._handler_order.pop(handler_name)[0]
+        bucket = self.priority_buckets[priority]
+        if bucket[-1] == handler_name:
+            bucket.pop()
+        else:
+            bucket.remove(handler_name)
+        if not bucket:
+            del self.priority_buckets[priority]
+            del self._bucket_next_order[priority]
+
+    def _index_subscriptions(self, handler: ApixEventHandler) -> None:
+        exact_names = []
+        glob_patterns = []
+        for pattern in handler.subscribe:
+            if self._is_glob(pattern):
+                glob_patterns.append(pattern)
+            else:
+                exact_names.append(pattern)
+                self._exact_subscriptions.setdefault(pattern, set()).add(handler.name)
+        self._handler_exact_names[handler.name] = tuple(exact_names)
+        if glob_patterns:
+            self._glob_subscriptions[handler.name] = tuple(glob_patterns)
+
+    def _unindex_subscriptions(self, handler_name: str) -> None:
+        for event_name in self._handler_exact_names.pop(handler_name):
+            names = self._exact_subscriptions[event_name]
+            names.remove(handler_name)
+            if not names:
+                del self._exact_subscriptions[event_name]
+        self._glob_subscriptions.pop(handler_name, None)
 
     def register_handler(
         self, handler_entry: ApixEventHandler, *, exist_ok: bool = False,
@@ -292,15 +337,22 @@ class ApixHandlerRegistry:
         bucket = self.priority_buckets.setdefault(bucket_priority, [])
         if between_handlers is None:
             bucket.append(handler_entry.name)
+            ordinal = self._bucket_next_order.get(bucket_priority, 0)
+            self._handler_order[handler_entry.name] = -bucket_priority, ordinal
+            self._bucket_next_order[bucket_priority] = ordinal + 1
         else:
             left_name, right_name = between_handlers
             if right_name is not None:
                 insert_index = bucket.index(right_name)
             else:
-                if left_name is None:
-                    raise ValueError("between_handlers cannot be (None, None).")
                 insert_index = bucket.index(left_name) + 1
             bucket.insert(insert_index, handler_entry.name)
+            # Relative insertion is uncommon and already shifts this bucket's
+            # list. Reindex only this bucket; ordinary append/removal stays local.
+            for ordinal, name in enumerate(bucket):
+                self._handler_order[name] = -bucket_priority, ordinal
+            self._bucket_next_order[bucket_priority] = len(bucket)
+        self._index_subscriptions(handler_entry)
         self._invalidate_matching_chains(handler_entry)
         self._register_order += 1
 
@@ -320,6 +372,7 @@ class ApixHandlerRegistry:
                 )
             return
         self._invalidate_matching_chains(handler)
+        self._unindex_subscriptions(handler_name)
         self._remove_from_bucket(handler_name)
         del self.registry[handler_name]
         logger.debug(f"Unregistered handler {handler_name}.")

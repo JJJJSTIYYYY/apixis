@@ -8,6 +8,7 @@ must be observed directly. Construction itself never starts background consumers
 import asyncio
 from dataclasses import dataclass, field
 
+from apixis.core.config.core_config import HANDLER_CHAIN_CACHE_SIZE
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
@@ -44,7 +45,9 @@ def _get_core() -> EventCore:
     if _core is None:
         event_registry = ApixEventRegistry()
         event_pipe = ApixEventPipe()
-        handler_registry = ApixHandlerRegistry(event_registry)
+        handler_registry = ApixHandlerRegistry(
+            event_registry, cache_size=HANDLER_CHAIN_CACHE_SIZE,
+        )
         event_loop = ApixEventLoop(handler_registry, event_pipe, event_registry)
         _core = EventCore(event_registry, event_pipe, handler_registry, event_loop)
     return _core

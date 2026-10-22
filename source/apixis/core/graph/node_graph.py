@@ -334,7 +334,7 @@ class NodeGraph:
         restored = restored_history[-1]
         context = GraphContext(self.graph_id)
         context.state = copy.deepcopy(restored["state"])
-        context.target_node_name = copy.deepcopy(restored["target_node_name"])
+        context._set_target_node(restored["target_node_name"])
         context.steps = restored["steps"]
         context.context_snapshot = restored_history
         return context
@@ -531,7 +531,11 @@ class NodeGraph:
         context: GraphContext,
     ) -> None:
         """Execute one node or one concurrently scheduled node batch."""
-        normalized_node_names = self._normalise_targets(node_name)
+        # Dispatch targets are validated before publication. Freeze a batch's
+        # names while its tasks run so live context edits cannot reorder results.
+        normalized_node_names = (
+            [node_name] if isinstance(node_name, str) else list(node_name)
+        )
         if not self._no_snapshot:
             context.take_a_snapshot()
         try:

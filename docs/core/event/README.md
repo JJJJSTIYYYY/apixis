@@ -246,6 +246,10 @@ unsubscribe("observe_job")
 - `is_registered(name)`：检查是否注册；
 - `get_unmatched_subscriptions(name)`：返回当前尚未观察到匹配事件名的订阅模式。
 
+`ApixHandlerRegistry(event_registry, *, cache_size=8192)` 将精确订阅与 glob 订阅分别索引，并按原有优先级和相对插入顺序组合处理器链。匹配链使用有界 LRU；共享 core 的容量由 `PIPELINE.handler_chain_cache_size` 设置。淘汰只影响后续查询是否需要重建，不改变已取出事件的处理器引用。
+
+独立 registry 可使用 `clear()` 同时清理订阅、索引和链缓存；该操作不清空 `ApixEventRegistry` 的观察历史。更新订阅和排序时使用 `handler.register()`、`subscribe()` 或 registry 注册接口，不单独修改内部索引、bucket 或缓存。
+
 ## 已观察到的事件名
 
 `ApixEventRegistry` 可查询本地已经观察到的精确事件名；它不保存事件内容，也不能用于查询某个事件是否处理完成。
@@ -263,6 +267,8 @@ registry.clear()
 在 handler 内发布后续事件，优先使用 `pipe.post_event()`。它会在等待发布期间让出当前事件的调度容量。
 
 handler 等待另一个事件时，可以使用 `await_for()` 或 `wait_for_event()`，它们会在等待结果期间借出当前处理链的调度许可。请求／回包流程使用 `wait_for_event()`，在发布请求前确保结果订阅已经注册。自行等待应用的 Future 或信号时，需要自行安排容量释放或将后续逻辑放到结果事件的订阅处理器中。图中的嵌套 `invoke()` 和 `interrupt()` 已提供相应的等待行为，见[图 API](../graph/README.md)。
+
+并行子任务共享前台处理链的许可。仅取消子任务时，最后恢复的子任务会先归还许可，再向父任务传播取消；取消整个前台分发时，子任务不会为了重获许可而阻止分发退出。父 handler 自行组织可恢复的超时或并行等待时，应在父级使用 `suspend_process()` 包住等待过程，让父级 scope 负责恢复许可后继续执行。分发结束会取消仍停在许可重获阶段的子任务，避免遗留等待者。
 
 ## 暂停消费与停止管道
 

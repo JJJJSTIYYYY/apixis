@@ -15,11 +15,7 @@ def _clear_registries(core) -> None:
     for graph in tuple(_namespace_graphs.values()):
         graph.decompose()
     _namespace_graphs.clear()
-    registry = core.handler_registry
-    registry.registry.clear()
-    registry.priority_buckets.clear()
-    registry.cached_chain.clear()
-    registry._register_order = 0
+    core.handler_registry.clear()
     core.event_registry.clear()
 
 

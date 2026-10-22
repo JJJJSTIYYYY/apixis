@@ -598,7 +598,7 @@ def test_four_cache_states_rebuild_only_when_required(initial):
             "expired": None, "empty": [], "populated": ["cached"],
         }[initial]
     saved = registry.cached_chain.get("event.one")
-    with patch.object(registry, "_iter_active_handler_names", return_value=iter(())) as build:
+    with patch.object(registry, "_resolve_handler_chain", return_value=[]) as build:
         chain = registry.get_handlers_chain_for_event("event.one")
         if initial in ("missing", "expired"):
             build.assert_called_once()

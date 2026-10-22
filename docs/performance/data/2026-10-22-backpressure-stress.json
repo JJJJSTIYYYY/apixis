@@ -1,0 +1,7 @@
+{
+  "process_runs": 20,
+  "cases_per_run": 84,
+  "passed_cases": 1680,
+  "per_process_timeout_seconds": 20,
+  "total_seconds": 5.935632457956672
+}

@@ -47,6 +47,14 @@ def event(name="factory.event"):
     return ApixEvent(name, EventType.INFO, name, None, 0)
 
 
+def test_default_core_uses_configured_chain_cache_limit(fresh_core, monkeypatch):
+    monkeypatch.setattr(factory, "HANDLER_CHAIN_CACHE_SIZE", 3)
+    handlers = get_handler_registry()
+    for index in range(12):
+        assert handlers.get_handlers_chain_for_event(f"cache.{index}") == []
+    assert list(handlers.cached_chain) == ["cache.9", "cache.10", "cache.11"]
+
+
 @pytest.mark.parametrize("exit_mode", ["before_run", "waiting", "failure"])
 @pytest.mark.parametrize("async_getter", [False, True])
 async def test_getters_restart_an_exited_consumer(

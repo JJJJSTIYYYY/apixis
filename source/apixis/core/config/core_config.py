@@ -33,6 +33,14 @@ if (
 # Pipeline
 # Bound the local event queue.
 EVENT_PIPE_MAX_LEN = _get_config("PIPELINE.event_pipe_max_len", 65536)
+# Bound exact-name routing chains independently of observed event history.
+HANDLER_CHAIN_CACHE_SIZE = _get_config("PIPELINE.handler_chain_cache_size", 8192)
+if (
+    isinstance(HANDLER_CHAIN_CACHE_SIZE, bool)
+    or not isinstance(HANDLER_CHAIN_CACHE_SIZE, int)
+    or HANDLER_CHAIN_CACHE_SIZE <= 0
+):
+    raise ValueError("PIPELINE.handler_chain_cache_size must be a positive integer.")
 # Bound individual handler executions, independently of event queue capacity.
 EVENT_LOOP_BACKPRESSURE = _get_config("PIPELINE.event_loop_backpressure", 1024)
 if EVENT_LOOP_BACKPRESSURE < 128:

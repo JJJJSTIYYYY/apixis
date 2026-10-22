@@ -93,6 +93,7 @@ class GraphManager:
         entry_point: str | list[str] | None,
         *,
         using_namespace: str | None = None,
+        no_snapshot: bool = False,
         exist_ok: bool = False,
     ) -> NodeGraph:
         """Compile this definition into an event-listening :class:`NodeGraph`.
@@ -104,6 +105,9 @@ class GraphManager:
                 listeners. ``None`` and an empty string generate a namespace
                 unique within the process. Pass ``GLOBALNS`` to explicitly
                 select the global namespace. Glob characters are forbidden.
+            no_snapshot: Disable automatic pre-node snapshots when ``True``.
+                Without a saved checkpoint, abort returns the committed live
+                state and the context cannot be restored from its history.
             exist_ok: If ``False``, compiling into an occupied namespace
                 raises ``ValueError``. If ``True``, the existing graph is
                 retired before the new dispatch listener is registered.
@@ -118,5 +122,6 @@ class GraphManager:
             entry_point,
             state_schema=self._state_schema,
             using_namespace=using_namespace,
+            no_snapshot=no_snapshot,
             exist_ok=exist_ok,
         )

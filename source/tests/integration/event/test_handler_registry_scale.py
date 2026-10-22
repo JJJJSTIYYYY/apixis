@@ -128,7 +128,9 @@ def test_twenty_thousand_event_glob_matrix_resolves_exact_ordered_chains():
                     match_counts.update(chain)
 
     assert event_index == MATRIX_EVENT_COUNT
-    assert len(get_handler_registry().cached_chain) == MATRIX_EVENT_COUNT
+    # Resolution stays correct after the workload exceeds the bounded cache.
+    assert len(get_handler_registry().cached_chain) == 8192
+    assert "tenant.000.service.00.build.passed" not in get_handler_registry().cached_chain
     assert len(get_event_registry().get_registered_events()) == MATRIX_EVENT_COUNT
     assert match_counts == Counter(
         {

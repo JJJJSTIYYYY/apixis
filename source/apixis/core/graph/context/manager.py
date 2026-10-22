@@ -55,12 +55,7 @@ def get_current_namespace() -> str:
             "get_current_namespace() is only available while a graph is invoked."
         )
 
-    namespace = get_graph_namespace(context.graph_id)
-    if namespace is None:
-        raise RuntimeError(
-            "get_current_namespace() is only available while a graph is invoked."
-        )
-    return namespace
+    return get_graph_namespace(context.graph_id)
 
 
 def get_stream_writer() -> StreamWriter:

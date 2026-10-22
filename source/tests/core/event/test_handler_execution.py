@@ -205,15 +205,9 @@ async def test_error_stack_instance_isolation():
 @pytest.fixture
 def registry():
     registry = get_handler_registry()
-    registry.registry.clear()
-    registry.priority_buckets.clear()
-    registry.cached_chain.clear()
-    registry._register_order = 0
+    registry.clear()
     yield registry
-    registry.registry.clear()
-    registry.priority_buckets.clear()
-    registry.cached_chain.clear()
-    registry._register_order = 0
+    registry.clear()
 
 
 @pytest.mark.parametrize("use_defaults", [False, True])

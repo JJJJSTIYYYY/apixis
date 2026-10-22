@@ -1,5 +1,6 @@
 """Tests for shared configuration loading and core runtime settings."""
 
+import importlib
 import os
 
 import pytest
@@ -9,6 +10,17 @@ from apixis.core.config import base, core_config
 
 def test_apixis_data_path_is_within_shared_root():
     assert core_config.APIXIS_BASE_DIR == os.path.join(core_config.BASE_DIR, "apixis")
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "8192", 1.5])
+def test_chain_cache_size_rejects_invalid_configuration(monkeypatch, value):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {"PIPELINE": {"handler_chain_cache_size": value}})
+            with pytest.raises(ValueError, match="handler_chain_cache_size must be a positive integer"):
+                importlib.reload(core_config)
+    finally:
+        importlib.reload(core_config)
 
 
 @pytest.mark.parametrize(

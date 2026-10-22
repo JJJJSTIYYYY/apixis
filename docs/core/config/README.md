@@ -16,6 +16,7 @@ LOG:
 PIPELINE:
   event_pipe_max_len: 65536
   event_loop_backpressure: 1024
+  handler_chain_cache_size: 8192
 ```
 
 ## 数据目录
@@ -42,6 +43,7 @@ PIPELINE:
 | --- | --- | --- |
 | `PIPELINE.event_pipe_max_len` | `65536` | 默认本地事件队列容量，必须大于 0 |
 | `PIPELINE.event_loop_backpressure` | `1024` | 并发前台事件分发数量上限；小于 128 时按 128 使用 |
+| `PIPELINE.handler_chain_cache_size` | `8192` | 精确事件名的处理器链 LRU 缓存容量，必须为正整数；淘汰后按当前订阅重建，不影响事件观察历史及已捕获的分发链 |
 
 队列满时异步发布会等待空位。并发限制针对前台事件处理；后台 handler 不受单独的并发上限保护，应由应用控制后台工作量。
 

@@ -26,10 +26,7 @@ from apixis.core.config.core_config import EVENT_LOOP_BACKPRESSURE
 
 def _reset_registry(registry: ApixHandlerRegistry):
     """Reset registry to clean state."""
-    registry.registry.clear()
-    registry.priority_buckets.clear()
-    registry.cached_chain.clear()
-    registry._register_order = 0
+    registry.clear()
 
 
 def _make_handler_entry(
