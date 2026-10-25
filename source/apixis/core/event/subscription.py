@@ -4,7 +4,8 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from copy import copy
-from typing import Literal
+from functools import partial
+from typing import Literal, cast
 from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, suspend_process
@@ -310,36 +311,44 @@ def get_handler_meta(
 
 
 class EventWaiter:
-    """One event result retained within a :func:`wait_for_event` context.
+    """Retain the first match for each requested event-name pattern.
 
-    Obtain this object through ``async with wait_for_event(...) as waiter``.
-    It stores the first matching event, including one received before ``wait()``
-    is called. The stored object is the original mutable :class:`ApixEvent`,
-    not a copy. Leaving the context closes the waiter.
+    A string input returns one event; a list or set returns a dictionary keyed
+    by pattern once every pattern has matched. Events received before ``wait()``
+    are retained. Stored events are the original mutable :class:`ApixEvent`
+    objects. Leaving the context closes the waiter.
     """
 
-    def __init__(self) -> None:
-        self._future: asyncio.Future[ApixEvent] = (
+    def __init__(self, event_names: str | list[str] | set[str]) -> None:
+        self._single_event = isinstance(event_names, str)
+        event_names = {event_names} if isinstance(event_names, str) else set(event_names)
+        if not event_names or any(
+            not isinstance(name, str) or not name for name in event_names
+        ):
+            raise ValueError("event_name must contain at least one non-empty string pattern.")
+        self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
+        self._future: asyncio.Future[dict[str, ApixEvent]] = (
             asyncio.get_running_loop().create_future()
         )
         self._deadline: float | None = None
         self._timeout_handle: asyncio.TimerHandle | None = None
         self._closed = False
 
-    async def wait(self) -> ApixEvent:
-        """Return the stored event, or wait while lending the handler's permit.
+    async def wait(self) -> ApixEvent | dict[str, ApixEvent]:
+        """Return all results, lending the handler's permit while waiting.
 
         The timeout is shared by all calls and starts at context entry, not at
         this method call. A result received in time remains available even if
         ``wait()`` is called after the deadline. Timeout raises ``TimeoutError``;
         cancellation propagates and cancels the pending result. Sequential
-        calls return the same event. Calling after context exit raises
-        ``RuntimeError``.
+        calls return the same event or dictionary. Calling after context exit
+        raises ``RuntimeError``.
         """
         if self._closed:
             raise RuntimeError("The event waiter context has already exited.")
         async with suspend_process():
-            return await self._future
+            events = await self._future
+        return next(iter(events.values())) if self._single_event else events
 
     def _start_timeout(self, time_out: float | None) -> None:
         if time_out is not None:
@@ -351,8 +360,8 @@ class EventWaiter:
         if not self._future.done():
             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
 
-    async def _resolve(self, event: ApixEvent, *args, **kwargs) -> None:
-        if self._future.done():
+    async def _resolve(self, event_name: str, event: ApixEvent, *args, **kwargs) -> None:
+        if self._future.done() or self._events[event_name] is not None:
             return
         if (
             self._deadline is not None
@@ -360,9 +369,11 @@ class EventWaiter:
         ):
             self._expire()
             return
-        if self._timeout_handle is not None:
-            self._timeout_handle.cancel()
-        self._future.set_result(event)
+        self._events[event_name] = event
+        if all(value is not None for value in self._events.values()):
+            if self._timeout_handle is not None:
+                self._timeout_handle.cancel()
+            self._future.set_result(cast(dict[str, ApixEvent], self._events))
 
     def _close(self) -> None:
         self._closed = True
@@ -377,36 +388,42 @@ class EventWaiter:
 
 def _register_wait_handler(
     waiter: EventWaiter,
-    event_name: str,
     point: Literal['received', 'processed'],
     filter: list[str] | str | None,
-) -> ApixEventHandler:
-    """Register without yielding so context entry is a subscription barrier."""
-
-    if filter is not None and isinstance(filter, str):
+) -> list[ApixEventHandler]:
+    """Register every pattern without yielding; roll back partial failures."""
+    if isinstance(filter, str):
         filter = [filter]
 
-    handler = ApixEventHandler(
-        core_func=waiter._resolve,
-        on_accepted=waiter._resolve,
-        on_cancelled=waiter._resolve,
-        on_has_error=waiter._resolve,
-        on_error=waiter._resolve,
-        stop_when_error=False,
-        name='resolve_future-'+uuid4().hex
-    )
-
-    handler.subscribe = [event_name]
-    handler.priority = 10000 if point == 'received' else -10000
-    handler.filter_event = filter
     registry = get_handler_registry()
-    registry.register_handler(handler, exist_ok=True)
-    return handler
+    handlers = []
+    try:
+        for event_name in waiter._events:
+            resolve = partial(waiter._resolve, event_name)
+            handler = ApixEventHandler(
+                core_func=resolve,
+                on_accepted=resolve,
+                on_cancelled=resolve,
+                on_has_error=resolve,
+                on_error=resolve,
+                stop_when_error=False,
+                name='resolve_future-'+uuid4().hex,
+            )
+            handler.subscribe = [event_name]
+            handler.priority = 10000 if point == 'received' else -10000
+            handler.filter_event = filter
+            registry.register_handler(handler, exist_ok=True)
+            handlers.append(handler)
+    except Exception:
+        for handler in handlers:
+            handler.unregister(missing_ok=True)
+        raise
+    return handlers
 
 
 @asynccontextmanager
 async def wait_for_event(
-    event_name: str,
+    event_name: str | list[str] | set[str],
     *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
@@ -416,32 +433,36 @@ async def wait_for_event(
 
     Unlike :func:`await_for`, this interface separates subscription readiness
     from waiting for the result. Entering the context registers synchronously,
-    without yielding to other tasks before registration, then yields an
-    :class:`EventWaiter`. Publish the request inside the context and call
+    without yielding to other tasks before registration, then yields a waiter.
+    Publish the request inside the context and call
     ``await waiter.wait()`` to get its reply. No task or ``sleep(0)`` is needed;
     a reply received before ``wait()`` is retained.
 
     Merely constructing this context manager does not register anything. Neither
     interface replays events whose handler chains were captured before
-    registration. Each context stores only its first matching event.
+    registration. Each pattern retains its first matching event independently.
 
     Args:
-        event_name: Case-sensitive glob pattern to subscribe to.
+        event_name: Case-sensitive glob pattern or non-empty list/set of patterns.
+            A string returns one event; a collection returns a dictionary keyed
+            by pattern after all patterns match, even for a one-item collection.
+            Duplicate patterns are merged. One event may satisfy overlapping
+            patterns. Later matches never replace an already collected event.
         point: ``'received'`` resolves before ordinary foreground handlers;
             ``'processed'`` resolves after them. Background handlers are not
             awaited. Both return the original mutable ``ApixEvent``.
         filter: Glob pattern or list of patterns to exclude.
-        time_out: Seconds from registration until the matching event reaches
-            the selected point. ``None`` means no deadline; non-positive values
-            expire immediately. The deadline includes time spent publishing
-            or doing other work before ``wait()``. It expires the result, not
-            the context body: ``wait()`` raises ``TimeoutError``. A result
-            received before the deadline remains available afterwards.
+        time_out: Seconds from registration until every requested pattern has
+            matched at the selected point. ``None`` means no deadline;
+            non-positive values expire immediately. The deadline includes time
+            spent publishing or doing other work before ``wait()``. It expires
+            the result, not the context body: ``wait()`` raises ``TimeoutError``.
+            Results collected before the deadline remain available afterwards.
 
-    The handler is unregistered on every context exit, including publication
-    errors, timeouts and cancellation. Exiting without waiting cancels a pending
-    result. Only ``wait()`` lends the current handler's dispatch permit; context
-    entry does not suspend the handler chain.
+    All handlers are registered without yielding and unregistered on every
+    context exit, including publication errors, timeouts and cancellation.
+    Exiting without waiting cancels a pending result. Only ``wait()`` lends the
+    current handler's dispatch permit; context entry does not suspend the chain.
 
     Example::
 
@@ -454,24 +475,26 @@ async def wait_for_event(
             event = await waiter.wait()
             result = event.context["result"]
     """
-    waiter = EventWaiter()
-    handler = _register_wait_handler(waiter, event_name, point, filter)
+    waiter = EventWaiter(event_name)
+    handlers = []
     try:
+        handlers = _register_wait_handler(waiter, point, filter)
         waiter._start_timeout(time_out)
         yield waiter
     finally:
         waiter._close()
-        handler.unregister(missing_ok=True)
+        for handler in handlers:
+            handler.unregister(missing_ok=True)
 
 
 async def await_for(
-    event_name: str,
+    event_name: str | list[str] | set[str],
     *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
     time_out: float | None = None,
-) -> ApixEvent:
-    """Register and immediately wait for the first matching event.
+) -> ApixEvent | dict[str, ApixEvent]:
+    """Register all patterns and immediately wait for their first matches.
 
     Subscription starts when this coroutine actually executes. It registers
     without yielding before awaiting the result. Calling ``await_for(...)``
@@ -486,7 +509,11 @@ async def await_for(
     explicit readiness barrier and retains replies arriving before ``wait()``.
 
     Args:
-        event_name: Case-sensitive glob pattern to subscribe to.
+        event_name: Case-sensitive glob pattern or non-empty list/set of patterns.
+            A string returns one event; a collection returns a dictionary keyed
+            by pattern after all patterns match, even for a one-item collection.
+            Duplicate patterns are merged. One event may satisfy overlapping
+            patterns. Later matches never replace an already collected event.
         point: ``'received'`` resolves before ordinary foreground handlers;
             ``'processed'`` resolves after them, without awaiting background
             handlers. The returned ``ApixEvent`` is mutable, not a snapshot.
@@ -496,26 +523,17 @@ async def await_for(
             Expiry raises ``TimeoutError``.
 
     Waiting lends the current handler's dispatch permit via ``suspend_process``.
-    The temporary handler is removed on completion, timeout or cancellation.
+    All temporary handlers are removed on completion, timeout or cancellation.
 
     Example::
 
         event = await await_for("job.finished", point="processed", time_out=40)
         result = event.context["result"]
     """
-    waiter = EventWaiter()
-    handler = _register_wait_handler(waiter, event_name, point, filter)
-
-    try:
-        async with suspend_process():
-            if time_out is not None:
-                result = await asyncio.wait_for(waiter._future, timeout=time_out)
-            else:
-                result = await waiter._future
-    finally:
-        waiter._close()
-        handler.unregister(missing_ok=True)
-    return result
+    async with wait_for_event(
+        event_name, point=point, filter=filter, time_out=time_out,
+    ) as waiter:
+        return await waiter.wait()
 
 
 
