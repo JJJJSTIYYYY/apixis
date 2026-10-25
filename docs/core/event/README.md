@@ -145,84 +145,55 @@ async def observe_job(event):
 
 ## 等待事件：`await_for` 与 `wait_for_event`
 
-两个接口都通过临时 handler 等待每个模式的首个匹配事件，并支持相同的参数。`EventWaiter` 负责输入归一化和返回结构选择：传入字符串时，`.wait()` 和 `await_for()` 返回单个 `ApixEvent`；传入列表或集合时返回 `dict[str, ApixEvent]`：
+先看等待之前，当前代码是否还需要发布请求：
 
-```python
-from apixis import await_for, wait_for_event
-```
-
-```text
-event_name: str | list[str] | set[str]
-point: Literal["received", "processed"] = "received"
-filter: list[str] | str | None = None
-time_out: float | None = None
-```
-
-`event_name` 支持大小写敏感的 glob 模式；`filter` 排除匹配的事件名。`point="received"` 在普通前台 handler 之前取得事件；`point="processed"` 在普通前台 handler 完成后取得事件，不等待后台 handler。事件被 accept、发生前台错误或事件分发被取消时，适用的通知回调同样可以返回该事件；调用方可检查 `accepted`、`has_error` 和 `error_stack`。
-
-返回的是原始、可变的事件对象，不是内容快照。特别是 `received` 返回后，后续 handler 仍可修改同一个对象。
-
-### 关键差异：注册就绪与等待结果
-
-| 行为 | `await_for(...)` | `wait_for_event(...)` |
+| 你要做的事 | 应该使用 | 执行顺序 |
 | --- | --- | --- |
-| 使用方式 | `event = await await_for(...)` | `async with wait_for_event(...) as waiter`，然后 `events = await waiter.wait()` |
-| 注册时机 | 协程实际开始执行时注册，然后立即等待 | 进入上下文时注册，执行上下文主体前已经就绪 |
-| 调用后是否已经注册 | 创建协程或调用 `create_task()` 都不保证已注册 | 仅创建上下文管理器不注册；进入主体时保证已注册 |
-| 注册与等待之间能否发布请求 | 单个调用同时完成注册和等待；另建 task 时需要自行协调就绪 | 可以直接在上下文主体中发布请求，再调用 `.wait()` |
-| 结果如何获取 | `await` 的返回值 | `.wait()` 的返回值；调用前收到的事件保存在内部 Future 中 |
-| `time_out` 从何时计时 | 协程执行并注册后开始等待时 | 上下文进入、注册完成时，包括调用 `.wait()` 前的发布和其他工作 |
-| 订阅何时移除 | 返回、超时或调用方取消时 | 离开上下文时，包括主体异常、超时和取消 |
-| 适用场景 | 立即等待其他任务产生的事件 | 先订阅结果、再发起请求、最后获取结果 |
+| 立即等待其他任务接下来产生的事件 | `await await_for(...)` | 注册 → 等待 → 返回事件 |
+| 先订阅回包，再由当前代码发布请求 | `async with wait_for_event(...) as waiter` | 注册 → 发布请求 → `await waiter.wait()` |
 
-**两个接口都不回放注册之前已经出队的事件。** 事件出队时即固定 handler 列表，随后才注册的 waiter 无法接收该事件。这是正常的订阅顺序语义。
+**两个接口都能等待一个或多个事件。区别在于是否需要在“注册”和“等待”之间执行自己的代码。**
 
-### `await_for`：注册后立即等待
+### 正反例：发布请求并等待回包
+
+假设 `job.start` 的处理器会向 `context["reply"]` 指定的事件名发布结果。以下代码在 async 函数中执行，`reply` 是本次请求独有的回包名。
+
+**正例：使用 `wait_for_event`，先订阅，再发布。**
 
 ```python
-from apixis import await_for
+async with wait_for_event(reply, time_out=40) as waiter:
+    await pipe.post_event(
+        event_type=EventType.WORKFLOW,
+        event_name="job.start",
+        context={"reply": reply},
+    )
+    event = await waiter.wait()
+```
 
-event = await await_for(
-    "job.finished",
-    point="processed",
-    time_out=40,
+进入上下文时订阅已注册；即使回包在 `.wait()` 前到达，也会保留结果。
+
+**反例：先发布，再使用 `await_for` 订阅。**
+
+```python
+await pipe.post_event(
+    event_type=EventType.WORKFLOW,
+    event_name="job.start",
+    context={"reply": reply},
 )
-result = event.context["result"]
+event = await await_for(reply, time_out=40)
 ```
 
-`await_for` 从开始执行到注册完成之间不会让出 asyncio 事件循环。但 `await_for(...)` 本身只创建协程，`asyncio.create_task(await_for(...))` 只安排其执行；`create_task()` 返回不表示订阅已注册。因此，创建 task 后立刻发布事件，不具备“先注册、再发布”的接口保证。调用方在注册之前主动让出执行权时，也可能让其他任务先消费目标事件。
-
-若需要请求／回包流程，使用 `wait_for_event` 显式建立就绪顺序，无需通过 `sleep(0)` 安排 waiter task 的执行。
-
-### `wait_for_event`：先注册，再发布和取结果
-
-```python
-from uuid import uuid4
-
-from apixis import EventType, get_event_pipe, wait_for_event
-
-
-async def execute(tool_call: dict) -> str:
-    # 每个请求使用独立回包名，避免并发调用取得其他请求的结果。
-    reply = f"tool.result.{uuid4().hex}"
-    async with wait_for_event(
-        reply, point="processed", time_out=40,
-    ) as waiter:
-        # 此处订阅已注册。请求处理器应向 context["reply"] 发布结果事件。
-        await get_event_pipe().post_event(
-            event_type=EventType.WORKFLOW,
-            event_name="tool.request",
-            context={"tool_call": tool_call, "reply": reply},
-        )
-        event = await waiter.wait()
-        return event.context["result"]
-```
-
-上下文返回 `EventWaiter`；它根据传入参数的类型决定 `.wait()` 的返回结构：字符串返回单个事件，列表或集合返回以订阅模式为键的字典。即使顺序是“注册 → 发布 → 收到回包 → 调用 `.wait()`”，也会保留结果，`.wait()` 直接返回它。每个模式只保留首个匹配事件，后续匹配事件不覆盖结果；在上下文内顺序重复调用 `.wait()` 会返回同一个事件或字典。
+回包可能在 `await_for` 注册前就已出队，导致错过结果并超时。两个接口都不回放注册前已出队的事件；需要自己发起请求时，应使用上面的正例。
 
 ### 同时等待多个事件
 
+接口的选择仍取决于是否需要先注册再发布，与事件数量无关：
+
 ```python
+# 事件由其他任务独立产生：直接等到两个事件都收到。
+events = await await_for(["job.validated", "job.saved"], time_out=40)
+
+# 当前代码需要发起任务：先注册两个订阅，再发布请求。
 async with wait_for_event(
     ["job.validated", "job.saved"], point="processed", time_out=40,
 ) as waiter:
@@ -233,18 +204,26 @@ async with wait_for_event(
     events = await waiter.wait()
     validated = events["job.validated"]
     saved = events["job.saved"]
-
-# 事件由其他任务产生时，也可以直接等待：
-events = await await_for(["job.validated", "job.saved"], time_out=40)
 ```
 
-所有模式的 handler 在同一段同步代码中注册，中途没有 `await`，其他 asyncio 任务不会看到部分注册状态。注册失败时，会回滚已注册的临时 handler。
+传入字符串时，`await_for()` 和 `.wait()` 返回单个 `ApixEvent`；传入列表或集合时，收齐所有模式的事件后返回以**订阅模式**为键的字典，即使集合中只有一个模式也是如此。模式不能为空，重复模式合并，字典不保证键顺序。每个模式只保留首个匹配，后续事件不覆盖；重叠模式可以由同一个事件满足。在上下文内重复调用 `.wait()` 返回同一个事件或字典。
 
-等待器内部以订阅模式为字典键，未收到事件的值为 `None`；第一次匹配后保存原始事件，直到所有值都不是 `None` 才返回。`EventWaiter` 在内部将等待模式归一化为集合，返回字典不保证键顺序。列表或集合不能为空，模式必须是非空字符串；重复模式合并为一个等待项。即使集合只有一个模式，也返回字典。模式可以重叠，同一个事件可满足多个模式；`filter` 和 `point` 对所有模式统一生效。
+### 共同参数与超时
 
-`time_out=None` 表示没有截止时间，非正值表示立即超时。超时从所有 handler 注册完成开始计时，所有等待项都需要在同一个截止时间之前到达所选的 `point`；仅收到部分事件也会超时，不返回部分结果。**截止时间限制结果等待，不会中断上下文主体**：即使发布仍在等待队列容量，超时也只使结果失效，随后 `.wait()` 抛出 `TimeoutError`。若所有等待项已在截止时间前收齐，之后再调用 `.wait()` 仍可取到结果。如需限制整个上下文主体的执行时间，可在外层使用 `asyncio.timeout()`。
+```text
+event_name: str | list[str] | set[str]
+point: Literal["received", "processed"] = "received"
+filter: list[str] | str | None = None
+time_out: float | None = None
+```
 
-上下文在所有退出路径上注销订阅并释放计时器。未调用 `.wait()` 就退出时，尚未完成的 Future 会被取消；取消正在执行的 `.wait()` 也会取消尚未完成的结果。退出后再调用 `.wait()` 会抛出 `RuntimeError`。
+`event_name` 支持大小写敏感的 glob 模式；`filter` 排除匹配的事件名。`point="received"` 在普通前台 handler 之前取得事件；`point="processed"` 在普通前台 handler 完成后取得事件，不等待后台 handler。事件被 accept、发生前台错误或事件分发被取消时，适用的通知回调同样可以返回该事件；调用方可检查 `accepted`、`has_error` 和 `error_stack`。返回的是原始、可变的事件对象，不是内容快照，后续 handler 仍可能修改它。
+
+`time_out=None` 表示没有截止时间，非正值表示立即超时。两个接口都从所有订阅注册完成开始计时；对于 `wait_for_event`，这也包括上下文内调用 `.wait()` 前的发布和其他工作。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
+
+**截止时间不会中断 `wait_for_event` 的上下文主体**：超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
+
+`await_for` 在返回、超时或取消时注销订阅；`wait_for_event` 在上下文退出时注销订阅并释放计时器，包括主体异常、超时和取消。未等待就退出时，尚未完成的结果会被取消；取消正在执行的 `.wait()` 也会取消尚未完成的结果。
 
 在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`wait_for_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
 
