@@ -327,6 +327,7 @@ class EventWaiter:
         ):
             raise ValueError("event_name must contain at least one non-empty string pattern.")
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
+        self._remaining = len(self._events)
         self._future: asyncio.Future[dict[str, ApixEvent]] = (
             asyncio.get_running_loop().create_future()
         )
@@ -370,7 +371,8 @@ class EventWaiter:
             self._expire()
             return
         self._events[event_name] = event
-        if all(value is not None for value in self._events.values()):
+        self._remaining -= 1
+        if self._remaining == 0:
             if self._timeout_handle is not None:
                 self._timeout_handle.cancel()
             self._future.set_result(cast(dict[str, ApixEvent], self._events))
