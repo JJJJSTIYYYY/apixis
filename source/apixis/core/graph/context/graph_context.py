@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 import time
 from typing import Any, Callable, Literal, TypeAlias, TypedDict
 
+from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
+from apixis.core.utils.validation import validate_int
 from apixis.core.graph.base import (
     _END,
 )
@@ -62,6 +64,7 @@ class GraphContext:
     """
 
     _graph_id: str
+    _max_snapshots: int = field(default=GRAPH_MAX_SNAPSHOTS, repr=False)
     run_id: str | None = field(default=None, init=False)
     state: dict[str, Any] = field(default_factory=dict, init=False)
     target_node_name: str | list[str] = field(default=_END, init=False)
@@ -89,6 +92,14 @@ class GraphContext:
         init=False,
         repr=False,
     )
+
+    def __post_init__(self) -> None:
+        validate_int(self._max_snapshots, "max_snapshots", minimum=1)
+
+    @property
+    def max_snapshots(self) -> int:
+        """Maximum number of recent checkpoints retained by this context."""
+        return self._max_snapshots
 
     @property
     def graph_id(self) -> str:
@@ -178,12 +189,14 @@ class GraphContext:
                 "graph_id": self.graph_id,
             }
         )
+        del self.context_snapshot[:-self._max_snapshots]
 
     def get_snapshot(
         self,
         version: int = -1,
     ) -> GraphContextSnapshot | None:
         """Return an isolated copy of the selected checkpoint, if one exists."""
+        version = validate_int(version, "snapshot version")
         if not self.context_snapshot:
             return None
         return copy.deepcopy(self.context_snapshot[version])

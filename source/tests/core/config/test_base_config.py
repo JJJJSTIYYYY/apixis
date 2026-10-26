@@ -17,7 +17,7 @@ def test_chain_cache_size_rejects_invalid_configuration(monkeypatch, value):
     try:
         with monkeypatch.context() as patch:
             patch.setattr(base, "_config", {"PIPELINE": {"handler_chain_cache_size": value}})
-            with pytest.raises(ValueError, match="handler_chain_cache_size must be a positive integer"):
+            with pytest.raises(ValueError if type(value) is int else TypeError, match="handler_chain_cache_size"):
                 importlib.reload(core_config)
     finally:
         importlib.reload(core_config)
@@ -60,3 +60,51 @@ def test_yaml_rejects_non_mapping(tmp_path):
     path.write_text("- item\n", encoding="utf-8")
     with pytest.raises(ValueError, match="must contain a YAML mapping"):
         base._load_from_yaml(str(path))
+
+
+@pytest.mark.parametrize("section, key", [
+    ("PIPELINE", "event_pipe_max_len"),
+    ("PIPELINE", "event_loop_backpressure"),
+    ("PIPELINE", "handler_chain_cache_size"),
+    ("LOG", "buffer_size"), ("LOG", "max_log_file_size"),
+    ("GRAPH", "max_snapshots"),
+])
+@pytest.mark.parametrize("value", [0, -1, True, False, 1.5, "2", float("nan"), float("inf")])
+def test_all_numeric_configuration_rejects_invalid_capacities(monkeypatch, section, key, value):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {section: {key: value}})
+            with pytest.raises(ValueError if type(value) is int else TypeError, match=key):
+                importlib.reload(core_config)
+    finally:
+        importlib.reload(core_config)
+
+
+def test_yaml_import_contract_and_snapshot_default_in_fresh_process(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    (tmp_path / "config.yaml").write_text(
+        "GRAPH:\n  max_snapshots: 3\nPIPELINE:\n  event_pipe_max_len: 2\n  event_loop_backpressure: 1\n",
+        encoding="utf-8",
+    )
+    script = '''
+from pathlib import Path
+from apixis.core.config import core_config
+from apixis import GraphManager
+assert core_config.GRAPH_MAX_SNAPSHOTS == 3
+assert core_config.EVENT_PIPE_MAX_LEN == 2
+assert core_config.EVENT_LOOP_BACKPRESSURE == 128
+graph = GraphManager().compile_graph(None)
+assert graph.create_context({}).max_snapshots == 3
+Path("config.yaml").write_text("GRAPH:\\n  max_snapshots: 5\\n")
+assert core_config.GRAPH_MAX_SNAPSHOTS == 3
+graph.decompose()
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[3])},
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr

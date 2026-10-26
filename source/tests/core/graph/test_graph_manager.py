@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+from uuid import UUID
 
 import pytest
 
@@ -60,7 +61,7 @@ def test_add_node_rejects_non_numeric_timeout_without_registering_node(timeout):
     """Invalid timeout types leave the manager unchanged."""
     manager = GraphManager()
 
-    with pytest.raises(TypeError, match="timeout must be a number or None"):
+    with pytest.raises(TypeError, match="timeout must be a number"):
         manager.add_node(source, timeout=timeout)
 
     assert manager.has_node("source") is False
@@ -219,8 +220,8 @@ def test_compile_generates_namespace_for_empty_value(using_namespace):
     )
 
     assert first.namespace != second.namespace
-    assert first.namespace.isdecimal()
-    assert second.namespace.isdecimal()
+    assert UUID(hex=first.namespace).version == 4
+    assert UUID(hex=second.namespace).version == 4
     assert _namespace_graphs[first.namespace] is first
     assert _namespace_graphs[second.namespace] is second
 

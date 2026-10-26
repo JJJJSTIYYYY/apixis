@@ -47,6 +47,7 @@ await pipe.join()
 ```
 
 `BuiltinChannel(maxsize=...)` 提供上述队列读写、检查和确认方法。单独构造时允许 `maxsize=0` 表示无限容量；注入 `ApixEventPipe` 的通道必须有界。默认容量由 `PIPELINE.event_pipe_max_len` 决定。
+`maxsize` 必须是非负整数，不接受布尔值或浮点数；注入 pipe 时必须为正整数。
 
 ## 启停
 

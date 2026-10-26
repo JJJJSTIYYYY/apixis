@@ -10,7 +10,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/apixis.svg)](https://pypi.org/project/apixis/)
 [![Python](https://img.shields.io/pypi/pyversions/apixis.svg)](https://pypi.org/project/apixis/)
-[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20MIT-blue.svg)](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE)
 
 [源码](https://github.com/JJJJSTIYYYY/Apixis) ·
 [问题](https://github.com/JJJJSTIYYYY/Apixis/issues) ·
@@ -48,7 +48,6 @@ python -m pytest
 
 使用 uv 时，请使用 `uv sync --extra dev --locked` 和 `uv run --extra dev pytest`。
 运行静态代码检查：`uv run --extra dev ruff check .`。Ruff 检查常见代码错误和未使用的导入等问题，不执行静态类型检查。
-有关构建和发布到 PyPI，请参阅[发布指南](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/releasing.md)。
 
 ## 快速开始
 
@@ -90,7 +89,6 @@ asyncio.run(master())
 ## 许可证
 
 根据 Apache License 2.0 授权。请参阅 [LICENSE](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE)。
-捆绑的 IdGenerator 组件采用 MIT 许可证；请参阅[第三方声明](https://github.com/JJJJSTIYYYY/Apixis/blob/master/THIRD_PARTY_NOTICES.md)。
 
 ---
 
@@ -106,7 +104,7 @@ Event-driven graph orchestration for Python asyncio applications.
 
 [![PyPI](https://img.shields.io/pypi/v/apixis.svg)](https://pypi.org/project/apixis/)
 [![Python](https://img.shields.io/pypi/pyversions/apixis.svg)](https://pypi.org/project/apixis/)
-[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20MIT-blue.svg)](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/tUCQthwK5)
 [![QQ群](https://custom-icon-badges.demolab.com/badge/QQ群-639459172-00BFFF?style=flat&logo=tencent-qq)](https://qun.qq.com/universal-share/share?ac=1&authKey=ommoQrT2zhzHU%2FUxv8pfGCJbNifW%2BJyUAFBkNdzkHTPUxdxCnlgxm5aNgGslTmdE&busi_data=eyJncm91cENvZGUiOiI2Mzk0NTkxNzIiLCJ0b2tlbiI6Im9ZZkdNUWZnSVV1Y2REeUhKNnlTbWEwc05Bb093djRzUXdXNE55dklBVnlBQk9XbGNpS0ZXSDlzK3orSW1sQ3YiLCJ1aW4iOiIzMTI5NDI0NTcyIn0%3D&data=OGTchcr80RAQg8Z8_GZTdvBb7kZDeM9B3hHcNqLaAX2ZK_KYq260C4CubblEBT1bK5fP6zgtnCk2D8fIoph1ZQ&svctype=4&tempid=h5_group_info)
 
@@ -146,7 +144,6 @@ python -m pytest
 
 With uv, use `uv sync --extra dev --locked` and `uv run --extra dev pytest`.
 Run static code checks with `uv run --extra dev ruff check .`. Ruff checks common code errors and unused imports; it does not perform static type checking.
-See [the release guide](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/releasing.md) for building and publishing to PyPI.
 
 ## Quick start
 
@@ -188,4 +185,3 @@ asyncio.run(master())
 ## License
 
 Licensed under the Apache License 2.0. See [LICENSE](https://github.com/JJJJSTIYYYY/Apixis/blob/master/LICENSE).
-The bundled IdGenerator component is MIT licensed; see [third-party notices](https://github.com/JJJJSTIYYYY/Apixis/blob/master/THIRD_PARTY_NOTICES.md).

@@ -1,6 +1,7 @@
 """Public core lifecycle, dependency isolation, and startup regressions."""
 
 import asyncio
+import inspect
 
 import pytest
 
@@ -41,6 +42,20 @@ def components():
         get_event_registry(), get_event_pipe(),
         get_handler_registry(), get_event_loop(),
     )
+
+
+@pytest.mark.parametrize("name", [
+    "event_registry", "event_pipe", "handler_registry", "event_loop",
+])
+async def test_public_getters_accept_no_core_and_share_components(name):
+    getter = getattr(factory, "get_" + name)
+    async_getter = getattr(factory, "aget_" + name)
+    assert not inspect.signature(getter).parameters
+    assert not inspect.signature(async_getter).parameters
+    assert not inspect.signature(start_core).parameters
+    assert getter() is await async_getter()
+    with pytest.raises(TypeError):
+        getter(factory._get_core())
 
 
 def event(name="factory.event"):

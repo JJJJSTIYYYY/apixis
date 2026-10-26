@@ -54,6 +54,10 @@ async def run_worker(args):
         if path.name != "_version.py":
             source_digest.update(str(path.relative_to(args.worker_source)).encode())
             source_digest.update(path.read_bytes())
+    import inspect
+
+    shared_start = not inspect.signature(factory.start_core).parameters
+    bounded_snapshots = "max_snapshots" in inspect.signature(NodeGraph).parameters
     log_module = importlib.import_module("apixis.core.utils.logger")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
     log_module.DEBUG_LEVEL = "ERROR"
@@ -86,7 +90,10 @@ async def run_worker(args):
         loop_module.EVENT_LOOP_BACKPRESSURE = capacity
         factory._core = None
         core = factory._get_core()
-        await factory.start_core(core)
+        if shared_start:
+            await factory.start_core()
+        else:
+            await factory.start_core(core)
         assert core.event_loop._event_semaphore._bound_value == capacity
         return core
 
@@ -115,6 +122,7 @@ async def run_worker(args):
                 definitions[name] = make_node(name, target)
         return NodeGraph(
             definitions, layers[0] if width > 1 else layers[0][0],
+            **({"max_snapshots": len(layers)} if bounded_snapshots else {}),
             max_steps=len(layers), state_schema=WorkloadState if spec["state"] == "visits" else None,
             no_snapshot=spec.get("no_snapshot", False),
         )

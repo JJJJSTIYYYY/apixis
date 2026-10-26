@@ -53,7 +53,7 @@ def _get_core() -> EventCore:
     return _core
 
 
-async def start_core(core: EventCore | None = None) -> None:
+async def start_core() -> None:
     """Construct once but not ensure both services have started before returning.
     This method only publishes the start signal. The upper-layer interface is
     unaffected by whether the core's consumers have started.
@@ -61,8 +61,10 @@ async def start_core(core: EventCore | None = None) -> None:
     Concurrent calls share the same startup lock. Failed or cancelled startup
     propagates to the caller; a later call retries using the same components.
     """
-    if core is None:
-        core = _get_core()
+    await _start_core(_get_core())
+
+
+async def _start_core(core: EventCore) -> None:
     if core.started:
         return
     async with core.start_lock:
@@ -80,7 +82,7 @@ def _ensure_started(core: EventCore) -> None:
         # Imports and synchronous registration may construct the core before
         # asyncio begins. The next getter inside asyncio schedules startup.
         return
-    core.start_task = loop.create_task(start_core(core), name="event-core-start")
+    core.start_task = loop.create_task(_start_core(core), name="event-core-start")
     core.start_task.add_done_callback(_on_start_done)
 
 
@@ -92,67 +94,59 @@ def _on_start_done(task: asyncio.Task[None]) -> None:
             logger.error(f"Event core startup failed: {type(error).__name__}: {error}")
 
 
-def get_event_registry(core: EventCore | None = None) -> ApixEventRegistry:
+def get_event_registry() -> ApixEventRegistry:
     """Return the event-name registry and schedule startup inside asyncio."""
-    if core is None:
-        core = _get_core()
+    core = _get_core()
     _ensure_started(core)
     return core.event_registry
 
 
-def get_event_pipe(core: EventCore | None = None) -> ApixEventPipe:
+def get_event_pipe() -> ApixEventPipe:
     """Return the event pipe and schedule startup inside asyncio."""
-    if core is None:
-        core = _get_core()
+    core = _get_core()
     _ensure_started(core)
     return core.event_pipe
 
 
-def get_handler_registry(core: EventCore | None = None) -> ApixHandlerRegistry:
+def get_handler_registry() -> ApixHandlerRegistry:
     """Return the event handler registry and schedule startup inside asyncio."""
-    if core is None:
-        core = _get_core()
+    core = _get_core()
     _ensure_started(core)
     return core.handler_registry
 
 
-def get_event_loop(core: EventCore | None = None) -> ApixEventLoop:
+def get_event_loop() -> ApixEventLoop:
     """Return the event dispatcher loop and schedule startup inside asyncio."""
-    if core is None:
-        core = _get_core()
+    core = _get_core()
     _ensure_started(core)
     return core.event_loop
 
 
-async def aget_event_registry(core: EventCore | None = None) -> ApixEventRegistry:
+async def aget_event_registry() -> ApixEventRegistry:
     """Return the event-name registry"""
-    if core is None:
-        core = _get_core()
-    await start_core(core)
+    core = _get_core()
+    await _start_core(core)
     return core.event_registry
 
 
-async def aget_event_pipe(core: EventCore | None = None) -> ApixEventPipe:
+async def aget_event_pipe() -> ApixEventPipe:
     """Return the event pipe"""
-    if core is None:
-        core = _get_core()
-    await start_core(core)
+    core = _get_core()
+    await _start_core(core)
     return core.event_pipe
 
 
-async def aget_handler_registry(core: EventCore | None = None) -> ApixHandlerRegistry:
+async def aget_handler_registry() -> ApixHandlerRegistry:
     """Return the event handler registry"""
-    if core is None:
-        core = _get_core()
-    await start_core(core)
+    core = _get_core()
+    await _start_core(core)
     return core.handler_registry
 
 
-async def aget_event_loop(core: EventCore | None = None) -> ApixEventLoop:
+async def aget_event_loop() -> ApixEventLoop:
     """Return the event dispatcher loop"""
-    if core is None:
-        core = _get_core()
-    await start_core(core)
+    core = _get_core()
+    await _start_core(core)
     return core.event_loop
 
 

@@ -26,7 +26,7 @@ from apixis.core.graph.context import GraphContext
 from apixis.core.graph.context import noop_stream_writer
 from apixis.core.graph.base import namespace_set
 from apixis.core.graph import get_graph_dispatch_name
-from apixis.core.utils.id_generator import idgen
+from uuid import UUID
 
 
 def _bound_context(
@@ -55,17 +55,15 @@ def test_apply_command_rejects_non_dict_update():
 @pytest.mark.parametrize("using_namespace", [None, ""])
 def test_empty_listener_namespace_uses_generated_namespace(
     using_namespace,
-    monkeypatch,
 ):
     """None and an empty string both request a generated listener namespace."""
-    monkeypatch.setattr(idgen, "next_id", lambda: 123456789)
     graph = NodeGraph(
         {},
         None,
         using_namespace=using_namespace,
     )
 
-    assert graph.namespace == "123456789"
+    assert UUID(hex=graph.namespace).version == 4
 
 
 def test_global_listener_namespace_must_be_explicit():

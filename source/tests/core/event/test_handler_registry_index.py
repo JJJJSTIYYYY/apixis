@@ -26,7 +26,7 @@ def entry(name, patterns, *, filters=(), priority=1, between=None):
 
 @pytest.mark.parametrize("cache_size", [0, -1, True, False, 1.5, "2", None])
 def test_cache_size_requires_positive_integer(cache_size):
-    with pytest.raises(ValueError, match="positive integer"):
+    with pytest.raises(ValueError if type(cache_size) is int else TypeError, match="cache_size"):
         ApixHandlerRegistry(ApixEventRegistry(), cache_size=cache_size)
 
 

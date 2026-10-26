@@ -17,6 +17,9 @@ PIPELINE:
   event_pipe_max_len: 65536
   event_loop_backpressure: 1024
   handler_chain_cache_size: 8192
+
+GRAPH:
+  max_snapshots: 16
 ```
 
 ## 数据目录
@@ -33,7 +36,7 @@ PIPELINE:
 | `LOG.trace` | `true` | 是否输出 trace 信息 |
 | `LOG.show_event_dispatch` | `true` | 是否输出事件分发信息 |
 | `LOG.buffer_size` | `1024` | 所有 logger 共享的待写日志条数上限，必须为正整数；满时淘汰最旧记录 |
-| `LOG.max_log_file_size` | `10485760` | 单个日志文件的轮转大小阈值，单位为字节 |
+| `LOG.max_log_file_size` | `10485760` | 单个日志文件的轮转大小阈值，单位为字节，必须为正整数 |
 
 文件写入的启停方式见[日志接口](../utils/README.md)。
 
@@ -41,10 +44,20 @@ PIPELINE:
 
 | 路径 | 默认值 | 说明 |
 | --- | --- | --- |
-| `PIPELINE.event_pipe_max_len` | `65536` | 默认本地事件队列容量，必须大于 0 |
-| `PIPELINE.event_loop_backpressure` | `1024` | 并发前台事件分发数量上限；小于 128 时按 128 使用 |
+| `PIPELINE.event_pipe_max_len` | `65536` | 默认本地事件队列容量，必须为正整数 |
+| `PIPELINE.event_loop_backpressure` | `1024` | 并发前台事件分发数量上限，必须为正整数；1–127 按 128 使用 |
 | `PIPELINE.handler_chain_cache_size` | `8192` | 精确事件名的处理器链 LRU 缓存容量，必须为正整数；淘汰后按当前订阅重建，不影响事件观察历史及已捕获的分发链 |
 
 队列满时异步发布会等待空位。并发限制针对前台事件处理；后台 handler 不受单独的并发上限保护，应由应用控制后台工作量。
+
+## 图快照
+
+| 路径 | 默认值 | 说明 |
+| --- | --- | --- |
+| `GRAPH.max_snapshots` | `16` | 每个 context 保留的最近快照数量，必须为正整数；超出时删除最旧记录 |
+
+`compile_graph(..., max_snapshots=...)` 或 `NodeGraph(..., max_snapshots=...)` 可覆盖此默认值。自动和手动快照、恢复的历史均遵循该上限。
+
+容量与条数不接受布尔值、浮点数、数字字符串、NaN 或无穷大。类型错误抛出 `TypeError`，超出数值范围抛出 `ValueError`。省略或设为 YAML `null` 时沿用配置加载器的默认值。
 
 [返回文档首页](../../README.md)

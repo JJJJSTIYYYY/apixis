@@ -11,4 +11,4 @@ python -m pytest
 python -m build
 ```
 
-See [README](../README.md) and [the release guide](../maintainer/releasing.md).
+See [README](../README.md) and [the API documentation](../docs/core/README.md).

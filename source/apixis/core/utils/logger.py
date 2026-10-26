@@ -8,6 +8,7 @@ import time
 import traceback
 from typing import Any
 import inspect
+from apixis.core.utils.validation import validate_int, validate_number
 
 from apixis.core.config.core_config import (
     APIXIS_BASE_DIR, DEBUG_LEVEL, TRACE, MAX_LOG_FILE_SIZE, LOG_BUFFER_SIZE,
@@ -22,6 +23,7 @@ LOG_LEVELS = {
 }
 
 def register_log_level(tag: str, priority: int, *, exist_ok: bool = False):
+    priority = validate_number(priority, "Log priority")
     """Register a custom log level.
     """
     global LOG_LEVELS
@@ -258,6 +260,7 @@ class Logger:
         self._log(level.lower(), message, *args, color_name=color, **kwargs)
     
     def separator(self, length=50, char='-', color='light_yellow', *args, **kwargs):
+        length = validate_int(length, "separator length", minimum=0)
         separator_line = char * length
         self.custom(separator_line, *args, level='SEPARATOR', color=color, **kwargs)
     

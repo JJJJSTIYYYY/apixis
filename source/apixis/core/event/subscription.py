@@ -3,13 +3,14 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from copy import copy
+from copy import copy, deepcopy
 from functools import partial
 from typing import Literal, Self, cast
 from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, suspend_process
 from apixis.core.event.factory import get_handler_registry
+from apixis.core.utils.validation import validate_number
 
 
 def subscribe(
@@ -237,8 +238,8 @@ def subscribe(
             If ``exist_ok`` is ``False`` and the function name already exists
             in the handler registry.
     """
-    if priority is not None and (priority > 9999 or priority < -9999):
-        raise ValueError(f"priority must be in the range [-9999, 9999], got {priority}")
+    if priority is not None:
+        priority = validate_number(priority, "priority", minimum=-9999, maximum=9999)
     def decorator[HandlerT: EventHandlerFunc | ApixEventHandler](
         func: HandlerT,
     ) -> HandlerT:
@@ -259,7 +260,7 @@ def subscribe(
         if stop_when_error is not None:
             entry.stop_when_error = stop_when_error
         if time_out is not None:
-            entry.time_out = time_out if time_out > 0 else None
+            entry.time_out = time_out
         if background is not None:
             entry.background = background
         registry = get_handler_registry()
@@ -300,10 +301,10 @@ def get_handler_meta(
         'id': handler.id,
         'name': handler.name,
         'register_order': handler._register_order,
-        'subscribe': handler.subscribe,
-        'filter_event': handler.filter_event,
+        'subscribe': deepcopy(handler.subscribe),
+        'filter_event': deepcopy(handler.filter_event),
         'priority': handler.priority,
-        'between_handlers': handler.between_handlers,
+        'between_handlers': deepcopy(handler.between_handlers),
         'stop_when_error': handler.stop_when_error,
         'time_out': handler.time_out,
         'background': handler.background,
@@ -328,12 +329,23 @@ class EventWaiter:
         time_out: float | None = None,
         keep_listening: bool = False,
     ) -> None:
-        self._single_event = isinstance(event_names, str)
-        event_names = {event_names} if isinstance(event_names, str) else set(event_names)
-        if not event_names or any(
-            not isinstance(name, str) or not name for name in event_names
-        ):
+        if point not in ('received', 'processed'):
+            raise ValueError("point must be 'received' or 'processed'.")
+        if time_out is not None:
+            time_out = validate_number(time_out, "time_out")
+        if not isinstance(event_names, (str, list, set)):
+            raise TypeError("event_names must be a string, list or set of patterns.")
+        patterns = [event_names] if isinstance(event_names, str) else event_names
+        if not patterns or any(not isinstance(name, str) or not name for name in patterns):
             raise ValueError("event_name must contain at least one non-empty string pattern.")
+        if filter is not None:
+            filters = [filter] if isinstance(filter, str) else filter
+            if not isinstance(filters, list):
+                raise TypeError("filter must be a string or list of patterns.")
+            if any(not isinstance(name, str) or not name for name in filters):
+                raise ValueError("filter must contain non-empty string patterns.")
+        self._single_event = isinstance(event_names, str)
+        event_names = set(patterns)
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
         self._remaining = len(self._events)
         loop = asyncio.get_running_loop()
@@ -382,6 +394,8 @@ class EventWaiter:
         policy. Cancellation always closes the waiter. Waiting lends the
         handler's dispatch permit.
         """
+        if time_out is not None:
+            time_out = validate_number(time_out, "time_out")
         if self._context_exited:
             raise RuntimeError("The event waiter context has already exited.")
         if self._future.cancelled():
@@ -464,6 +478,8 @@ class EventWaiter:
         self._remaining -= 1
         if self._remaining == 0:
             self._future.set_result(cast(dict[str, ApixEvent], self._events))
+            # Keep every listener while collecting: partial unregistration would
+            # invalidate routing caches. Captured handlers cover overlapping patterns.
             self.close()
 
     def _register_wait_handler(

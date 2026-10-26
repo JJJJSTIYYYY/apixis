@@ -48,7 +48,7 @@ class TestBuiltinChannel:
 class TestApixEventPipeEvents:
     def test_unbounded_builtin_is_rejected(self):
         """Custom local channels must preserve bounded admission."""
-        with pytest.raises(ValueError, match="builtin channel must be bounded"):
+        with pytest.raises(ValueError, match="builtin channel maxsize"):
             ApixEventPipe(builtin=BuiltinChannel(maxsize=0))
 
     @pytest.mark.asyncio

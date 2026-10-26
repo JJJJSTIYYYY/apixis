@@ -16,6 +16,7 @@ from apixis.core.event import ApixEvent, ApixEventHandler, EventType, subscribe
 from apixis.core.event.factory import aget_event_pipe
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.utils.exception import GraphNodeError
+from apixis.core.utils.validation import validate_number
 
 
 InterruptedHandler = Callable[[Block], Awaitable[None]]
@@ -48,6 +49,8 @@ async def interrupt(
             executes before the default handler.
     """
 
+    if timeout is not None:
+        timeout = validate_number(timeout, "timeout")
     if context is None:
         try:
             context = get_graph_context()

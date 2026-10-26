@@ -26,7 +26,7 @@ def test_base_node_owns_normalised_timeout(timeout, expected):
 def test_base_node_rejects_non_numeric_timeout(timeout):
     node = Node(lambda state: {})
 
-    with pytest.raises(TypeError, match="timeout must be a number or None"):
+    with pytest.raises(TypeError, match="timeout must be a number"):
         node.timeout = timeout
 
 

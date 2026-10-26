@@ -27,11 +27,13 @@ graph = (
 
 注册同步/异步函数或 `BaseNode`。普通函数默认使用 `__name__` 作为节点名。
 
+注册时保存图内名称和超时配置，不修改传入的节点对象；编译后的图固定这两项配置。复用同一节点不会改变已有图的配置，执行对象及其资源仍共享。
+
 ### `add_nodes(node_list)`
 
 批量注册节点。
 
-### `compile_graph(entry_point, *, using_namespace=None, no_snapshot=False, exist_ok=False)`
+### `compile_graph(entry_point, *, max_steps=1024, max_snapshots=None, using_namespace=None, no_snapshot=False, exist_ok=False)`
 
 显式指定入口并编译为 `NodeGraph`：
 
@@ -53,11 +55,13 @@ def choose(state):
 
 - `using_namespace=None` 或 `""`：自动生成进程内唯一的 namespace，不承诺跨进程唯一；
 - `GLOBALNS`：显式使用全局命名域；
+- `max_steps=1024`：非负整数，限制节点执行批次数；完成图不占额外步数，0 允许空图完成；
+- `max_snapshots=None`：使用 `GRAPH.max_snapshots`（默认 16）；传入正整数可覆盖；
 - `no_snapshot=False`：默认在每批节点执行前保存完整快照；`True` 关闭自动快照，减少大 state 的复制与历史保留开销；
 - `exist_ok=False`：namespace 已占用时抛异常；
 - `exist_ok=True`：释放旧图并由新图接管。
 
-### `NodeGraph(nodes, entry_point, *, max_steps=1024, state_schema=None, using_namespace=None, no_snapshot=False, exist_ok=False)`
+### `NodeGraph(nodes, entry_point, *, max_steps=1024, max_snapshots=None, state_schema=None, using_namespace=None, no_snapshot=False, exist_ok=False)`
 
 也可直接使用节点名到 `BaseNode` 的映射构建图。`entry_point` 与上面语义一致。
 `max_steps` 按节点执行批次计数，并发步也只计一步；完成图不占额外步数。
@@ -142,6 +146,8 @@ restored = graph.restore_context(snapshot_list, version=-1)
 ```
 
 恢复结果属于同一个 `NodeGraph`，不能跨图使用。
+
+`context.max_snapshots` 是该图的快照条数上限，自动和手动保存均只保留最近记录；恢复历史也按此上限裁剪。`version` 索引当前保留的历史，已淘汰的快照无法从 context 恢复。
 
 通过 `compile_graph(..., no_snapshot=True)` 或 `NodeGraph(..., no_snapshot=True)` 关闭自动快照后，节点输入、命令更新和正常返回结果仍按原来的 state 策略复制。新建 context 不会自动积累历史；没有手动保存的快照时，`restore_context(context)` 会抛异常。
 

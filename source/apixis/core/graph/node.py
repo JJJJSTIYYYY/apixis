@@ -1,13 +1,14 @@
 import asyncio
 import functools
 import inspect
-import math
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from typing import Any, TypeGuard, TypeVar
 
 from apixis.core.utils.exception import InvalidNodeReturnsError
 from apixis.core.graph.base import Command, NodeFunction
+from apixis.core.utils.validation import validate_timeout
 
 
 _TaskResult = TypeVar("_TaskResult")
@@ -30,16 +31,7 @@ class BaseNode(ABC):
     @timeout.setter
     def timeout(self, value: float | None) -> None:
         """Validate and store this node's execution timeout."""
-        if value is None:
-            self._timeout = None
-            return
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise TypeError("Node timeout must be a number or None.")
-
-        normalised = float(value)
-        if not math.isfinite(normalised):
-            raise ValueError("Node timeout must be finite.")
-        self._timeout = normalised if normalised > 0 else None
+        self._timeout = validate_timeout(value, "Node timeout")
 
     @abstractmethod
     async def execute(
@@ -157,6 +149,28 @@ class BaseNode(ABC):
                 result = await result
             return self._normalise_result(result)
         return wrapped
+
+
+@dataclass(frozen=True)
+class _NodeBinding(BaseNode):
+    """Graph-local configuration referencing a shared execution object."""
+
+    name: str
+    node: BaseNode
+    _timeout: float | None
+
+    @classmethod
+    def capture(
+        cls, node: BaseNode, name: str, timeout: float | None = None,
+    ) -> "_NodeBinding":
+        configured_timeout = validate_timeout(
+            node.timeout if timeout is None else timeout, "Node timeout",
+        )
+        execution_node = node.node if isinstance(node, cls) else node
+        return cls(name, execution_node, configured_timeout)
+
+    async def execute(self, state: dict) -> Command | list[Command]:
+        return await self.node.execute(state)
 
 
 class Node(BaseNode):

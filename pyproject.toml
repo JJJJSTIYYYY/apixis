@@ -8,8 +8,8 @@ dynamic = ["version"]
 description = "An event-driven graph orchestration core for asyncio applications."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "Apache-2.0 AND MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = ["asyncio", "events", "graph", "workflow", "orchestration"]
 authors = [
     { name = "JJJJSTIYYYY", email = "wavejustiy@gmail.com" },
@@ -60,7 +60,6 @@ version = {attr = "apixis._version.__version__"}
 
 [tool.setuptools.package-data]
 apixis = ["py.typed"]
-"apixis.core.utils.snow" = ["README.md"]
 
 [tool.ruff]
 target-version = "py312"

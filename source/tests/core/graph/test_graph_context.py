@@ -243,7 +243,7 @@ def test_restore_context_rejects_negative_steps(graph):
         "graph_id": graph.graph_id,
     }
 
-    with pytest.raises(ValueError, match="cannot be negative"):
+    with pytest.raises(ValueError, match="steps must be at least 0"):
         graph.restore_context(snapshot)
 
 
@@ -318,8 +318,8 @@ def test_restore_context_rejects_missing_version(graph, version):
 
 
 @pytest.mark.parametrize("version", [1.5, "1"])
-def test_restore_context_uses_native_list_index_validation(graph, version):
-    """History version validation follows normal list indexing semantics."""
+def test_restore_context_validates_version_type(graph, version):
+    """History versions require integer indices."""
     snapshot: GraphContextSnapshot = {
         "timestamp": 1.0,
         "state": {},
@@ -328,7 +328,7 @@ def test_restore_context_uses_native_list_index_validation(graph, version):
         "graph_id": graph.graph_id,
     }
 
-    with pytest.raises(TypeError, match="list indices must be integers"):
+    with pytest.raises(TypeError, match="snapshot version must be an int"):
         graph.restore_context([snapshot], version=version)
 
 

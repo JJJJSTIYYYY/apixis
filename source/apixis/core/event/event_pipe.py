@@ -8,6 +8,7 @@ from uuid import uuid4
 from apixis.core.event.base import ApixEvent, EventType, suspend_process
 from apixis.core.event.pipe_channel import BuiltinChannel
 from apixis.core.utils.logger import logger
+from apixis.core.utils.validation import validate_int
 
 
 class ApixEventPipe:
@@ -19,8 +20,7 @@ class ApixEventPipe:
 
     def __init__(self, *, builtin: BuiltinChannel | None = None) -> None:
         self._channel = builtin if builtin is not None else BuiltinChannel()
-        if self._channel.maxsize <= 0:
-            raise ValueError("The builtin channel must be bounded (maxsize > 0).")
+        validate_int(self._channel.maxsize, "builtin channel maxsize", minimum=1)
         self._started = False
 
     @property

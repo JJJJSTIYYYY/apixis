@@ -15,6 +15,7 @@ from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.utils.logger import logger
+from apixis.core.utils.validation import validate_int
 
 
 # =========================
@@ -33,7 +34,9 @@ class ApixEventLoop:
         self._event_pipe = event_pipe
         self._event_registry = event_registry
 
-        self._event_semaphore = asyncio.BoundedSemaphore(EVENT_LOOP_BACKPRESSURE)
+        self._event_semaphore = asyncio.BoundedSemaphore(
+            validate_int(EVENT_LOOP_BACKPRESSURE, "event_loop_backpressure", minimum=1)
+        )
 
         self._event_consumer_task: asyncio.Task | None = None
         self._dispatch_tasks: set[asyncio.Task] = set()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections import OrderedDict
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
@@ -10,6 +9,7 @@ from fnmatch import fnmatchcase
 from apixis.core.utils.logger import logger
 from apixis.core.event.base import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.utils.validation import validate_int, validate_number
 from apixis.core.utils.exception import (
     EventHandlerAlreadyRegisteredError,
     EventHandlerNotRegisteredError,
@@ -35,10 +35,8 @@ class ApixHandlerRegistry:
     def __init__(
         self, event_registry: ApixEventRegistry, *, cache_size: int = 8192,
     ) -> None:
-        if isinstance(cache_size, bool) or not isinstance(cache_size, int) or cache_size <= 0:
-            raise ValueError("cache_size must be a positive integer.")
         self._event_registry = event_registry
-        self._cache_size = cache_size
+        self._cache_size = validate_int(cache_size, "cache_size", minimum=1)
         self.registry = {}
         self.priority_buckets = {}
         self.cached_chain = OrderedDict()
@@ -318,13 +316,7 @@ class ApixHandlerRegistry:
             )
         else:
             priority = handler_entry.priority
-            if isinstance(priority, bool) or not isinstance(priority, (int, float)):
-                raise TypeError(
-                    "Handler priority must be a number."
-                )
-            if not math.isfinite(priority):
-                raise ValueError("Handler priority must be finite.")
-            bucket_priority = priority
+            bucket_priority = validate_number(priority, "Handler priority")
 
         # Validate first so failed replacements preserve the old registration.
         # Reuse normal unregistration, then insert against the updated bucket.

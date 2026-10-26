@@ -4,8 +4,9 @@ from apixis.core.graph.base import (
     _END,
     NodeFunction,
 )
-from apixis.core.graph.node import BaseNode, Node
+from apixis.core.graph.node import BaseNode, Node, _NodeBinding
 from apixis.core.graph.node_graph import NodeGraph
+from apixis.core.graph.utils.validate import validate_graph_definition
 
 
 class GraphManager:
@@ -57,22 +58,14 @@ class GraphManager:
                 timeout is not finite.
             TypeError: If timeout is not a number or ``None``.
         """
-        if isinstance(node_func, BaseNode):
-            node = node_func
-            if node_name is not None:
-                node.name = node_name
-        else:
-            node = Node(node_func, node_name, timeout=timeout)
-
-        if node.name == _END:
-            raise ValueError(f"`{node.name}` is a reserved graph node name.")
-        if node.name in self._nodes:
-            raise ValueError(f"Node `{node.name}` is already registered.")
-
-        if isinstance(node_func, BaseNode) and timeout is not None:
-            node.timeout = timeout
-
-        self._nodes[node.name] = node
+        node = node_func if isinstance(node_func, BaseNode) else Node(node_func, node_name)
+        name = node.name if node_name is None else node_name
+        if name == _END:
+            raise ValueError(f"`{name}` is a reserved graph node name.")
+        validate_graph_definition({name: node})
+        if name in self._nodes:
+            raise ValueError(f"Node `{name}` is already registered.")
+        self._nodes[name] = _NodeBinding.capture(node, name, timeout)
         return self
 
     def add_nodes(self, node_list: list[NodeFunction | BaseNode]):
@@ -92,6 +85,8 @@ class GraphManager:
         self,
         entry_point: str | list[str] | None,
         *,
+        max_steps: int = 1024,
+        max_snapshots: int | None = None,
         using_namespace: str | None = None,
         no_snapshot: bool = False,
         exist_ok: bool = False,
@@ -101,6 +96,9 @@ class GraphManager:
         Args:
             entry_point: First node or concurrent batch. None or an empty
                 list creates a graph that completes without executing nodes.
+            max_steps: Non-negative number of node-dispatch batches allowed.
+            max_snapshots: Positive retained checkpoint limit. None uses
+                ``GRAPH.max_snapshots`` from config.yaml (default 16).
             using_namespace: Namespace used by the compiled graph's event
                 listeners. ``None`` and an empty string generate a namespace
                 unique within the process. Pass ``GLOBALNS`` to explicitly
@@ -120,6 +118,8 @@ class GraphManager:
         return NodeGraph(
             self._nodes,
             entry_point,
+            max_steps=max_steps,
+            max_snapshots=max_snapshots,
             state_schema=self._state_schema,
             using_namespace=using_namespace,
             no_snapshot=no_snapshot,

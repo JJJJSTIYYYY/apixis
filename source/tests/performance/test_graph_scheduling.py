@@ -119,7 +119,7 @@ async def _run_round(
             assert context.state == expected
             assert context.status == "finished"
             assert context.steps == expected_steps
-            assert len(context.context_snapshot) == expected_steps
+            assert len(context.context_snapshot) == min(expected_steps, context.max_snapshots)
             graph = graphs[index] if ownership == "independent" else graphs[0]
             assert context.graph_id == graph.graph_id
         assert len({context.run_id for context in contexts}) == count

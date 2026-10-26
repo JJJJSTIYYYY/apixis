@@ -8,6 +8,7 @@ from contextlib import suppress
 from functools import wraps
 from typing import Any
 
+from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
 from apixis.core.event.factory import aget_event_pipe, get_handler_registry
 from apixis.core.event.base import suspend_process
 from apixis.core.event import (
@@ -24,7 +25,7 @@ from apixis.core.utils.exception import (
     GraphNodeError,
     InvalidContextError,
 )
-from apixis.core.utils.id_generator import idgen
+from apixis.core.utils.validation import validate_int, validate_number
 from apixis.core.graph.base import (
     _END,
     Command,
@@ -45,7 +46,7 @@ from apixis.core.graph.interrupter.graph_interrupter import (
     BlockEventHandler,
     interrupted_hook,
 )
-from apixis.core.graph.node import BaseNode
+from apixis.core.graph.node import BaseNode, _NodeBinding
 from apixis.core.graph.context.stream_writer import (
     StreamChannel,
     StreamWriter,
@@ -66,6 +67,7 @@ class NodeGraph:
         entry_point: str | list[str] | None,
         *,
         max_steps: int = 1024,
+        max_snapshots: int | None = None,
         state_schema: type | None = None,
         using_namespace: str | None = None,
         no_snapshot: bool = False,
@@ -79,6 +81,8 @@ class NodeGraph:
             max_steps: Maximum number of node-dispatch batches in one run.
                 Completing without a next target consumes no additional
                 step and remains allowed when the last batch uses the budget.
+            max_snapshots: Positive checkpoint count limit. None uses
+                ``GRAPH.max_snapshots`` (default 16).
             state_schema: Annotated schema compiled once for this graph.
                 Fields marked with ``Annotated[..., AutoMerge()]`` are
                 combined through their current value's ``__add__`` method.
@@ -96,15 +100,19 @@ class NodeGraph:
         # Keep finalization safe if initialization fails before acquisition.
         self._decomposed = True
         validate_graph_definition(nodes)
-        self._nodes = dict(nodes)
-        self._max_steps = max_steps
+        self._nodes = {name: _NodeBinding.capture(node, name) for name, node in nodes.items()}
+        self._max_steps = validate_int(max_steps, "max_steps", minimum=0)
+        self._max_snapshots = validate_int(
+            GRAPH_MAX_SNAPSHOTS if max_snapshots is None else max_snapshots,
+            "max_snapshots", minimum=1,
+        )
         self._entry_point = self._normalise_target(entry_point)
         self._no_snapshot = no_snapshot
         # Compile both state policies once; contexts never parse a schema.
         self._auto_merge_keys, self._keep_ref_keys = parse_state_schema(state_schema)
         self._graph_id = uuid4().hex
         self._contexts: set[GraphContext] = set()  # Running attempts only.
-        self._namespace = using_namespace or str(idgen.next_id())
+        self._namespace = using_namespace or uuid4().hex
         self._handlers: dict[str, ApixEventHandler] = {}
 
         # Acquisition validates ownership and synchronously retires the old graph.
@@ -251,7 +259,7 @@ class NodeGraph:
 
     def set_max_steps(self, steps: int):
         self._ensure_not_decomposed()
-        self._max_steps = steps
+        self._max_steps = validate_int(steps, "max_steps", minimum=0)
         return self
 
     def _ensure_not_decomposed(self) -> None:
@@ -295,7 +303,7 @@ class NodeGraph:
         """Copy initial state and prepare an attempt without retaining it."""
         self._ensure_not_decomposed()
         prepared = copy_state(state, self._keep_ref_keys)
-        context = GraphContext(self.graph_id)
+        context = GraphContext(self.graph_id, self._max_snapshots)
         context.state = prepared
         context._set_target_node(self._entry_point)
         return context
@@ -314,6 +322,7 @@ class NodeGraph:
         KeepRef fields; their mutable values never alias.
         """
         self._ensure_not_decomposed()
+        version = validate_int(version, "snapshot version")
         if isinstance(snapshot, GraphContext):
             if snapshot.graph_id != self.graph_id:
                 raise ValueError("GraphContext belongs to a different graph.")
@@ -330,9 +339,9 @@ class NodeGraph:
             raise TypeError("GraphContext snapshot must be a dict, a list of dicts or a GraphContext itself.")
         for checkpoint in history:
             self._validate_snapshot(checkpoint)
-        restored_history = copy.deepcopy(history)
+        restored_history = copy.deepcopy(history[-self._max_snapshots:])
         restored = restored_history[-1]
-        context = GraphContext(self.graph_id)
+        context = GraphContext(self.graph_id, self._max_snapshots)
         context.state = copy.deepcopy(restored["state"])
         context._set_target_node(restored["target_node_name"])
         context.steps = restored["steps"]
@@ -365,16 +374,8 @@ class NodeGraph:
             raise TypeError(
                 "GraphContext snapshot target_node_name must be a string or list of strings."
             )
-        if isinstance(snapshot["steps"], bool) or not isinstance(
-            snapshot["steps"], int
-        ):
-            raise TypeError("GraphContext snapshot steps must be an int.")
-        if snapshot["steps"] < 0:
-            raise ValueError("GraphContext snapshot steps cannot be negative.")
-        if isinstance(snapshot["timestamp"], bool) or not isinstance(
-            snapshot["timestamp"], (int, float)
-        ):
-            raise TypeError("GraphContext snapshot timestamp must be a number.")
+        validate_int(snapshot["steps"], "GraphContext snapshot steps", minimum=0)
+        validate_number(snapshot["timestamp"], "GraphContext snapshot timestamp")
 
     def _begin_invocation(
         self,
@@ -406,6 +407,8 @@ class NodeGraph:
         if not isinstance(context.state, dict):
             raise TypeError("Graph state must be a dict.")
         self._validate_target(context.target_node_name, context.steps)
+        context._max_snapshots = self._max_snapshots
+        del context.context_snapshot[:-self._max_snapshots]
         context._bind(
             run_id="graph-" + uuid4().hex,
             completion=asyncio.get_running_loop().create_future(),
@@ -469,11 +472,10 @@ class NodeGraph:
         if not isinstance(graph_context, GraphContext):
             raise TypeError("NodeGraph.abort requires a GraphContext instance.")
 
-        if not (graph_context.is_active or not graph_context.is_consumed):
-            return  # Already finished, aborted, or cancelled; nothing to do.
-
         if graph_context.graph_id != self.graph_id:
             raise ValueError("GraphContext belongs to a different graph.")
+        if not (graph_context.is_active or not graph_context.is_consumed):
+            return  # Already finished, aborted, or cancelled; nothing to do.
         graph_context.abort()
 
     async def _invoke(self, context: GraphContext) -> dict:
@@ -722,10 +724,7 @@ class NodeGraph:
         self, target: str | list[str] | None, steps: int
     ) -> str | list[str]:
         """Check a runtime target against its invocation's execution budget."""
-        if isinstance(steps, bool) or not isinstance(steps, int):
-            raise TypeError("Graph steps must be an int.")
-        if steps < 0:
-            raise ValueError("Graph steps cannot be negative.")
+        validate_int(steps, "Graph steps", minimum=0)
         target = self._normalise_target(target)
         # Completion does not execute nodes or consume a step.
         if target != _END and steps >= self._max_steps:

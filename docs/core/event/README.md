@@ -9,6 +9,7 @@
 唤起共享 event core。已运行时重复调用不会重复启动；返回不表示后台消费者已开始处理事件，也不表示已发布事件处理完成。启动连接时发生的异常会传播给调用方。
 
 共享 core 只构建一次，后续调用复用同一组 registry、pipe、handler registry 和 event loop。
+`start_core()`、同步和异步 getters 均不接受 `core` 参数，订阅、等待器和图都使用这组共享组件。
 
 ```python
 from apixis import start_core
@@ -226,6 +227,8 @@ keep_listening: bool = False
 
 默认行为保持不变：超时抛出 `TimeoutError`，取消或退出上下文会清理尚未完成的等待；普通上下文退出后再调用 `.wait()` 会报错。监听由 `EventWaiter` 管理，收齐结果或普通超时后立即注销，不必等到上下文退出。收齐的结果在上下文内仍可重复读取。
 
+多模式等待在收齐所有结果后统一注销全部监听；部分结果到达时保留监听与路由缓存。每个模式只保留首次结果，同一事件可以同时满足重叠模式。无效的 `point`、模式和超时参数在注册前拒绝；超时必须是有限数字，布尔值不属于数字。
+
 在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`wait_for_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
 
 ### 超时后继续收集结果
@@ -263,7 +266,7 @@ unsubscribe("observe_job")
 
 - `unsubscribe(name, missing_ok=True)`：移除 handler；
 - `get_handler(name)`：返回 handler 或 `None`；
-- `get_handler_meta(name)`：读取注册元数据；
+- `get_handler_meta(name)`：读取独立的注册元数据副本，修改返回值不影响订阅、过滤或排序；
 - `is_registered(name)`：检查是否注册；
 - `get_unmatched_subscriptions(name)`：返回当前尚未观察到匹配事件名的订阅模式。
 

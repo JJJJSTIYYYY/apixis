@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
 from apixis.core.utils.logger import logger
+from apixis.core.utils.validation import validate_timeout
 
 
 @dataclass(slots=True)
@@ -194,7 +195,7 @@ class ApixEventHandler:
     on_error: EventHandlerErrorFunc
     on_cancelled: EventHandlerFunc
     stop_when_error: bool
-    time_out: float | None
+    _time_out: float | None
     background: bool
     priority: float | None
     between_handlers: tuple[str | None, str | None] | None
@@ -224,7 +225,7 @@ class ApixEventHandler:
         self.on_error: EventHandlerErrorFunc | None = on_error
         self.on_cancelled: EventHandlerFunc | None = on_cancelled
         self.stop_when_error = stop_when_error
-        self.time_out = time_out if time_out is not None and time_out > 0 else None
+        self.time_out = time_out
         self.background = background
         self.name = name or getattr(core_func, "__name__", type(core_func).__name__)
         self.id = "handler-" + uuid4().hex
@@ -365,7 +366,16 @@ class ApixEventHandler:
             raise ValueError("on_error already set.")
         self.on_error = callback
 
-    async def notify_cancelled(self, event: ApixEvent, time_out: float = None) -> None:
+    @property
+    def time_out(self) -> float | None:
+        """Maximum callback execution time; None means unlimited."""
+        return self._time_out
+
+    @time_out.setter
+    def time_out(self, value: float | None) -> None:
+        self._time_out = validate_timeout(value, "Handler time_out")
+
+    async def notify_cancelled(self, event: ApixEvent, time_out: float | None = None) -> None:
         """Run cancellation cleanup without interrupting other notifications.
 
         The event loop calls this outside normal execution, then re-raises the
@@ -373,12 +383,11 @@ class ApixEventHandler:
         failures, including cancellation, are logged only: they do not invoke
         on_error, append business errors, or replace the original cancellation.
         """
+        timeout = self.time_out if time_out is None else validate_timeout(time_out, "time_out")
         if self.on_cancelled is None:
             return
-        if time_out is not None and time_out <= 0:
-            time_out = None
         try:
-            async with asyncio.timeout(self.time_out if time_out is None else time_out):
+            async with asyncio.timeout(timeout):
                 await self.on_cancelled(event)
         except (Exception, asyncio.CancelledError) as exc:
             logger.error(

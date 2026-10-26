@@ -4,12 +4,14 @@ import asyncio
 from typing import Any
 
 from apixis.core.config.core_config import EVENT_PIPE_MAX_LEN
+from apixis.core.utils.validation import validate_int
 
 
 class BuiltinChannel:
     """In-process event channel backed by :class:`asyncio.Queue`."""
 
     def __init__(self, maxsize: int = EVENT_PIPE_MAX_LEN) -> None:
+        maxsize = validate_int(maxsize, "maxsize", minimum=0)
         self._queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=maxsize)
 
     @property
