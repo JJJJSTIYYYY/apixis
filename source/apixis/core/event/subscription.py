@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from copy import copy
 from functools import partial
-from typing import Literal, cast
+from typing import Literal, Self, cast
 from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, suspend_process
@@ -311,15 +311,23 @@ def get_handler_meta(
 
 
 class EventWaiter:
-    """Retain the first match for each requested event-name pattern.
+    """Own subscriptions, first-match collection and the waiting deadline.
 
-    A string input returns one event; a list or set returns a dictionary keyed
-    by pattern once every pattern has matched. Events received before ``wait()``
-    are retained. Stored events are the original mutable :class:`ApixEvent`
-    objects. Leaving the context closes the waiter.
+    String input returns one event; list/set input returns a dictionary keyed
+    by pattern. Registration is synchronous. Listeners close automatically on
+    completion, ordinary timeout or cancellation. A deferred timeout transfers
+    ownership to the caller until collection finishes or ``close()`` is called.
     """
 
-    def __init__(self, event_names: str | list[str] | set[str]) -> None:
+    def __init__(
+        self,
+        event_names: str | list[str] | set[str],
+        *,
+        point: Literal['received', 'processed'] = 'received',
+        filter: list[str] | str | None = None,
+        time_out: float | None = None,
+        keep_listening: bool = False,
+    ) -> None:
         self._single_event = isinstance(event_names, str)
         event_names = {event_names} if isinstance(event_names, str) else set(event_names)
         if not event_names or any(
@@ -328,38 +336,119 @@ class EventWaiter:
             raise ValueError("event_name must contain at least one non-empty string pattern.")
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
         self._remaining = len(self._events)
-        self._future: asyncio.Future[dict[str, ApixEvent]] = (
-            asyncio.get_running_loop().create_future()
-        )
+        loop = asyncio.get_running_loop()
+        self._future: asyncio.Future[dict[str, ApixEvent]] = loop.create_future()
+        self._timeout_future: asyncio.Future[None] = loop.create_future()
         self._deadline: float | None = None
         self._timeout_handle: asyncio.TimerHandle | None = None
+        self._keep_listening = keep_listening
+        self._deferred = False
         self._closed = False
+        self._context_exited = False
+        self._registry = get_handler_registry()
+        self._handlers: list[ApixEventHandler] = []
+        try:
+            self._register_wait_handler(point, filter)
+            self._start_timeout(time_out)
+        except BaseException:
+            self.close()
+            raise
 
-    async def wait(self) -> ApixEvent | dict[str, ApixEvent]:
-        """Return all results, lending the handler's permit while waiting.
-
-        The timeout is shared by all calls and starts at context entry, not at
-        this method call. A result received in time remains available even if
-        ``wait()`` is called after the deadline. Timeout raises ``TimeoutError``;
-        cancellation propagates and cancels the pending result. Sequential
-        calls return the same event or dictionary. Calling after context exit
-        raises ``RuntimeError``.
-        """
-        if self._closed:
+    async def __aenter__(self) -> Self:
+        if self._context_exited:
             raise RuntimeError("The event waiter context has already exited.")
-        async with suspend_process():
-            events = await self._future
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        if exc_type is not None or not self._deferred:
+            self._context_exited = True
+            self.close()
+
+    async def wait(
+        self,
+        time_out: float | None = None,
+        *,
+        keep_listening: bool | None = None,
+    ) -> ApixEvent | dict[str, ApixEvent] | Self:
+        """Wait for all matches, optionally returning this waiter on timeout.
+
+        Every call replaces the active deadline: a numeric ``time_out`` starts
+        a new budget from this call; omit it or pass ``None`` to wait indefinitely.
+        The listening policy defaults to the current configuration.
+        ``keep_listening=True`` returns this waiter on expiry while collection
+        continues. Otherwise
+        expiry closes subscriptions and raises ``TimeoutError``. A closed
+        waiter cannot be restarted. Concurrent waits share the same budget and
+        policy. Cancellation always closes the waiter. Waiting lends the
+        handler's dispatch permit.
+        """
+        if self._context_exited:
+            raise RuntimeError("The event waiter context has already exited.")
+        if self._future.cancelled():
+            raise RuntimeError("The event waiter is closed.")
+        if keep_listening is not None:
+            self._keep_listening = keep_listening
+        if not self._future.done():
+            self._start_timeout(time_out)
+        try:
+            async with suspend_process():
+                while not self._future.done():
+                    timeout = self._timeout_future
+                    await asyncio.wait(
+                        (self._future, timeout), return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if timeout is not self._timeout_future:
+                        continue
+                    if not self._future.done() and not timeout.cancelled() and timeout.done():
+                        if self._keep_listening:
+                            self._deferred = True
+                            return self
+                        self._expire()
+                if self._future.cancelled():
+                    raise asyncio.CancelledError
+                return await self.get_result()
+        except asyncio.CancelledError:
+            self.close()
+            raise
+
+    async def get_result(self) -> ApixEvent | dict[str, ApixEvent]:
+        """Wait for the complete result without reapplying the waiting budget.
+
+        Use after a deferred timeout. Results remain readable after automatic
+        closure. Cancellation closes the waiter; a pending explicitly closed
+        waiter raises ``RuntimeError``. Partial results are never returned.
+        """
+        if self._future.cancelled():
+            raise RuntimeError("The event waiter is closed.")
+        try:
+            async with suspend_process():
+                events = await asyncio.shield(self._future)
+        except asyncio.CancelledError:
+            self.close()
+            raise
         return next(iter(events.values())) if self._single_event else events
 
     def _start_timeout(self, time_out: float | None) -> None:
-        if time_out is not None:
-            loop = asyncio.get_running_loop()
-            self._deadline = loop.time() + time_out
-            self._timeout_handle = loop.call_at(self._deadline, self._expire)
+        if self._timeout_handle is not None:
+            self._timeout_handle.cancel()
+        self._timeout_future.cancel()
+        loop = asyncio.get_running_loop()
+        self._timeout_future = loop.create_future()
+        self._deadline = None if time_out is None else loop.time() + time_out
+        self._timeout_handle = (
+            None if self._deadline is None else loop.call_at(self._deadline, self._expire)
+        )
 
     def _expire(self) -> None:
-        if not self._future.done():
+        if self._future.done():
+            return
+        self._deadline = None
+        if self._keep_listening:
+            if not self._timeout_future.done():
+                self._timeout_future.set_result(None)
+        else:
             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
+            self.close()
 
     async def _resolve(self, event_name: str, event: ApixEvent, *args, **kwargs) -> None:
         if self._future.done() or self._events[event_name] is not None:
@@ -369,39 +458,24 @@ class EventWaiter:
             and asyncio.get_running_loop().time() >= self._deadline
         ):
             self._expire()
-            return
+            if self._closed:
+                return
         self._events[event_name] = event
         self._remaining -= 1
         if self._remaining == 0:
-            if self._timeout_handle is not None:
-                self._timeout_handle.cancel()
             self._future.set_result(cast(dict[str, ApixEvent], self._events))
+            self.close()
 
-    def _close(self) -> None:
-        self._closed = True
-        if self._timeout_handle is not None:
-            self._timeout_handle.cancel()
-        if not self._future.done():
-            self._future.cancel()
-        elif not self._future.cancelled():
-            # The body may exit without wait(), including after a timeout.
-            self._future.exception()
-
-
-def _register_wait_handler(
-    waiter: EventWaiter,
-    point: Literal['received', 'processed'],
-    filter: list[str] | str | None,
-) -> list[ApixEventHandler]:
-    """Register every pattern without yielding; roll back partial failures."""
-    if isinstance(filter, str):
-        filter = [filter]
-
-    registry = get_handler_registry()
-    handlers = []
-    try:
-        for event_name in waiter._events:
-            resolve = partial(waiter._resolve, event_name)
+    def _register_wait_handler(
+        self,
+        point: Literal['received', 'processed'],
+        filter: list[str] | str | None,
+    ) -> None:
+        """Install every handler without yielding; constructor failure closes all."""
+        if isinstance(filter, str):
+            filter = [filter]
+        for event_name in self._events:
+            resolve = partial(self._resolve, event_name)
             handler = ApixEventHandler(
                 core_func=resolve,
                 on_accepted=resolve,
@@ -414,13 +488,25 @@ def _register_wait_handler(
             handler.subscribe = [event_name]
             handler.priority = 10000 if point == 'received' else -10000
             handler.filter_event = filter
-            registry.register_handler(handler, exist_ok=True)
-            handlers.append(handler)
-    except Exception:
-        for handler in handlers:
-            handler.unregister(missing_ok=True)
-        raise
-    return handlers
+            self._registry.register_handler(handler, exist_ok=True)
+            self._handlers.append(handler)
+
+    def close(self) -> None:
+        """Idempotently unregister listeners and cancel any incomplete collection."""
+        if self._closed:
+            return
+        self._closed = True
+        if self._timeout_handle is not None:
+            self._timeout_handle.cancel()
+        self._timeout_future.cancel()
+        for handler in self._handlers:
+            self._registry.unregister_handler(handler.name, missing_ok=True)
+        self._handlers.clear()
+        if not self._future.done():
+            self._future.cancel()
+        elif not self._future.cancelled():
+            # The context may exit without ever retrieving a timeout exception.
+            self._future.exception()
 
 
 @asynccontextmanager
@@ -430,6 +516,7 @@ async def wait_for_event(
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
     time_out: float | None = None,
+    keep_listening: bool = False,
 ) -> AsyncIterator[EventWaiter]:
     """Register an event waiter before running the context body.
 
@@ -458,35 +545,37 @@ async def wait_for_event(
             matched at the selected point. ``None`` means no deadline;
             non-positive values expire immediately. The deadline includes time
             spent publishing or doing other work before ``wait()``. It expires
-            the result, not the context body: ``wait()`` raises ``TimeoutError``.
-            Results collected before the deadline remain available afterwards.
+            the result, not the context body. A live ``wait(time_out=...)``
+            replaces this deadline; ``wait()`` or ``wait(time_out=None)`` clears
+            it. A timed-out closed waiter cannot be restarted. Timely results
+            remain available afterwards.
+        keep_listening: If true, expiry makes ``wait()`` return its waiter
+            instead of raising. Listeners remain until collection completes
+            or the caller invokes ``close()``. Defaults to false.
 
-    All handlers are registered without yielding and unregistered on every
-    context exit, including publication errors, timeouts and cancellation.
-    Exiting without waiting cancels a pending result. Only ``wait()`` lends the
-    current handler's dispatch permit; context entry does not suspend the chain.
+    The waiter owns registration and cleanup. All handlers are registered
+    without yielding, and close on completion, ordinary timeout or cancellation.
+    A normal context exit preserves listeners only after ``wait()`` has actually
+    returned the waiter on timeout. Otherwise exit closes it, including when
+    the body raises. Use ``await waiter.get_result()`` for a deferred result.
+    Waiting lends the current dispatch permit; context entry does not suspend it.
 
     Example::
 
-        async with wait_for_event(reply, point="processed", time_out=40) as waiter:
+        async with wait_for_event(reply, point="processed") as waiter:
             await pipe.post_event(
                 event_type=EventType.WORKFLOW,
                 event_name="tool.request",
                 context={"reply": reply},
             )
-            event = await waiter.wait()
+            event = await waiter.wait(time_out=40)
             result = event.context["result"]
     """
-    waiter = EventWaiter(event_name)
-    handlers = []
-    try:
-        handlers = _register_wait_handler(waiter, point, filter)
-        waiter._start_timeout(time_out)
+    async with EventWaiter(
+        event_name, point=point, filter=filter,
+        time_out=time_out, keep_listening=keep_listening,
+    ) as waiter:
         yield waiter
-    finally:
-        waiter._close()
-        for handler in handlers:
-            handler.unregister(missing_ok=True)
 
 
 async def await_for(
@@ -495,7 +584,8 @@ async def await_for(
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
     time_out: float | None = None,
-) -> ApixEvent | dict[str, ApixEvent]:
+    keep_listening: bool = False,
+) -> ApixEvent | dict[str, ApixEvent] | EventWaiter:
     """Register all patterns and immediately wait for their first matches.
 
     Subscription starts when this coroutine actually executes. It registers
@@ -522,10 +612,14 @@ async def await_for(
         filter: Glob pattern or list of patterns to exclude.
         time_out: Maximum seconds spent waiting after registration, or ``None``
             for no limit. Time before this coroutine starts is not included.
-            Expiry raises ``TimeoutError``.
+            Expiry raises ``TimeoutError`` unless ``keep_listening`` is true.
+        keep_listening: Return an ``EventWaiter`` on timeout and keep collecting.
+            Retrieve the eventual result with ``await waiter.get_result()``;
+            call ``waiter.close()`` if abandoning it. Defaults to false.
 
     Waiting lends the current handler's dispatch permit via ``suspend_process``.
-    All temporary handlers are removed on completion, timeout or cancellation.
+    The waiter owns all handlers and closes them on completion, ordinary timeout
+    or cancellation. Only a deferred timeout preserves its listeners.
 
     Example::
 
@@ -533,9 +627,10 @@ async def await_for(
         result = event.context["result"]
     """
     async with wait_for_event(
-        event_name, point=point, filter=filter, time_out=time_out,
+        event_name, point=point, filter=filter,
+        time_out=time_out, keep_listening=keep_listening,
     ) as waiter:
-        return await waiter.wait()
+        return await waiter.wait(time_out=time_out)
 
 
 

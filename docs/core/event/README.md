@@ -161,13 +161,13 @@ async def observe_job(event):
 **正例：使用 `wait_for_event`，先订阅，再发布。**
 
 ```python
-async with wait_for_event(reply, time_out=40) as waiter:
+async with wait_for_event(reply) as waiter:
     await pipe.post_event(
         event_type=EventType.WORKFLOW,
         event_name="job.start",
         context={"reply": reply},
     )
-    event = await waiter.wait()
+    event = await waiter.wait(time_out=40)
 ```
 
 进入上下文时订阅已注册；即使回包在 `.wait()` 前到达，也会保留结果。
@@ -195,13 +195,13 @@ events = await await_for(["job.validated", "job.saved"], time_out=40)
 
 # 当前代码需要发起任务：先注册两个订阅，再发布请求。
 async with wait_for_event(
-    ["job.validated", "job.saved"], point="processed", time_out=40,
+    ["job.validated", "job.saved"], point="processed",
 ) as waiter:
     await get_event_pipe().post_event(
         event_type=EventType.WORKFLOW,
         event_name="job.start",
     )
-    events = await waiter.wait()
+    events = await waiter.wait(time_out=40)
     validated = events["job.validated"]
     saved = events["job.saved"]
 ```
@@ -215,17 +215,37 @@ event_name: str | list[str] | set[str]
 point: Literal["received", "processed"] = "received"
 filter: list[str] | str | None = None
 time_out: float | None = None
+keep_listening: bool = False
 ```
 
 `event_name` 支持大小写敏感的 glob 模式；`filter` 排除匹配的事件名。`point="received"` 在普通前台 handler 之前取得事件；`point="processed"` 在普通前台 handler 完成后取得事件，不等待后台 handler。事件被 accept、发生前台错误或事件分发被取消时，适用的通知回调同样可以返回该事件；调用方可检查 `accepted`、`has_error` 和 `error_stack`。返回的是原始、可变的事件对象，不是内容快照，后续 handler 仍可能修改它。
 
-`time_out=None` 表示没有截止时间，非正值表示立即超时。两个接口都从所有订阅注册完成开始计时；对于 `wait_for_event`，这也包括上下文内调用 `.wait()` 前的发布和其他工作。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
+`time_out=None` 表示没有截止时间，非正值表示立即超时。`await_for(time_out=...)` 限制这次等待；`wait_for_event(time_out=...)` 从注册完成开始计时，包括调用 `.wait()` 前的工作。每次 `.wait(time_out=...)` 都会替换当前截止时间，从本次调用计时；省略或传入 `None` 则取消尚未到期的截止时间，无限等待。已经超时关闭的监听不会恢复。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
 
-**截止时间不会中断 `wait_for_event` 的上下文主体**：超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
+**截止时间不会中断 `wait_for_event` 的上下文主体**：默认超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
 
-`await_for` 在返回、超时或取消时注销订阅；`wait_for_event` 在上下文退出时注销订阅并释放计时器，包括主体异常、超时和取消。未等待就退出时，尚未完成的结果会被取消；取消正在执行的 `.wait()` 也会取消尚未完成的结果。
+默认行为保持不变：超时抛出 `TimeoutError`，取消或退出上下文会清理尚未完成的等待；普通上下文退出后再调用 `.wait()` 会报错。监听由 `EventWaiter` 管理，收齐结果或普通超时后立即注销，不必等到上下文退出。收齐的结果在上下文内仍可重复读取。
 
 在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`wait_for_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
+
+### 超时后继续收集结果
+
+默认超时会结束监听；设置 `keep_listening=True` 后，超时返回 `EventWaiter`，后续通过 `await waiter.get_result()` 等待完整结果：
+
+```python
+from apixis import EventWaiter, await_for
+
+result = await await_for("job.finished", time_out=1, keep_listening=True)
+if isinstance(result, EventWaiter):
+    # 首次等待已超时，监听仍在；这里可以先处理其他工作。
+    result = await result.get_result()
+```
+
+请求／回包场景仍用原来的 `async with wait_for_event(...)`；将等待改为 `await waiter.wait(time_out=1, keep_listening=True)` 即可。每次 `.wait()` 都只使用本次传入的等待时长：数字表示从本次调用计时，省略或传入 `None` 均无限等待，首次调用也相同。`keep_listening` 省略时沿用等待器配置。同一等待器的并发等待共享这个预算与策略。已有结果会直接返回，只有尚未收齐且超时才返回等待器；已经按默认策略超时关闭的等待器不能恢复，应在超时前启用该选项。
+
+超时拿到等待器后，也可以再次 `await waiter.wait()` 无限等待直到收齐，或通过 `await waiter.wait(time_out=5)` 指定新的等待时长；期间已收到的事件会保留，监听不会重复注册。若再次超时且继续监听，仍返回同一个等待器。
+
+实际发生延迟返回后，正常退出上下文也会保留监听。`get_result()` 不重启已用完的等待预算，会继续等到收齐后返回原有的单事件／字典结构，并自动注销监听。若决定放弃，调用幂等的 `waiter.close()`；取消正在执行的 `.wait()`、`get_result()` 或上下文主体抛出异常，也会清理监听。仅设置 `keep_listening=True` 而未发生延迟返回，不会让监听在退出上下文后残留。
 
 ## 取消订阅与检查
 
