@@ -8,7 +8,6 @@ from apixis import (
     ApixEventHandler, ApixEventLoop, ApixEventPipe, ApixEventRegistry,
     ApixHandlerRegistry, BuiltinChannel, Node, subscribe,
 )
-from apixis.core.utils.logger import Logger, register_log_level
 from apixis.core.utils.validation import validate_int, validate_number, validate_timeout
 
 
@@ -74,7 +73,6 @@ def test_execution_and_priority_apis_reject_invalid_numbers(value, error):
         lambda: ApixEventHandler(receive, time_out=value),
         lambda: Node(lambda state: {}, timeout=value),
         lambda: subscribe("reply", priority=value),
-        lambda: register_log_level("invalid", value),
     ):
         with pytest.raises(error):
             operation()
@@ -88,5 +86,3 @@ def test_failed_timeout_assignment_preserves_previous_value():
     with pytest.raises(ValueError):
         handler.time_out = float("nan")
     assert handler.time_out == 2
-    with pytest.raises(TypeError):
-        Logger().separator(length=True)

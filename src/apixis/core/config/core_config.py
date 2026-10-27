@@ -1,33 +1,11 @@
 """Core runtime settings backed by the shared configuration loader."""
 
-from typing import Literal
-import os
-
 from apixis.core.config.base import _get_config
 from apixis.core.utils.validation import validate_int
 
 
-# Shared data root and Apixis runtime paths
-BASE_DIR = _get_config("SERVER.base_dir", "./.apix/")
-APIXIS_BASE_DIR = os.path.join(BASE_DIR, "apixis")
-
-
-# Log
-DEBUG_LEVEL: Literal["DEBUG", "INFO", "WARN", "ERROR"] = _get_config(
-    "LOG.debug_level",
-    "DEBUG",
-).upper()
-
-TRACE = _get_config("LOG.trace", True)
+# Console event dispatch output
 SHOW_EVENT_DISPATCH = _get_config("LOG.show_event_dispatch", True)
-MAX_LOG_FILE_SIZE = validate_int(
-    _get_config("LOG.max_log_file_size", 10 * 1024 * 1024),
-    "LOG.max_log_file_size", minimum=1,
-)
-# Retain at most this many pending log records across all logger names.
-LOG_BUFFER_SIZE = validate_int(
-    _get_config("LOG.buffer_size", 1024), "LOG.buffer_size", minimum=1,
-)
 
 
 # Pipeline

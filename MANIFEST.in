@@ -1,7 +1,8 @@
 include README.md LICENSE .python-version uv.lock
+include src/README.md
 recursive-include docs *.md
-recursive-include source/tests *.py
-include source/tests/README.md
+recursive-include tests *.py
+include tests/README.md
 include conftest.py
 include scripts/smoke_test.py
 global-exclude __pycache__ *.py[cod]

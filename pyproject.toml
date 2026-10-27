@@ -51,7 +51,7 @@ Issues = "https://github.com/JJJJSTIYYYY/Apixis/issues"
 Changelog = "https://github.com/JJJJSTIYYYY/Apixis/releases"
 
 [tool.setuptools.packages.find]
-where = ["source"]
+where = ["src"]
 include = ["apixis", "apixis.*"]
 namespaces = false
 
@@ -63,18 +63,18 @@ apixis = ["py.typed"]
 
 [tool.ruff]
 target-version = "py312"
-src = ["source"]
+src = ["src"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
 # Public facade modules forward the underlying packages' __all__ exports.
-"source/apixis/__init__.py" = ["F403"]
-"source/apixis/core/__init__.py" = ["F403"]
+"src/apixis/__init__.py" = ["F403"]
+"src/apixis/core/__init__.py" = ["F403"]
 
 [tool.pytest.ini_options]
-testpaths = ["source/tests"]
+testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 # Process-global runtime queues share one asyncio loop across tests.
 asyncio_mode = "auto"

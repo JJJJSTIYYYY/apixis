@@ -8,10 +8,6 @@ import pytest
 from apixis.core.config import base, core_config
 
 
-def test_apixis_data_path_is_within_shared_root():
-    assert core_config.APIXIS_BASE_DIR == os.path.join(core_config.BASE_DIR, "apixis")
-
-
 @pytest.mark.parametrize("value", [0, -1, True, "8192", 1.5])
 def test_chain_cache_size_rejects_invalid_configuration(monkeypatch, value):
     try:
@@ -66,7 +62,6 @@ def test_yaml_rejects_non_mapping(tmp_path):
     ("PIPELINE", "event_pipe_max_len"),
     ("PIPELINE", "event_loop_backpressure"),
     ("PIPELINE", "handler_chain_cache_size"),
-    ("LOG", "buffer_size"), ("LOG", "max_log_file_size"),
     ("GRAPH", "max_snapshots"),
 ])
 @pytest.mark.parametrize("value", [0, -1, True, False, 1.5, "2", float("nan"), float("inf")])
@@ -104,7 +99,7 @@ graph.decompose()
 '''
     result = subprocess.run(
         [sys.executable, "-c", script], cwd=tmp_path,
-        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[3])},
+        env={**os.environ, "PYTHONPATH": str(Path(base.__file__).resolve().parents[3])},
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, result.stderr

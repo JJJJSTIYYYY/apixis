@@ -17,7 +17,7 @@ uv sync --extra dev --locked
 | `integration/graph` | 插件、中断、取消、并发、运行期所有权与图分解 |
 | `performance` | 大量多节点图同时调度，含建图耗时的性能测试 |
 
-`source/tests/conftest.py` 集中管理共享 asyncio runtime 的隔离与清理，以及等待前台分发完成的 helper；根目录 `conftest.py` 统一提供测试筛选与性能参数。仅在这些测试基础设施和已有白盒组件测试中检查内部状态；新增性能 workload 通过 `apixis.core` 的公开接口构建、执行和检查图。
+`tests/conftest.py` 集中管理共享 asyncio runtime 的隔离与清理，以及等待前台分发完成的 helper；根目录 `conftest.py` 统一提供测试筛选与性能参数。仅在这些测试基础设施和已有白盒组件测试中检查内部状态；新增性能 workload 通过 `apixis.core` 的公开接口构建、执行和检查图。
 
 ## 正确性测试
 
@@ -25,7 +25,7 @@ uv sync --extra dev --locked
 uv run --no-sync pytest
 uv run --no-sync pytest -m unit
 uv run --no-sync pytest -m integration
-uv run --no-sync pytest source/tests/integration/graph
+uv run --no-sync pytest tests/integration/graph
 ```
 
 默认不收集性能测试，原有规模正确性测试仍参与默认测试。CI 在默认测试后额外运行十三组性能 workload 的小规模版本，验证测试本身能执行和清理，不设与硬件绑定的速度阈值。
@@ -44,12 +44,14 @@ git archive 9743814 source | tar -x -C /tmp/apixis-before
   --output /tmp/apixis-comparison.json --repeats 3
 ```
 
-基准包含精确事件名的冷/热查询、临时订阅增删、独立/复用图、串行/并行图、大状态快照、关闭快照，以及三档背压下的异步等待。两版使用相同参数并逐个校验结果。运行时记录总耗时、构建/准备/执行分项、从共同启动门计时的批量完成延迟和事件循环延迟；内存另用 tracemalloc 测量，不能当作进程 RSS。完整场景说明及实测结果见 `docs/performance/2026-10-22.md`。
+上述历史提交使用 `source/` 目录，所以解压路径保留原名；当前工作区代码由脚本从 `src/` 读取。
+
+基准包含精确事件名的冷/热查询、临时订阅增删、独立/复用图、串行/并行图、大状态快照、关闭快照，以及三档背压下的异步等待。两版使用相同参数并逐个校验结果。运行时记录总耗时、构建/准备/执行分项、从共同启动门计时的批量完成延迟和事件循环延迟；内存另用 tracemalloc 测量，不能当作进程 RSS。完整场景说明及实测结果见[性能报告](../docs/performance/aduit-2026-10-22.md)。
 
 ## Graph 性能测试
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance
+uv run --no-sync pytest tests/performance --run-performance
 ```
 
 运行结束后自动生成仓库根目录下的 `test-results/README.md`，文件包含本次运行场景的性能结果表格，末尾附上四种立即返回场景及两种等待场景的含义说明，并覆盖上次生成的文档。无需指定 `--graph-report`；该参数用于额外保存 JSON 原始指标。
@@ -75,7 +77,7 @@ uv run --no-sync pytest source/tests/performance --run-performance
 仅运行新增的等待场景：
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance -k sleeping
+uv run --no-sync pytest tests/performance --run-performance -k sleeping
 ```
 
 1 ms 等待场景沿用运行时的 `EVENT_LOOP_BACKPRESSURE`，不自行加载配置或修改背压。修改根目录 `config.yaml` 中的 `PIPELINE.event_loop_backpressure` 后，重新执行上述命令；保持其他参数相同，对比表格中的单轮耗时、吞吐量以及 JSON 中的延迟。表格显示实际信号量容量、每次调用的等待节点数和 `sleep` 参数（1 ms）。
@@ -83,7 +85,7 @@ uv run --no-sync pytest source/tests/performance --run-performance -k sleeping
 ## 一次运行三档背压
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance \
+uv run --no-sync pytest tests/performance --run-performance \
   -k backpressure_sweep --graph-report=test-results/graph-performance.json
 ```
 
@@ -98,7 +100,7 @@ uv run --no-sync pytest source/tests/performance --run-performance \
 负载可以通过原有参数覆盖，例如缩小为 4,096 次调用、每次 4 个节点，保持三档容量一起运行：
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance \
+uv run --no-sync pytest tests/performance --run-performance \
   -k backpressure_sweep --graph-count 4096 --graph-nodes 4 --graph-repeats 3
 ```
 
@@ -107,7 +109,7 @@ uv run --no-sync pytest source/tests/performance --run-performance \
 例如，只运行 3,000 规模的五组测试，并保存 JSON 指标：
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance \
+uv run --no-sync pytest tests/performance --run-performance \
   -k 3000 --graph-width 4 \
   --graph-repeats 3 --graph-timeout 180 \
   --graph-report=graph-performance.json
@@ -116,9 +118,9 @@ uv run --no-sync pytest source/tests/performance --run-performance \
 只跑独立图、串行场景或 1,000 规模：
 
 ```bash
-uv run --no-sync pytest source/tests/performance --run-performance -k independent
-uv run --no-sync pytest source/tests/performance --run-performance -k chain
-uv run --no-sync pytest source/tests/performance --run-performance -k 1000
+uv run --no-sync pytest tests/performance --run-performance -k independent
+uv run --no-sync pytest tests/performance --run-performance -k chain
+uv run --no-sync pytest tests/performance --run-performance -k 1000
 ```
 
 | 参数 | 默认值 | 含义 |

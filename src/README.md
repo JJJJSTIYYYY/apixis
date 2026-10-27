@@ -1,6 +1,7 @@
 # Source layout
 
-`apixis/` contains the installable package and `tests/` contains its test suite.
+`apixis/` contains the installable package. Its test suite lives in the
+repository-root [`tests/`](../tests/README.md) directory, alongside `src/`.
 The build configuration and release README are at the repository root.
 
 Run installation, tests, and builds from the repository root:

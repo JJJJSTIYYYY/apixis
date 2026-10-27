@@ -53,7 +53,7 @@ pnpm-debug.log*
 
 # Runtime / Data
 .apix_data
-source/config.yaml
+src/config.yaml
 config.yaml
 
 # logs

@@ -9,10 +9,7 @@ from apixis.core.utils.exception import (
     InvalidContextError,
     InvalidNodeReturnsError,
 )
-from apixis.core.utils.logger import (
-    Logger,
-    logger,
-)
+from apixis.core.utils import logger
 
 __all__ = [
     "BlockHookNotRegisteredError",
@@ -22,6 +19,5 @@ __all__ = [
     "GraphNodeError",
     "InvalidContextError",
     "InvalidNodeReturnsError",
-    "Logger",
     "logger",
 ]

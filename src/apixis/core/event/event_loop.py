@@ -14,7 +14,7 @@ from apixis.core.event.base import (
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
-from apixis.core.utils.logger import logger
+from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_int
 
 

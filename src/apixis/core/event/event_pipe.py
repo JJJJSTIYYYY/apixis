@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, EventType, suspend_process
 from apixis.core.event.pipe_channel import BuiltinChannel
-from apixis.core.utils.logger import logger
+from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_int
 
 

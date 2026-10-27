@@ -49,6 +49,16 @@ python -m pytest
 使用 uv 时，请使用 `uv sync --extra dev --locked` 和 `uv run --extra dev pytest`。
 运行静态代码检查：`uv run --extra dev ruff check .`。Ruff 检查常见代码错误和未使用的导入等问题，不执行静态类型检查。
 
+项目采用 `src` 布局，测试位于仓库根目录的 `tests/`，所有开发命令均在仓库根目录执行：
+
+```text
+src/apixis/     # 可安装的 Python 包
+tests/          # 单元、集成和性能测试
+docs/           # 项目文档
+scripts/        # 基准与安装检查脚本
+pyproject.toml  # 构建、依赖和工具配置
+```
+
 ## 快速开始
 
 ```python
@@ -144,6 +154,10 @@ python -m pytest
 
 With uv, use `uv sync --extra dev --locked` and `uv run --extra dev pytest`.
 Run static code checks with `uv run --extra dev ruff check .`. Ruff checks common code errors and unused imports; it does not perform static type checking.
+
+The project uses a `src` layout: the installable package lives in `src/apixis/`,
+and unit, integration and performance tests live in the root `tests/` directory.
+Run development commands from the repository root.
 
 ## Quick start
 

@@ -60,7 +60,9 @@ async def run_worker(args):
     bounded_snapshots = "max_snapshots" in inspect.signature(NodeGraph).parameters
     log_module = importlib.import_module("apixis.core.utils.logger")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
-    log_module.DEBUG_LEVEL = "ERROR"
+    log_target = getattr(log_module, "logger", log_module)
+    for name in ("debug", "info", "success", "warning"):
+        setattr(log_target, name, lambda *args, **kwargs: None)
     loop_module.SHOW_EVENT_DISPATCH = False
 
     class WorkloadState(TypedDict):
@@ -307,7 +309,7 @@ def compare(args):
     workers = []
     for index, label in enumerate(("before", "after", "after", "before")):
         path = args.output.parent / f"{args.output.stem}-{index + 1}-{label}.json"
-        source = args.baseline_source if label == "before" else root / "source"
+        source = args.baseline_source if label == "before" else root / "src"
         print(f"Benchmark {index + 1}/4: {label}", flush=True)
         subprocess.run([
             sys.executable, str(Path(__file__).resolve()), "--worker-source", str(source),

@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
-from apixis.core.utils.logger import logger
+from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_timeout
 
 

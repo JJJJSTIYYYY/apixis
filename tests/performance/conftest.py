@@ -54,7 +54,8 @@ def quiet_runtime_logs(monkeypatch):
     """Keep console output out of measurements while preserving error logging."""
     logger_module = importlib.import_module("apixis.core.utils.logger")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
-    monkeypatch.setattr(logger_module, "DEBUG_LEVEL", "ERROR")
+    for name in ("debug", "info", "success", "warning"):
+        monkeypatch.setattr(logger_module, name, lambda *args, **kwargs: None)
     monkeypatch.setattr(loop_module, "SHOW_EVENT_DISPATCH", False)
 
 

@@ -28,7 +28,7 @@ async def main() -> None:
     assert "apixis/py.typed" in files
     assert any(path.endswith("/licenses/LICENSE") for path in files)
     assert installed.metadata["License-Expression"] == "Apache-2.0"
-    assert not any(path.startswith(("tests/", "source/")) for path in files)
+    assert not any(path.startswith(("tests/", "src/")) for path in files)
 
     observed = []
 

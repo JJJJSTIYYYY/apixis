@@ -19,37 +19,28 @@
 ## 输出日志
 
 ```python
-from apixis import Logger, logger
+from apixis import logger
 
 logger.info("Application started")
 logger.warning("A retry is needed")
 logger.error("Operation failed")
 logger.debug("Preparing request")
 
-worker_logger = Logger(name="worker")
-worker_logger.info("Job received")
+logger.success("Job %s completed", "example")
 ```
 
-`logger` 是共享日志对象。需要按组件区分日志时，可创建命名的 `Logger`。在异常处理分支中可调用 `logger.exception("Operation failed")` 输出异常信息。
-
-## 保存日志文件
-
-由应用入口管理日志刷新：
+`logger` 是模块，`debug/info/success/warning/error/exception` 均为模块级函数；也可直接导入函数：
 
 ```python
-await Logger.start()
-try:
-    await run_application()
-finally:
-    await Logger.stop()
+from apixis.core.utils.logger import info
+
+info("Job received")
 ```
 
-- `Logger.start()` 启动后台刷新。
-- `Logger.flush()` 立即写出当前保留的记录。
-- `Logger.stop()` 停止已启动的刷新任务，并写出剩余记录。
+每次调用立即输出 ANSI 彩色文本，包含时间、`[APIX]`、级别和消息。`error()`、`exception()` 写入 stderr，其余写入 stdout。额外的位置参数使用 `%` 格式化，不传参数时保留消息原文。
 
-日志按 logger 名称写入 `SERVER.base_dir` 下的 `apixis` 目录。所有 logger 共享待写缓存，只保留最近 `LOG.buffer_size` 条记录，默认 1024 条；满时淘汰最旧记录，不影响控制台输出。
+在 `except` 分支中调用 `exception()` 会附带当前异常的 traceback；没有正在处理的异常时只输出消息。
 
-后台刷新由缓存达到条数或大小阈值触发，不保证低流量日志定时落盘。需要立即保存时调用 `flush()`；已被淘汰的记录无法再写入文件。未启动后台刷新时，也可以直接调用 `flush()`。
+日志模块无缓存、后台任务或文件操作，所有级别均直接输出。无需实例化日志类，也无需启动、停止或刷新。需要文件持久化或级别过滤时，由应用使用自己的日志设施。
 
 [日志配置](../config/README.md) · [文档首页](../../README.md)

@@ -6,7 +6,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
 
-from apixis.core.utils.logger import logger
+from apixis.core.utils import logger
 from apixis.core.event.base import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.utils.validation import validate_int, validate_number
