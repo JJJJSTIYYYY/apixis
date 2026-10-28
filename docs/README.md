@@ -24,7 +24,7 @@ pip install apixis
 | 使用本地事件队列 | [事件通道](./core/event/channels.md) |
 | 构建图、执行、流式输出、快照恢复和中断 | [图 API](./core/graph/README.md) |
 | 更新状态、选择下一跳和组织并发分支 | [图状态与 Command](./core/graph/state.md) |
-| 捕获框架异常、输出和保存日志 | [异常与日志](./core/utils/README.md) |
+| 捕获框架异常、输出日志 | [异常与日志](./core/utils/README.md) |
 
 ## 阅读约定
 

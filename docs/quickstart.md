@@ -93,7 +93,6 @@ asyncio.run(main())
 
 ```yaml
 LOG:
-  debug_level: INFO
   show_event_dispatch: false
 
 PIPELINE:
