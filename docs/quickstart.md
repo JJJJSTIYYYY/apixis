@@ -92,12 +92,11 @@ asyncio.run(main())
 在启动应用的工作目录中创建 `config.yaml`：
 
 ```yaml
-LOG:
-  show_event_dispatch: false
-
-PIPELINE:
-  event_pipe_max_len: 65536
-  event_loop_backpressure: 1024
+APIXIS:
+  EVENT:
+    show_event_dispatch: false
+    event_pipe_max_len: 65536
+    event_loop_backpressure: 1024
 ```
 
 配置在导入时读取，修改后需要重启应用。完整选项见[配置](./core/config/README.md)。

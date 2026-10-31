@@ -80,7 +80,7 @@ uv run --no-sync pytest tests/performance --run-performance
 uv run --no-sync pytest tests/performance --run-performance -k sleeping
 ```
 
-1 ms 等待场景沿用运行时的 `EVENT_LOOP_BACKPRESSURE`，不自行加载配置或修改背压。修改根目录 `config.yaml` 中的 `PIPELINE.event_loop_backpressure` 后，重新执行上述命令；保持其他参数相同，对比表格中的单轮耗时、吞吐量以及 JSON 中的延迟。表格显示实际信号量容量、每次调用的等待节点数和 `sleep` 参数（1 ms）。
+1 ms 等待场景沿用运行时的 `EVENT_LOOP_BACKPRESSURE`，不自行加载配置或修改背压。修改根目录 `config.yaml` 中的 `APIXIS.EVENT.event_loop_backpressure` 后，重新执行上述命令；保持其他参数相同，对比表格中的单轮耗时、吞吐量以及 JSON 中的延迟。表格显示实际信号量容量、每次调用的等待节点数和 `sleep` 参数（1 ms）。
 
 ## 一次运行三档背压
 

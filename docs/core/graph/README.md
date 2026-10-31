@@ -56,7 +56,7 @@ def choose(state):
 - `using_namespace=None` 或 `""`：自动生成进程内唯一的 namespace，不承诺跨进程唯一；
 - `GLOBALNS`：显式使用全局命名域；
 - `max_steps=1024`：非负整数，限制节点执行批次数；完成图不占额外步数，0 允许空图完成；
-- `max_snapshots=None`：使用 `GRAPH.max_snapshots`（默认 16）；传入正整数可覆盖；
+- `max_snapshots=None`：使用 `APIXIS.GRAPH.max_snapshots`（默认 16）；传入正整数可覆盖；
 - `no_snapshot=False`：默认在每批节点执行前保存完整快照；`True` 关闭自动快照，减少大 state 的复制与历史保留开销；
 - `exist_ok=False`：namespace 已占用时抛异常；
 - `exist_ok=True`：释放旧图并由新图接管。

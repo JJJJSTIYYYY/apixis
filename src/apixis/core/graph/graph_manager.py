@@ -98,7 +98,7 @@ class GraphManager:
                 list creates a graph that completes without executing nodes.
             max_steps: Non-negative number of node-dispatch batches allowed.
             max_snapshots: Positive retained checkpoint limit. None uses
-                ``GRAPH.max_snapshots`` from config.yaml (default 16).
+                ``APIXIS.GRAPH.max_snapshots`` from config.yaml (default 16).
             using_namespace: Namespace used by the compiled graph's event
                 listeners. ``None`` and an empty string generate a namespace
                 unique within the process. Pass ``GLOBALNS`` to explicitly

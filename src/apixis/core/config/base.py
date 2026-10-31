@@ -6,7 +6,7 @@ import yaml
 
 
 def _load_from_yaml(path: str) -> dict[str, Any]:
-    """Load configuration from a local YAML file."""
+    """Load only the APIXIS namespace from a local YAML file."""
     if not os.path.exists(path):
         return {}
 
@@ -21,7 +21,14 @@ def _load_from_yaml(path: str) -> dict[str, Any]:
             f"Config file must contain a YAML mapping, got {type(data).__name__}."
         )
 
-    return data
+    config = data.get("APIXIS")
+    if config is None:
+        return {}
+    if not isinstance(config, dict):
+        raise ValueError(
+            f"APIXIS configuration must contain a YAML mapping, got {type(config).__name__}."
+        )
+    return config
 
 
 def _get_config(path: str, default=None):

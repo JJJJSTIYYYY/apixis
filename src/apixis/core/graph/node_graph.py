@@ -82,7 +82,7 @@ class NodeGraph:
                 Completing without a next target consumes no additional
                 step and remains allowed when the last batch uses the budget.
             max_snapshots: Positive checkpoint count limit. None uses
-                ``GRAPH.max_snapshots`` (default 16).
+                ``APIXIS.GRAPH.max_snapshots`` (default 16).
             state_schema: Annotated schema compiled once for this graph.
                 Fields marked with ``Annotated[..., AutoMerge()]`` are
                 combined through their current value's ``__add__`` method.
