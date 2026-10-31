@@ -483,26 +483,27 @@ class NodeGraph:
         completion = context.completion
         if completion is None:
             raise RuntimeError("Completion in GraphContext could not be None.")
-        try:
-            if self._is_active_context(context):
-                await self._post_next(context.target_node_name, context)
-            # A parent handler must lend its permit while child dispatches run.
-            async with suspend_process():
-                result = await completion
-            # Checkpoint history must stay isolated even when output contains
-            # KeepRef fields. Normal completion follows the graph's copy policy.
-            if context.status == "aborted" and context.context_snapshot:
-                return copy.deepcopy(result)
-            return copy_state(result, self._keep_ref_keys)
-        except asyncio.CancelledError:
-            if context.status == "running":
-                context._cancel()
-            raise
-        except Exception as exc:
-            self._fail(context, exc)
-            if completion.done() and not completion.cancelled():
-                completion.exception()
-            raise
+        with apix_graph_context(context):
+            try:
+                if self._is_active_context(context):
+                    await self._post_next(context.target_node_name, context)
+                # A parent handler must lend its permit while child dispatches run.
+                async with suspend_process():
+                    result = await completion
+                # Checkpoint history must stay isolated even when output contains
+                # KeepRef fields. Normal completion follows the graph's copy policy.
+                if context.status == "aborted" and context.context_snapshot:
+                    return copy.deepcopy(result)
+                return copy_state(result, self._keep_ref_keys)
+            except asyncio.CancelledError:
+                if context.status == "running":
+                    context._cancel()
+                raise
+            except Exception as exc:
+                self._fail(context, exc)
+                if completion.done() and not completion.cancelled():
+                    completion.exception()
+                raise
 
     async def _execute_one_node(
         self,
@@ -541,15 +542,14 @@ class NodeGraph:
         if not self._no_snapshot:
             context.take_a_snapshot()
         try:
-            with apix_graph_context(context):
-                tasks = [
-                    asyncio.create_task(
-                        self._execute_one_node(current_name, context),
-                        name=f"graph-node-{current_name}-{context.run_id}",
-                    )
-                    for current_name in normalized_node_names
-                ]
-                results = await BaseNode._gather_tasks_in_order(tasks)
+            tasks = [
+                asyncio.create_task(
+                    self._execute_one_node(current_name, context),
+                    name=f"graph-node-{current_name}-{context.run_id}",
+                )
+                for current_name in normalized_node_names
+            ]
+            results = await BaseNode._gather_tasks_in_order(tasks)
 
             # An aborted attempt may finish its old node after a caller has
             # already received the saved snapshot. Its result must never

@@ -1,13 +1,19 @@
 """Tests for local event queues and publication."""
 
 import asyncio
+from contextvars import ContextVar
+import gc
 import time
+import weakref
 
 import pytest
 
-from apixis.core.event import BuiltinChannel, EventType
+from apixis.core.event import BuiltinChannel, EventType, subscribe
 from apixis.core.event.factory import get_event_pipe
 from apixis.core.event.event_pipe import ApixEventPipe
+
+
+_publication_context = ContextVar("event_pipe_test_context", default=None)
 
 
 class TestBuiltinChannel:
@@ -88,6 +94,68 @@ class TestApixEventPipeEvents:
         ]
         for _ in events:
             pipe.task_done()
+
+    async def test_publication_captures_independent_context_bindings(
+        self, cleanup_event_runtime, wait_for_dispatch,
+    ):
+        core = cleanup_event_runtime
+        pipe = core.event_pipe
+        await core.event_loop.stop()
+        observed = {}
+
+        @subscribe("context.*", priority=10)
+        async def observe_publication(event):
+            observed[event.event_name] = [_publication_context.get()]
+            _publication_context.set("handler")
+
+        @subscribe("context.*")
+        async def observe_handler_change(event):
+            observed[event.event_name].append(_publication_context.get())
+
+        token = _publication_context.set("first")
+        try:
+            await pipe.post_event(event_type=EventType.INFO, event_name="context.first")
+            _publication_context.set("second")
+            await pipe.post_event(event_type=EventType.INFO, event_name="context.second")
+        finally:
+            _publication_context.reset(token)
+
+        await core.event_loop.start()
+        await wait_for_dispatch(core.event_loop)
+        assert observed == {
+            "context.first": ["first", "handler"],
+            "context.second": ["second", "handler"],
+        }
+        assert _publication_context.get() is None
+
+    async def test_retained_event_releases_publisher_context_after_dispatch(
+        self, cleanup_event_runtime, wait_for_dispatch,
+    ):
+        class Request:
+            pass
+
+        events = []
+
+        @subscribe("context.retained")
+        async def retain_event(event):
+            assert isinstance(_publication_context.get(), Request)
+            events.append(event)
+
+        request = Request()
+        reference = weakref.ref(request)
+        token = _publication_context.set(request)
+        try:
+            await cleanup_event_runtime.event_pipe.post_event(
+                event_type=EventType.INFO, event_name="context.retained",
+            )
+        finally:
+            _publication_context.reset(token)
+        del request
+
+        await wait_for_dispatch(cleanup_event_runtime.event_loop)
+        gc.collect()
+        assert len(events) == 1
+        assert reference() is None
 
     @pytest.mark.asyncio
     async def test_clear_acknowledges_all_queued_events(self):

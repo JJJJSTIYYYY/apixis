@@ -21,7 +21,9 @@ from apixis.core.graph import GraphManager
 
 
 pytestmark = pytest.mark.parametrize(
-    "event_runtime_capacity", [(1, 1), (1, 2), (2, 1), (2, 2)], indirect=True,
+    "event_runtime_capacity",
+    [(capacity, queue) for capacity in (1, 2, 3) for queue in (1, 2, 3)],
+    indirect=True,
 )
 
 

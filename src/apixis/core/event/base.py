@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import traceback
-from contextvars import ContextVar
+from contextvars import Context, ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -145,6 +145,9 @@ class ApixEvent:
     accepted: bool = False
     seen: list[str] = field(default_factory=list) # Handler names recorded immediately before core execution.
     error_stack: list[ApixEventError] = field(default_factory=list)
+    _execution_context: Context | None = field(
+        default=None, init=False, repr=False, compare=False,
+    )
 
     def accept(self) -> None:
         '''

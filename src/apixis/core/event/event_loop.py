@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import suppress
+from contextvars import copy_context
 from datetime import datetime
 from functools import partial
 import traceback
@@ -154,15 +155,20 @@ class ApixEventLoop:
                             f" \033[38;5;116m{event.event_name}\033[0m"
                         )
 
+                    # Transfer the snapshot to the task; retained events should
+                    # not keep the publisher's context variables alive.
+                    execution_context, event._execution_context = (
+                        event._execution_context, None,
+                    )
+                    if execution_context is None:
+                        execution_context = copy_context()
+                    execution_context.run(handler_chain_context.set, chain)
                     coroutine = self._dispatch_event(event, handler_chain)
-                    token = handler_chain_context.set(chain)
                     try:
-                        task = asyncio.create_task(coroutine)
+                        task = asyncio.create_task(coroutine, context=execution_context)
                     except BaseException:
                         coroutine.close()
                         raise
-                    finally:
-                        handler_chain_context.reset(token)
 
                 except BaseException as exc:
                     chain.closed = True
@@ -192,6 +198,7 @@ class ApixEventLoop:
                     with suppress(Exception):
                         del event
                         del handler_chain
+                        del execution_context
                         del task
 
         except asyncio.CancelledError:

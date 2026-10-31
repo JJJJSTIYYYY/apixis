@@ -90,6 +90,10 @@ result = await graph.invoke(graph_context=context)
 
 在前台事件 handler 或图节点中等待另一个图的 `invoke()` 时，等待完成期间会挂起当前 handler chain、释放其调度容量，并在继续执行前恢复容量。
 
+每次调用在执行入口绑定一次图上下文。节点、注册在图 dispatch handler 前后的插件，以及由节点发布的中断 hook，均可通过 `get_graph_context()`、`get_current_run_id()` 和 `get_stream_writer()` 访问该次调用的上下文。不同调用相互隔离，嵌套图结束后恢复外层绑定。
+
+调用方的 `ContextVar` 绑定随事件传播；子 task 对绑定的修改不会回写父 task，也不会自动传给后续节点。跨节点数据通过 state / `Command` 传递；变量值中的可变对象仍按引用共享。
+
 ## Stream
 
 ```python
@@ -107,6 +111,8 @@ writer.write({"progress": 0.5})
 ```
 
 向图外实时发送数据。
+
+`stream()` 在开始迭代时继承调用方上下文，图上下文绑定在独立的执行 task 内，消费 chunk 的代码保留自己的上下文。调用进入终态后，仍在执行的插件通过 `get_stream_writer()` 取得的 writer 不再发送 chunk。
 
 ## `GraphContext`
 

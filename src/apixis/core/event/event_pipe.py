@@ -1,6 +1,7 @@
 """Bounded local event publication for the asyncio event core."""
 
 import asyncio
+from contextvars import copy_context
 import time
 from typing import Any
 from uuid import uuid4
@@ -49,6 +50,7 @@ class ApixEventPipe:
         """Create and publish a local event.
 
         Publication waits for queue capacity, not event completion.
+        Handlers inherit a snapshot of the publisher's context variables.
         Within a managed handler, return its permit during publication and
         reacquire it before continuing, including after errors or cancellation.
 
@@ -65,6 +67,7 @@ class ApixEventPipe:
             timestamp=time.time(),
             accepted=False,
         )
+        event._execution_context = copy_context()
         async with suspend_process():
             await self.put(event)
 
