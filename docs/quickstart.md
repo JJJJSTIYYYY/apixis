@@ -92,9 +92,11 @@ asyncio.run(main())
 ```yaml
 APIXIS:
   EVENT:
-    show_event_dispatch: false
     event_pipe_max_len: 65536
     event_loop_backpressure: 1024
+  LOG:
+    level: INFO
+    show_event_dispatch: false
 ```
 
 配置在导入时读取，修改后需要重启应用。完整选项见[配置](./core/config/README.md)。

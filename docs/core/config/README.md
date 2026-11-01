@@ -7,21 +7,26 @@ APIXIS 在导入配置模块时读取当前工作目录中的 `config.yaml`。�
 ```yaml
 APIXIS:
   EVENT:
-    show_event_dispatch: false
     event_pipe_max_len: 65536
     event_loop_backpressure: 1024
     handler_chain_cache_size: 8192
   GRAPH:
     max_snapshots: 16
+  LOG:
+    show_event_dispatch: false
+    level: NONE
 ```
 
-## 事件分发输出
+## 事件日志输出
 
 | 路径 | 默认值 | 说明 |
 | --- | --- | --- |
-| `APIXIS.EVENT.show_event_dispatch` | `true` | 是否额外输出每次事件分发的信息 |
+| `APIXIS.LOG.level` | `NONE` | 最低日志级别：`DEBUG`、`INFO`、`SUCCESS`、`WARNING`、`ERROR`；`NONE` 关闭日志 |
+| `APIXIS.LOG.show_event_dispatch` | `false` | 是否额外打印每次事件分发的信息，独立于日志级别 |
 
-彩色日志函数直接输出到控制台，无需配置。使用方式见[日志接口](../utils/README.md)。
+日志只输出不低于所设级别的消息，顺序为 `DEBUG < INFO < SUCCESS < WARNING < ERROR`；`exception()` 按 `ERROR` 过滤，关闭时连同 traceback 一起省略。级别名称忽略大小写及首尾空白，非法名称抛出 `ValueError`，非字符串抛出 `TypeError`；省略或设为 YAML `null` 时使用 `NONE`。
+
+事件分发开关只读取 `APIXIS.LOG.show_event_dispatch`，原 `APIXIS.EVENT.show_event_dispatch` 不再读取。日志函数使用方式见[日志接口](../utils/README.md)。
 
 ## 队列与并发
 

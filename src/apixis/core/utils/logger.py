@@ -1,18 +1,25 @@
-"""Stateless ANSI-colored console output through module-level functions."""
+"""Level-filtered ANSI-colored console output through module-level functions."""
 
 from datetime import datetime
 import sys
 import traceback
 
+from apixis.core.config import core_config
+
 
 __all__ = ["debug", "info", "success", "warning", "error", "exception"]
 
+_LEVELS = {"DEBUG": 10, "INFO": 20, "SUCCESS": 25, "WARNING": 30, "ERROR": 40, "NONE": 50}
 
-def _write(level: str, color: str, message: object, *args: object) -> None:
+
+def _write(level: str, color: str, message: object, *args: object) -> bool:
+    if _LEVELS[level] < _LEVELS[core_config.LOG_LEVEL]:
+        return False
     text = str(message) % args if args else str(message)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     stream = sys.stderr if level == "ERROR" else sys.stdout
-    print(f"\033[{color}m{timestamp} [APIX] [{level}] {text}\033[0m", file=stream)
+    print(f"\033[{color}m{timestamp} [APIXIS] [{level}] {text}\033[0m", file=stream)
+    return True
 
 
 def debug(message: object, *args: object) -> None:
@@ -42,6 +49,5 @@ def error(message: object, *args: object) -> None:
 
 def exception(message: object, *args: object) -> None:
     """Print an error and the current exception's traceback, if any, to stderr."""
-    error(message, *args)
-    if sys.exception() is not None:
+    if _write("ERROR", "91", message, *args) and sys.exception() is not None:
         traceback.print_exc()

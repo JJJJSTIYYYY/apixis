@@ -52,10 +52,9 @@ def backpressure_settings(request):
 @pytest.fixture(autouse=True)
 def quiet_runtime_logs(monkeypatch):
     """Keep console output out of measurements while preserving error logging."""
-    logger_module = importlib.import_module("apixis.core.utils.logger")
+    config_module = importlib.import_module("apixis.core.config.core_config")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
-    for name in ("debug", "info", "success", "warning"):
-        monkeypatch.setattr(logger_module, name, lambda *args, **kwargs: None)
+    monkeypatch.setattr(config_module, "LOG_LEVEL", "ERROR")
     monkeypatch.setattr(loop_module, "SHOW_EVENT_DISPATCH", False)
 
 

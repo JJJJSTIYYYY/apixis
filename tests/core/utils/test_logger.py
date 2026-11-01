@@ -9,6 +9,12 @@ import pytest
 
 import apixis
 from apixis import logger
+from apixis.core.config import core_config
+
+
+@pytest.fixture(autouse=True)
+def enable_logging(monkeypatch):
+    monkeypatch.setattr(core_config, "LOG_LEVEL", "DEBUG")
 
 
 def test_public_logger_is_the_module_with_no_legacy_class_or_lifecycle():
@@ -34,7 +40,7 @@ def test_colored_output_includes_timestamp_level_and_formatted_message(
     output = getattr(captured, stream)
     assert re.fullmatch(
         rf"\x1b\[{color}m\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}"
-        rf" \[APIX\] \[{level}\] job ready took 3 ms\x1b\[0m\n",
+        rf" \[APIXIS\] \[{level}\] job ready took 3 ms\x1b\[0m\n",
         output,
     )
     assert not getattr(captured, "err" if stream == "out" else "out")
@@ -66,6 +72,65 @@ def test_exception_without_active_error_only_prints_message(capsys):
     assert "[ERROR] Failed" in captured.err
     assert "NoneType: None" not in captured.err
     assert "Traceback" not in captured.err
+
+
+@pytest.mark.parametrize("threshold, expected", [
+    ("DEBUG", ["DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR"]),
+    ("INFO", ["INFO", "SUCCESS", "WARNING", "ERROR"]),
+    ("SUCCESS", ["SUCCESS", "WARNING", "ERROR"]),
+    ("WARNING", ["WARNING", "ERROR"]),
+    ("ERROR", ["ERROR"]),
+    ("NONE", []),
+])
+def test_log_level_filters_all_message_functions(monkeypatch, capsys, threshold, expected):
+    monkeypatch.setattr(core_config, "LOG_LEVEL", threshold)
+    for name in ("debug", "info", "success", "warning", "error"):
+        getattr(logger, name)("message")
+    captured = capsys.readouterr()
+    assert re.findall(r"\[APIXIS\] \[(\w+)\]", captured.out + captured.err) == expected
+
+
+def test_none_suppresses_errors_tracebacks_and_message_formatting(monkeypatch, capsys):
+    monkeypatch.setattr(core_config, "LOG_LEVEL", "NONE")
+
+    class Unformattable:
+        def __str__(self):
+            raise AssertionError("Filtered messages must not be formatted")
+
+    try:
+        raise ValueError("hidden error")
+    except ValueError:
+        for name in ("debug", "info", "success", "warning", "error", "exception"):
+            getattr(logger, name)(Unformattable(), "unused argument")
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert not captured.err
+
+
+def test_filtered_messages_skip_percent_interpolation(monkeypatch, capsys):
+    monkeypatch.setattr(core_config, "LOG_LEVEL", "ERROR")
+    logger.debug("%d", "not a number")
+    assert not capsys.readouterr().out
+
+
+@pytest.mark.parametrize("show_dispatch", [False, True])
+async def test_dispatch_output_is_controlled_separately_from_log_level(
+    monkeypatch, capsys, cleanup_event_runtime, wait_for_dispatch, show_dispatch,
+):
+    from apixis import EventType
+    from apixis.core.event import event_loop
+
+    monkeypatch.setattr(core_config, "LOG_LEVEL", "NONE")
+    monkeypatch.setattr(event_loop, "SHOW_EVENT_DISPATCH", show_dispatch)
+    await cleanup_event_runtime.event_pipe.post_event(
+        event_type=EventType.INFO, event_name="logging.dispatch",
+    )
+    await wait_for_dispatch(cleanup_event_runtime.event_loop)
+    captured = capsys.readouterr()
+    assert ("[EVENT LOOP]" in captured.out) is show_dispatch
+    assert ("logging.dispatch" in captured.out) is show_dispatch
+    assert "[APIXIS]" not in captured.out
+    assert not captured.err
 
 
 async def test_repeated_logging_needs_no_startup_and_creates_no_tasks_or_files(

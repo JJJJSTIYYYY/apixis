@@ -61,11 +61,11 @@ def test_yaml_rejects_non_mapping(tmp_path):
 def test_yaml_reads_only_apixis_namespace(tmp_path):
     path = tmp_path / "config.yaml"
     path.write_text(
-        "APIXIS:\n  EVENT:\n    show_event_dispatch: false\n"
-        "EVENT:\n  show_event_dispatch: true\nSERVER:\n  base_dir: /app\n",
+        "APIXIS:\n  LOG:\n    show_event_dispatch: false\n"
+        "LOG:\n  show_event_dispatch: true\nSERVER:\n  base_dir: /app\n",
         encoding="utf-8",
     )
-    assert base._load_from_yaml(str(path)) == {"EVENT": {"show_event_dispatch": False}}
+    assert base._load_from_yaml(str(path)) == {"LOG": {"show_event_dispatch": False}}
 
 
 @pytest.mark.parametrize("content", [
@@ -92,12 +92,13 @@ def test_legacy_categories_are_not_read(monkeypatch):
     try:
         with monkeypatch.context() as patch:
             patch.setattr(base, "_config", {
-                "LOG": {"show_event_dispatch": False},
+                "EVENT": {"show_event_dispatch": True},
                 "PIPELINE": {"event_pipe_max_len": 1, "event_loop_backpressure": 128,
                              "handler_chain_cache_size": 1},
             })
             importlib.reload(core_config)
-            assert core_config.SHOW_EVENT_DISPATCH is True
+            assert core_config.SHOW_EVENT_DISPATCH is False
+            assert core_config.LOG_LEVEL == "NONE"
             assert core_config.EVENT_PIPE_MAX_LEN == 65536
             assert core_config.EVENT_LOOP_BACKPRESSURE == 1024
             assert core_config.HANDLER_CHAIN_CACHE_SIZE == 8192
@@ -132,6 +133,7 @@ def test_yaml_import_contract_and_snapshot_default_in_fresh_process(tmp_path):
         "  GRAPH:\n    max_snapshots: 3\n"
         "  EVENT:\n    event_pipe_max_len: 2\n    event_loop_backpressure: 1\n"
         "    handler_chain_cache_size: 7\n    show_event_dispatch: false\n"
+        "  LOG:\n    level: warning\n    show_event_dispatch: true\n"
         "GRAPH:\n  max_snapshots: 99\nEVENT:\n  event_pipe_max_len: 99\n",
         encoding="utf-8",
     )
@@ -143,7 +145,11 @@ assert core_config.GRAPH_MAX_SNAPSHOTS == 3
 assert core_config.EVENT_PIPE_MAX_LEN == 2
 assert core_config.EVENT_LOOP_BACKPRESSURE == 128
 assert core_config.HANDLER_CHAIN_CACHE_SIZE == 7
-assert core_config.SHOW_EVENT_DISPATCH is False
+assert core_config.SHOW_EVENT_DISPATCH is True
+assert core_config.LOG_LEVEL == "WARNING"
+from apixis import logger
+logger.info("filtered info")
+logger.warning("visible warning")
 graph = GraphManager().compile_graph(None)
 assert graph.create_context({}).max_snapshots == 3
 Path("config.yaml").write_text("APIXIS:\\n  GRAPH:\\n    max_snapshots: 5\\n")
@@ -156,3 +162,49 @@ graph.decompose()
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, result.stderr
+    assert "filtered info" not in result.stdout
+    assert "[WARNING] visible warning" in result.stdout
+
+
+@pytest.mark.parametrize("value, expected", [
+    (None, "NONE"),
+    ("debug", "DEBUG"),
+    (" INFO ", "INFO"),
+    ("SUCCESS", "SUCCESS"),
+    ("warning", "WARNING"),
+    ("ERROR", "ERROR"),
+    ("none", "NONE"),
+])
+def test_log_level_normalization(monkeypatch, value, expected):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {"LOG": {"level": value}})
+            importlib.reload(core_config)
+            assert core_config.LOG_LEVEL == expected
+    finally:
+        importlib.reload(core_config)
+
+
+@pytest.mark.parametrize("value", ["", "VERBOSE", 20, False, [], {}])
+def test_log_level_rejects_invalid_values(monkeypatch, value):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {"LOG": {"level": value}})
+            with pytest.raises(ValueError if isinstance(value, str) else TypeError, match="APIXIS.LOG.level"):
+                importlib.reload(core_config)
+    finally:
+        importlib.reload(core_config)
+
+
+@pytest.mark.parametrize("show_dispatch", [False, True])
+def test_event_dispatch_setting_uses_log_section(monkeypatch, show_dispatch):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {
+                "EVENT": {"show_event_dispatch": not show_dispatch},
+                "LOG": {"show_event_dispatch": show_dispatch},
+            })
+            importlib.reload(core_config)
+            assert core_config.SHOW_EVENT_DISPATCH is show_dispatch
+    finally:
+        importlib.reload(core_config)

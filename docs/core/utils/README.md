@@ -37,10 +37,12 @@ from apixis.core.utils.logger import info
 info("Job received")
 ```
 
-每次调用立即输出 ANSI 彩色文本，包含时间、`[APIX]`、级别和消息。`error()`、`exception()` 写入 stderr，其余写入 stdout。额外的位置参数使用 `%` 格式化，不传参数时保留消息原文。
+通过 `APIXIS.LOG.level` 设置最低输出级别，默认为 `NONE`（关闭日志）。例如设为 `INFO` 时输出 `info/success/warning/error/exception`，省略 `debug`；级别顺序为 `DEBUG < INFO < SUCCESS < WARNING < ERROR`。
 
-在 `except` 分支中调用 `exception()` 会附带当前异常的 traceback；没有正在处理的异常时只输出消息。
+通过级别过滤的调用立即输出 ANSI 彩色文本，包含时间、`[APIXIS]`、级别和消息。`error()`、`exception()` 写入 stderr，其余写入 stdout。额外的位置参数使用 `%` 格式化，不传参数时保留消息原文。
 
-日志模块无缓存、后台任务或文件操作，所有级别均直接输出。无需实例化日志类，也无需启动、停止或刷新。需要文件持久化或级别过滤时，由应用使用自己的日志设施。
+在 `except` 分支中调用 `exception()` 会附带当前异常的 traceback；没有正在处理的异常时只输出消息。`exception()` 按 `ERROR` 过滤，`NONE` 会同时关闭错误消息和 traceback。
+
+日志模块无缓存、后台任务或文件操作。无需实例化日志类，也无需启动、停止或刷新。需要文件持久化时，由应用使用自己的日志设施。
 
 [日志配置](../config/README.md) · [文档首页](../../README.md)
