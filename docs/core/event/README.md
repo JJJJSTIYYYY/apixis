@@ -17,6 +17,12 @@ from apixis import start_core
 await start_core()
 ```
 
+### `await stop_core()`
+
+暂停共享 core：取消尚未完成的自动启动，依次停止事件消费者和 pipe。未构建时直接返回，重复调用安全；保留组件、订阅、队列和待分发事件，供后续 `start_core()` 或 getter 恢复使用。启动与停止通过同一把锁串行执行。
+
+已启动的前台处理和后台任务继续运行，接口不等待它们完成。应用关闭前应先等待自身需要完成的业务工作。
+
 ### 同步 getters
 
 - `get_event_registry()` → `ApixEventRegistry`
@@ -332,14 +338,11 @@ handler 等待的工作有时也需要事件循环继续分发。如果等待方
 应用入口可以显式管理共享组件：
 
 ```python
-from apixis import get_event_loop, get_event_pipe
+from apixis import stop_core
 
-event_loop = get_event_loop()
-pipe = get_event_pipe()
-await event_loop.stop()
-await pipe.stop()
+await stop_core()
 ```
 
-`event_loop.stop()` 暂停取出新事件，保留队列和待分发事件；已经启动的前台处理和后台任务继续运行，停止接口不会等待它们完成。关闭应用前，应先等待应用自身需要完成的业务工作。`pipe.stop()` 重置启动状态并保留队列内容，详见[事件通道](./channels.md)。
+`stop_core()` 统一管理共享组件。独立创建的组件仍可分别调用 `event_loop.stop()` 和 `pipe.stop()`，详见[事件通道](./channels.md)。停止后在 asyncio 中调用 getter 会触发自动重启。
 
 [处理器](./handlers.md) · [事件通道](./channels.md) · [文档首页](../../README.md)

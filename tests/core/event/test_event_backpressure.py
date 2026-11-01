@@ -613,6 +613,46 @@ async def test_stop_and_restart_preserve_queued_events(runtime, wait_for_dispatc
     assert completed == [f"queued.{index}" for index in range(pipe.maxsize)]
 
 
+@pytest.mark.parametrize("runtime", [1, 2], indirect=True)
+@pytest.mark.parametrize("background", [False, True])
+async def test_stop_core_preserves_active_work_and_full_queue(
+    runtime, wait_for_dispatch, background,
+):
+    pipe, loop = runtime
+    entered, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    completed = []
+
+    @subscribe("active", background=background)
+    async def active(event):
+        entered.set()
+        await release.wait()
+        finished.set()
+
+    @subscribe("queued.*")
+    async def receive(event):
+        completed.append(event.event_name)
+
+    try:
+        await pipe.post_event(event_type=EventType.INFO, event_name="active")
+        await asyncio.wait_for(entered.wait(), 1)
+        await asyncio.wait_for(factory.stop_core(), 1)
+        assert not finished.is_set()
+        assert not pipe.is_running
+        assert not loop._started
+        for index in range(pipe.maxsize):
+            await pipe.post_event(event_type=EventType.INFO, event_name=f"queued.{index}")
+        assert pipe.full()
+        await factory.stop_core()
+        assert pipe.full()
+        release.set()
+        await asyncio.wait_for(finished.wait(), 1)
+        await factory.start_core()
+        await wait_for_dispatch(loop)
+        assert completed == [f"queued.{index}" for index in range(pipe.maxsize)]
+    finally:
+        release.set()
+
+
 @pytest.mark.parametrize("runtime", [1], indirect=True)
 @pytest.mark.parametrize("mode", ["single", "nested", "parallel", "outer_parallel"])
 @pytest.mark.parametrize("fail", [False, True])

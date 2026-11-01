@@ -29,6 +29,7 @@ from apixis.core.event.handler_registry import (
 )
 from apixis.core.event.factory import (
     start_core,
+    stop_core,
     get_event_registry,
     get_event_pipe,
     get_handler_registry,
@@ -56,6 +57,7 @@ from apixis.core.event.event_registry import (
 
 __all__ = [
     "start_core",
+    "stop_core",
     "get_event_registry",
     "get_event_pipe",
     "get_handler_registry",

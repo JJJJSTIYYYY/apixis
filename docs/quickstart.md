@@ -52,7 +52,7 @@ asyncio.run(main())
 import asyncio
 
 from apixis import (
-    EventType, get_event_loop, get_event_pipe, start_core, subscribe, unsubscribe,
+    EventType, get_event_pipe, start_core, stop_core, subscribe, unsubscribe,
 )
 
 
@@ -65,7 +65,6 @@ async def main() -> None:
         handled.set()
 
     pipe = get_event_pipe()
-    event_loop = get_event_loop()
     try:
         await start_core()
         await pipe.post_event(
@@ -76,8 +75,7 @@ async def main() -> None:
         await handled.wait()
     finally:
         unsubscribe("observe")
-        await event_loop.stop()
-        await pipe.stop()
+        await stop_core()
 
 
 asyncio.run(main())

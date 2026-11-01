@@ -1,4 +1,4 @@
-"""Construct and start the shared event core with explicit dependencies.
+"""Construct, start, and stop the shared event core with explicit dependencies.
 
 Getters construct components on first access and schedule shared startup when
 called inside asyncio. Await start_core() when startup completion or errors
@@ -70,6 +70,27 @@ async def _start_core(core: EventCore) -> None:
     async with core.start_lock:
         await core.event_pipe.start()
         await core.event_loop.start()
+
+
+async def stop_core() -> None:
+    """Pause the shared core without constructing it if it does not exist.
+
+    Cancel automatic startup, then stop the consumer and pipe under the startup
+    lock. Preserve components, subscriptions, and queued events for restart.
+    Existing dispatch and background tasks continue without being awaited.
+    A later start_core() or getter can restart the same core.
+    """
+    core = _core
+    if core is None:
+        return
+    if core.start_task is not None and not core.start_task.done():
+        core.start_task.cancel()
+        await asyncio.gather(core.start_task, return_exceptions=True)
+    async with core.start_lock:
+        try:
+            await core.event_loop.stop()
+        finally:
+            await core.event_pipe.stop()
 
 
 def _ensure_started(core: EventCore) -> None:
@@ -151,7 +172,7 @@ async def aget_event_loop() -> ApixEventLoop:
 
 
 __all__ = [
-    "start_core", "get_event_registry", "get_event_pipe", "get_handler_registry",
+    "start_core", "stop_core", "get_event_registry", "get_event_pipe", "get_handler_registry",
     "aget_event_registry", "aget_event_pipe", "aget_handler_registry",
     "get_event_loop", "aget_event_loop",
 ]

@@ -11,6 +11,7 @@ from apixis import GraphManager, EventType, subscribe, __version__
 | 接口 | 用途 |
 | --- | --- |
 | `start_core()`、`get_*()`、`aget_*()` | 唤起并访问共享事件系统 |
+| `stop_core()` | 暂停共享事件系统，保留组件和待处理事件 |
 | `ApixEvent`、`EventType` | 表示事件及其类别 |
 | `subscribe()`、`unsubscribe()`、`ApixEventHandler` | 注册、配置与注销处理器 |
 | `ApixEventPipe` | 发布本地事件、跨节点发送、检查队列 |
