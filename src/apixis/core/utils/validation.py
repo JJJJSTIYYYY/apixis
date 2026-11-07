@@ -1,6 +1,15 @@
-"""Shared validation for runtime capacities, budgets and numeric options."""
+"""Shared validation for runtime options."""
 
 import math
+
+
+def validate_non_empty_string(value: object, name: str) -> str:
+    """Require a string with at least one character."""
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if not value:
+        raise ValueError(f"{name} cannot be empty.")
+    return value
 
 
 def validate_int(value: object, name: str, *, minimum: int | None = None) -> int:

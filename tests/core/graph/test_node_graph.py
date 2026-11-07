@@ -662,13 +662,15 @@ def test_decompose_unregisters_only_graph_handlers_and_is_idempotent():
         "node",
         using_namespace="decompose",
     )
-    graph_handler_names = set(graph._handlers)
+    graph_handler_names = {
+        name for name, handler in get_handler_registry().registry.items()
+        if handler.group == graph.handler_group
+    }
 
     graph.decompose()
     graph.decompose()
 
     assert graph._decomposed is True
-    assert graph._handlers == {}
     assert graph_handler_names.isdisjoint(get_handler_registry().registry)
     assert get_handler_registry().get_handlers_chain_for_event("node") == [
         retained_plugin.__name__
@@ -743,7 +745,7 @@ async def test_decompose_rejects_active_invocation():
         graph.decompose(force=False)
 
     assert graph._decomposed is False
-    assert graph._handlers
+    assert get_handler_registry().get_handler(graph.dispatch_name).group == graph.handler_group
 
     release.set()
     assert await invocation == {"finished": True}

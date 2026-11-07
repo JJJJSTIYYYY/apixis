@@ -276,7 +276,10 @@ def test_compile_exist_ok_decomposes_and_replaces_original_graph(namespace):
     }
 
     assert first_graph._decomposed is True
-    assert first_graph._handlers == {}
+    assert all(
+        handler.group != first_graph.handler_group
+        for handler in get_handler_registry().registry.values()
+    )
     assert first_callbacks.isdisjoint(replacement_callbacks)
     assert len(replacement_callbacks) == 1
     assert namespace_set == {namespace}

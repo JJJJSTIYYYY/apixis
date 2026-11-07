@@ -22,6 +22,7 @@ def subscribe(
     stop_when_error: bool | None = None,
     time_out: float | None = None,
     background: bool | None = None,
+    group: str | None = None,
 ):
     """Register an async handler for one or more event-name patterns.
 
@@ -176,6 +177,11 @@ def subscribe(
             If ``True``, schedule the handler as a background task without
             waiting for it before dispatching subsequent handlers.
 
+        group:
+            Non-empty, case-sensitive group name for indexed batch removal.
+            None preserves a supplied instance's group. New handlers default
+            to ``"global"``. Names remain unique across groups.
+
     Dispatch rules:
         1. Each event instance is dispatched in its own task.
         2. Higher-priority buckets dispatch before lower-priority buckets.
@@ -225,11 +231,11 @@ def subscribe(
             ``between_handlers`` is malformed; both boundaries are ``None``;
             boundary names are empty or equal; explicit priority is combined
             with boundaries; boundaries are reversed; or priority is not
-            finite.
+            finite; or the group is empty.
 
         TypeError:
             If a priority is not numeric or the decorated callback is not
-            callable.
+            callable, or the group is not a string.
 
         EventHandlerNotRegisteredError:
             If a non-``None`` boundary handler is not actively registered.
@@ -255,6 +261,8 @@ def subscribe(
         entry.filter_event = filter_event if filter_event is not None else []
         entry.priority = 1 if priority is None and between_handlers is None else priority
         entry.between_handlers = between_handlers
+        if group is not None:
+            entry.group = group
         # Explicit execution options override the supplied instance's settings.
         # None preserves its setting; non-positive timeouts disable its limit.
         if stop_when_error is not None:
@@ -274,15 +282,25 @@ def subscribe(
 
 
 def unsubscribe(
-    handler_name: str,
+    handler_name: str | None = None,
     *,
+    group: str | None = None,
     missing_ok: bool = True,
 ) -> None:
-    """Remove a global handler; optionally reject unknown names.
+    """Remove one handler by name or all handlers in an exact group.
 
+    Supply exactly one of ``handler_name`` and ``group``. Group removal uses
+    the group index without scanning the handler registry. Unknown names or
+    groups are ignored unless ``missing_ok=False``.
     Already dequeued events retain their captured handler references.
     """
-    get_handler_registry().unregister_handler(handler_name, missing_ok = missing_ok)
+    if (handler_name is None) == (group is None):
+        raise ValueError("Supply exactly one of handler_name and group.")
+    registry = get_handler_registry()
+    if group is not None:
+        registry.unregister_group(group, missing_ok=missing_ok)
+    elif handler_name is not None:
+        registry.unregister_handler(handler_name, missing_ok=missing_ok)
 
 
 def get_handler(
@@ -300,6 +318,7 @@ def get_handler_meta(
     return {
         'id': handler.id,
         'name': handler.name,
+        'group': handler.group,
         'register_order': handler._register_order,
         'subscribe': deepcopy(handler.subscribe),
         'filter_event': deepcopy(handler.filter_event),

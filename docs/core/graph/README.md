@@ -218,6 +218,20 @@ graph.decompose()
 
 `decompose(force=True)` 会中止 `running` context 并释放 handler / namespace；`force=False` 仅在仍有 `running` context 时抛异常。`pending` context 保持原状态，但之后通过已分解的图调用 `invoke()` / `stream()` 会抛异常。
 
+图的 dispatch handler、兜底中断 handler 和 `graph.add_interrupted_hook()` 注册的 hook 统一归入 `graph.handler_group`，分解或初始化失败时通过 group 索引批量注销。该组名包含 namespace 和 graph_id，namespace 复用时每个图实例的清理范围独立。
+
+需要随图一起清理的自定义事件处理器，可显式加入此组：
+
+```python
+from apixis import subscribe
+
+@subscribe(graph.dispatch_name, group=graph.handler_group)
+async def observe_graph(event):
+    ...
+```
+
+普通 `subscribe()` 和独立 `interrupted_hook(namespace)` 注册的 handler 默认仍使用 `"global"` 组，由调用方管理其生命周期。移除图的处理器组会影响后续事件分发；正常释放图时使用 `graph.decompose()`，一并处理运行中的 context 和 namespace。
+
 ### 使用上下文管理器自动管理生命周期
 
 ```python

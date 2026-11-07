@@ -273,14 +273,17 @@ unsubscribe("observe_job")
 ```
 
 - `unsubscribe(name, missing_ok=True)`：移除 handler；
+- `unsubscribe(group="workers", missing_ok=True)`：通过分组索引批量移除组内 handler，与 name 二选一；
 - `get_handler(name)`：返回 handler 或 `None`；
 - `get_handler_meta(name)`：读取独立的注册元数据副本，修改返回值不影响订阅、过滤或排序；
 - `is_registered(name)`：检查是否注册；
 - `get_unmatched_subscriptions(name)`：返回当前尚未观察到匹配事件名的订阅模式。
 
+`ApixEventHandler` 默认 `group="global"`。`subscribe(..., group="workers")` 或 `handler.register(..., group="workers")` 可指定分组；省略 group 或传入 `None` 时保留已有实例的分组。`handler.unregister(same_group=True)` 注销其 group 的全部成员。分组名是区分大小写的非空字符串，handler 名称仍全局唯一。
+
 `ApixHandlerRegistry(event_registry, *, cache_size=8192)` 将精确订阅与 glob 订阅分别索引，并按原有优先级和相对插入顺序组合处理器链。匹配链使用有界 LRU；共享 core 的容量由 `APIXIS.EVENT.handler_chain_cache_size` 设置。淘汰只影响后续查询是否需要重建，不改变已取出事件的处理器引用。
 
-独立 registry 可使用 `clear()` 同时清理订阅、索引和链缓存；该操作不清空 `ApixEventRegistry` 的观察历史。更新订阅和排序时使用 `handler.register()`、`subscribe()` 或 registry 注册接口，不单独修改内部索引、bucket 或缓存。
+独立 registry 可使用 `unregister_group(group, missing_ok=False)` 按组注销，或使用 `clear()` 同时清理订阅、分组、索引和链缓存；该操作不清空 `ApixEventRegistry` 的观察历史。更新订阅、分组和排序时使用 `handler.register()`、`subscribe()` 或 registry 注册接口，不单独修改内部索引、bucket 或缓存。
 
 ## 已观察到的事件名
 

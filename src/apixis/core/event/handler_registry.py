@@ -9,7 +9,7 @@ from fnmatch import fnmatchcase
 from apixis.core.utils import logger
 from apixis.core.event.base import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
-from apixis.core.utils.validation import validate_int, validate_number
+from apixis.core.utils.validation import validate_int, validate_non_empty_string, validate_number
 from apixis.core.utils.exception import (
     EventHandlerAlreadyRegisteredError,
     EventHandlerNotRegisteredError,
@@ -26,6 +26,8 @@ class ApixHandlerRegistry:
     in this order at dequeue, before waiting for dispatch capacity.
     ``cache_size`` limits cached names, including empty chains; evicted chains
     are rebuilt from the current registrations on their next lookup.
+    Group membership is indexed in both directions for batch removal and
+    replacement without scanning unrelated registrations or groups.
     """
 
     registry: dict[str, ApixEventHandler]
@@ -43,6 +45,10 @@ class ApixHandlerRegistry:
         self._exact_subscriptions: dict[str, set[str]] = {}
         self._handler_exact_names: dict[str, tuple[str, ...]] = {}
         self._glob_subscriptions: dict[str, tuple[str, ...]] = {}
+        self._group_handlers: dict[str, set[str]] = {}
+        # Snapshot membership so re-registering a mutated instance also removes
+        # its previous group entry without scanning unrelated groups.
+        self._handler_groups: dict[str, str] = {}
         # Sort keys use the actual bucket priority, including relative insertions
         # whose public handler.priority is None. Removal leaves ordinals intact.
         self._handler_order: dict[str, tuple[float, int]] = {}
@@ -60,6 +66,8 @@ class ApixHandlerRegistry:
         self._exact_subscriptions.clear()
         self._handler_exact_names.clear()
         self._glob_subscriptions.clear()
+        self._group_handlers.clear()
+        self._handler_groups.clear()
         self._handler_order.clear()
         self._bucket_next_order.clear()
         self._register_order = 0
@@ -280,6 +288,7 @@ class ApixHandlerRegistry:
             raise TypeError("handler_entry must be an ApixEventHandler instance.")
         if not handler_entry.name:
             raise ValueError("Handler name cannot be empty.")
+        validate_non_empty_string(handler_entry.group, "Handler group")
         if handler_entry.name in self.registry and not exist_ok:
             raise EventHandlerAlreadyRegisteredError(
                 f"Handler `{handler_entry.name}` already registered."
@@ -326,6 +335,8 @@ class ApixHandlerRegistry:
         handler_entry.filter_event = filters
         handler_entry._register_order = self._register_order
         self.registry[handler_entry.name] = handler_entry
+        self._group_handlers.setdefault(handler_entry.group, set()).add(handler_entry.name)
+        self._handler_groups[handler_entry.name] = handler_entry.group
         bucket = self.priority_buckets.setdefault(bucket_priority, [])
         if between_handlers is None:
             bucket.append(handler_entry.name)
@@ -350,6 +361,7 @@ class ApixHandlerRegistry:
 
         logger.debug(
             f"Registered handler `{handler_entry.name}`, "
+            f"group={handler_entry.group}, "
             f"priority={handler_entry.priority}, "
             f"between_handlers={handler_entry.between_handlers}"
         )
@@ -366,8 +378,26 @@ class ApixHandlerRegistry:
         self._invalidate_matching_chains(handler)
         self._unindex_subscriptions(handler_name)
         self._remove_from_bucket(handler_name)
+        group = self._handler_groups.pop(handler_name)
+        members = self._group_handlers[group]
+        members.remove(handler_name)
+        if not members:
+            del self._group_handlers[group]
         del self.registry[handler_name]
         logger.debug(f"Unregistered handler {handler_name}.")
+
+    def unregister_group(self, group: str, *, missing_ok: bool = False) -> None:
+        """Remove indexed group members, preserving already captured chains."""
+        validate_non_empty_string(group, "Handler group")
+        members = self._group_handlers.get(group)
+        if not members:
+            if not missing_ok:
+                raise EventHandlerNotRegisteredError(
+                    f"Group `{group}` has no registered handlers."
+                )
+            return
+        for handler_name in tuple(members):
+            self.unregister_handler(handler_name)
 
     def get_handler(self, handler_name: str) -> ApixEventHandler | None:
         """Return a handler entry by name, or ``None`` when it is unknown."""

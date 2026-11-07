@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from apixis.core.utils import logger
 from apixis.core.utils.semaphore import ApixisSemaphore
-from apixis.core.utils.validation import validate_timeout
+from apixis.core.utils.validation import validate_non_empty_string, validate_timeout
 
 
 @dataclass(slots=True)
@@ -187,10 +187,12 @@ class ApixEventHandler:
     loop, independently of the normal handler chain. Background cancellation
     only notifies the cancelled background handler.
     Registration metadata is assigned by :func:`subscribe` or :meth:`register`.
+    ``group`` defaults to ``"global"`` and identifies indexed batch removals.
     """
 
     id: str
     name: str
+    group: str
     subscribe: list[str]
     filter_event: list[str]
     core_func: EventHandlerFunc
@@ -217,6 +219,7 @@ class ApixEventHandler:
         time_out: float | None = None,
         background: bool = False,
         name: str | None = None,
+        group: str = "global",
     ) -> None:
         for callback in (core_func, on_accepted, on_has_error, on_error, on_cancelled):
             if callback is not None and not callable(callback):
@@ -232,6 +235,7 @@ class ApixEventHandler:
         self.time_out = time_out
         self.background = background
         self.name = name or getattr(core_func, "__name__", type(core_func).__name__)
+        self.group = validate_non_empty_string(group, "Handler group")
         self.id = "handler-" + uuid4().hex
         self._register_order = -1
         self.subscribe: list[str] = []
@@ -415,6 +419,7 @@ class ApixEventHandler:
         priority: float | None = None,
         between_handlers: tuple[str | None, str | None] | None = None,
         filter_event: list[str] | None = None,
+        group: str | None = None,
     ) -> Self:
         """Register this instance globally with the same options as subscribe().
 
@@ -423,6 +428,8 @@ class ApixEventHandler:
         use case-sensitive fnmatchcase matching. Subscription, filtering and
         ordering options replace previous registration metadata; priority
         defaults to 1 unless between_handlers is supplied.
+        ``group=None`` preserves this instance's group; a non-empty string
+        moves its registration to that group.
 
         Execution options set to None preserve this instance's settings.
         Explicit values override them; non-positive time_out disables the
@@ -445,12 +452,13 @@ class ApixEventHandler:
             priority=priority,
             between_handlers=between_handlers,
             filter_event=filter_event,
+            group=group,
             stop_when_error=self.stop_when_error,
             time_out=self.time_out,
             background=self.background,
         )(self)
 
-    def unregister(self, *, missing_ok: bool = True) -> None:
+    def unregister(self, *, same_group: bool = False, missing_ok: bool = True) -> None:
         """Immediately remove the global registration under this handler's name.
 
         Equivalent to ``unsubscribe(self.name, missing_ok=missing_ok)``. Remove
@@ -459,8 +467,14 @@ class ApixEventHandler:
         Removal is name-based, including when another instance has replaced
         this handler under the same name. Already dequeued events retain this
         handler if it was captured in their chains, even before execution starts.
+
+        With ``same_group=True``, remove every registration in ``self.group``
+        using the group index instead. Missing groups follow ``missing_ok``.
         """
         # Import at call time because handler_registry imports this class.
         from apixis.core.event.subscription import unsubscribe
 
-        unsubscribe(self.name, missing_ok=missing_ok)
+        if same_group:
+            unsubscribe(group=self.group, missing_ok=missing_ok)
+        else:
+            unsubscribe(self.name, missing_ok=missing_ok)

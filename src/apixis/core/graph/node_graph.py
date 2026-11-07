@@ -16,8 +16,6 @@ from apixis.core.event import (
     ApixEventHandler,
     EventType,
     unsubscribe,
-    subscribe,
-    get_handler,
 )
 from apixis.core.utils.exception import (
     BlockHookNotRegisteredError,
@@ -44,7 +42,6 @@ from apixis.core.graph.context.manager import apix_graph_context
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.graph.interrupter.graph_interrupter import (
     BlockEventHandler,
-    interrupted_hook,
 )
 from apixis.core.graph.node import BaseNode, _NodeBinding
 from apixis.core.graph.context.stream_writer import (
@@ -113,7 +110,6 @@ class NodeGraph:
         self._graph_id = uuid4().hex
         self._contexts: set[GraphContext] = set()  # Running attempts only.
         self._namespace = using_namespace or uuid4().hex
-        self._handlers: dict[str, ApixEventHandler] = {}
 
         # Acquisition validates ownership and synchronously retires the old graph.
         # Only an acquired namespace needs cleanup if registration fails.
@@ -123,7 +119,7 @@ class NodeGraph:
             self._register_interrupted_handler()
             self._decomposed = False
         except BaseException:
-            self._unregister_handlers()
+            unsubscribe(group=self.handler_group)
             release_namespace(self, decompose_immediately=False)
             raise
 
@@ -141,6 +137,15 @@ class NodeGraph:
     def namespace(self) -> str:
         """Namespace used by the graph's event listeners."""
         return self._namespace
+
+    @property
+    def handler_group(self) -> str:
+        """Handler group owned by this compiled graph's lifecycle.
+
+        Include graph identity so namespace reuse cannot transfer registrations
+        to another graph instance or collide with the default global group.
+        """
+        return f"graph:{self.namespace}:{self.graph_id}"
 
     @property
     def dispatch_name(self) -> str:
@@ -205,9 +210,9 @@ class NodeGraph:
             on_has_error=on_dispatch_error,
             on_error=on_dispatch_failure,
             on_cancelled=on_dispatch_cancelled,
+            group=self.handler_group,
         )
-        subscribe(self.dispatch_name, exist_ok=False)(handler)
-        self._handlers[handler.name] = handler
+        handler.register(self.dispatch_name, exist_ok=False)
 
     def _is_active_block(self, block: Block) -> bool:
         """Return whether the block belongs to an active attempt of this graph."""
@@ -247,15 +252,8 @@ class NodeGraph:
         # does, so hooks at every public numeric priority can handle the block.
         handler.subscribe = [event_name]
         handler.priority = -10000
+        handler.group = self.handler_group
         get_handler_registry().register_handler(handler, exist_ok=False)
-        self._handlers[handler.name] = handler
-
-    def _unregister_handlers(self) -> None:
-        """Remove only registrations still owned by this graph instance."""
-        for name, handler in self._handlers.items():
-            if get_handler(name) is handler:
-                unsubscribe(name)
-        self._handlers.clear()
 
     def set_max_steps(self, steps: int):
         self._ensure_not_decomposed()
@@ -286,7 +284,7 @@ class NodeGraph:
         # Terminal transitions remove contexts from the running set immediately.
         for context in tuple(self._contexts):
             context.abort()
-        self._unregister_handlers()
+        unsubscribe(group=self.handler_group)
         release_namespace(self, decompose_immediately=False)
 
     def _is_active_context(self, context: object) -> bool:
@@ -786,9 +784,9 @@ class NodeGraph:
         dispatch_owned_block.__name__ = name or get_graph_interrupted_name(
             self.namespace, missing_ok=True
         )
-        interrupted_hook(self.namespace, exist_ok=False)(dispatch_owned_block)
-        handler = get_handler(dispatch_owned_block.__name__)
-        if handler is None:
-            raise RuntimeError("Interrupted hook registration failed; handler not found.")
-        self._handlers[handler.name] = handler
+        BlockEventHandler(dispatch_owned_block).register(
+            get_graph_interrupted_name(self.namespace, missing_ok=True),
+            exist_ok=False,
+            group=self.handler_group,
+        )
         return afunc

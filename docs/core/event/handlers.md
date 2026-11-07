@@ -12,6 +12,7 @@ subscribe(
     stop_when_error: bool | None = None,
     time_out: float | None = None,
     background: bool | None = None,
+    group: str | None = None,
 )
 ```
 
@@ -97,6 +98,7 @@ handler = ApixEventHandler(
     time_out=None,
     background=False,
     name="worker",
+    group="global",
 )
 handler.register("work.*")
 ```
@@ -176,5 +178,24 @@ handler.unregister()
 ```
 
 这些实例方法与 `subscribe()` / `unsubscribe()` 使用同一套 registry 语义。
+
+handler 的 `group` 默认为 `"global"`，必须是非空字符串。可在构造函数、`subscribe()` 或 `register()` 中指定；后两者省略 `group` 或传入 `None` 时保留已有实例的分组，新函数默认使用 `"global"`。handler 名称仍在整个 registry 中唯一。
+
+```python
+from apixis import subscribe, unsubscribe
+
+@subscribe("work.*", group="workers")
+async def observe_work(event):
+    ...
+
+handler.register("work.*", group="workers")
+handler.unregister(same_group=True)  # 注销 workers 组内全部 handler
+# 也可直接按组注销：
+unsubscribe(group="workers")
+```
+
+`unsubscribe(name)` 与 `unsubscribe(group=...)` 二选一；分组名精确匹配、区分大小写，不解释通配符。默认忽略不存在的组，`missing_ok=False` 时抛出 `EventHandlerNotRegisteredError`。独立 registry 可调用 `unregister_group(group, missing_ok=False)`。
+
+registry 维护 group 到 handler 名称集合的索引，批量注销直接查找该组，不遍历整个 handler 表或其他分组。单个注销、同名替换和 `clear()` 同步更新索引并清理空组。修改已注册实例的 group 时应使用 `register(group=...)` 重新注册。注销会清理相关链缓存，已取出事件保留捕获的 handler 引用。
 
 [事件 API](./README.md) · [文档首页](../../README.md)
