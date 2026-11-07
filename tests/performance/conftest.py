@@ -176,7 +176,10 @@ def pytest_sessionfinish(session, exitstatus):
             "platform": platform.platform(),
             "process_id": os.getpid(),
             "configured_event_loop_backpressure": EVENT_LOOP_BACKPRESSURE,
-            "tested_event_loop_backpressures": sorted({r['event_loop_backpressure'] for r in reports}),
+            "tested_event_loop_backpressures": sorted(
+                {r['event_loop_backpressure'] for r in reports},
+                key=lambda capacity: (capacity is not None, capacity or 0),
+            ),
             "event_pipe_max_len": EVENT_PIPE_MAX_LEN,
             "logging": "ERROR; event dispatch logging disabled",
             "node_workload": "Each result records the actual semaphore capacity, waiting node count, and asynchronous sleep duration.",

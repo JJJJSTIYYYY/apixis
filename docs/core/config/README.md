@@ -8,7 +8,7 @@ APIXIS 在导入配置模块时读取当前工作目录中的 `config.yaml`。�
 APIXIS:
   EVENT:
     event_pipe_max_len: 65536
-    event_loop_backpressure: 1024
+    event_loop_backpressure: null
     handler_chain_cache_size: 8192
   GRAPH:
     max_snapshots: 16
@@ -33,7 +33,7 @@ APIXIS:
 | 路径 | 默认值 | 说明 |
 | --- | --- | --- |
 | `APIXIS.EVENT.event_pipe_max_len` | `65536` | 默认本地事件队列容量，必须为正整数 |
-| `APIXIS.EVENT.event_loop_backpressure` | `1024` | 并发前台事件分发数量上限，必须为正整数；1–127 按 128 使用 |
+| `APIXIS.EVENT.event_loop_backpressure` | `null` | `null`（Python `None`）不限制前台事件分发并发，只维护许可计数；设为正整数时启用背压，最小值为 1，按配置值使用 |
 | `APIXIS.EVENT.handler_chain_cache_size` | `8192` | 精确事件名的处理器链 LRU 缓存容量，必须为正整数；淘汰后按当前订阅重建，不影响事件观察历史及已捕获的分发链 |
 
 队列满时异步发布会等待空位。并发限制针对前台事件处理；后台 handler 不受单独的并发上限保护，应由应用控制后台工作量。

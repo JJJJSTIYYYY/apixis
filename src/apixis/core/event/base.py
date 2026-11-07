@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
 from apixis.core.utils import logger
+from apixis.core.utils.semaphore import ApixisSemaphore
 from apixis.core.utils.validation import validate_timeout
 
 
@@ -21,7 +22,7 @@ class HandlerChainToken:
     semaphore. Child tasks share the token and serialize permit reacquisition.
     """
 
-    semaphore: asyncio.BoundedSemaphore
+    semaphore: ApixisSemaphore
     held: bool = True
     closed: bool = False
     suspended: int = 0

@@ -989,7 +989,7 @@ async def test_chain_resolution_failure_acknowledges_event_and_keeps_consuming(r
             assert resolve.call_count == 2
             logger.error.assert_called_once()
     await loop.stop()
-    assert loop._event_semaphore._value == EVENT_LOOP_BACKPRESSURE
+    assert loop._event_semaphore._value == (EVENT_LOOP_BACKPRESSURE or 0)
 
 
 def test_unregister_missing_ok_preserves_existing_cache():

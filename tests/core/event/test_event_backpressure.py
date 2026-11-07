@@ -50,6 +50,44 @@ async def runtime(monkeypatch, request):
         assert not callback_errors, callback_errors
 
 
+@pytest.mark.parametrize("runtime", [None], indirect=True)
+@pytest.mark.parametrize("outcome", ["success", "error", "cancel"])
+async def test_unbounded_dispatch_counts_and_cleans_up(runtime, wait_for_dispatch, outcome):
+    pipe, loop = runtime
+    semaphore = loop._event_semaphore
+    entered, release = asyncio.Event(), asyncio.Event()
+    count = 0
+    total = 129
+
+    @subscribe("unbounded")
+    async def receive(event):
+        nonlocal count
+        async with suspend_process():
+            async with suspend_process():
+                await asyncio.sleep(0)
+        count += 1
+        if count == total:
+            entered.set()
+        await release.wait()
+        if outcome == "error":
+            raise RuntimeError("handler failed")
+
+    for _ in range(total):
+        await pipe.post_event(event_type=EventType.INFO, event_name="unbounded")
+    await asyncio.wait_for(entered.wait(), 2)
+    assert semaphore._bound_value is None
+    assert semaphore._value == -total
+    assert semaphore._waiters is None
+    if outcome == "cancel":
+        for task in tuple(loop._dispatch_tasks):
+            task.cancel()
+    else:
+        release.set()
+    await wait_for_dispatch(loop)
+    assert semaphore._value == 0
+    assert not loop._dispatch_tasks
+
+
 @pytest.mark.parametrize("runtime", [1], indirect=True)
 @pytest.mark.parametrize("restart", [False, True])
 async def test_dequeued_handlers_stay_frozen_while_waiting_for_capacity(

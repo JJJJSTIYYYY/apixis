@@ -307,7 +307,7 @@ registry.clear()
 | `APIXIS.EVENT.event_pipe_max_len` | 仍在本地队列中的事件数 | 异步发布等待空位 |
 | `APIXIS.EVENT.event_loop_backpressure` | 同时持有许可的前台处理链数 | 新分发或挂起后的恢复等待许可 |
 
-配置的默认值与有效范围见[配置文档](../config/README.md#队列与并发)。
+`event_loop_backpressure` 默认为 `null`（Python `None`），此时只维护许可计数，不限制分发并发；设为正整数时启用派发背压。事件队列仍受 `event_pipe_max_len` 限制。配置的有效范围见[配置文档](../config/README.md#队列与并发)。
 
 派发背压不是全部 task 的数量上限。同一处理链内的并行节点或子任务共享许可，后台 handler 不持有前台许可，挂起等待的 task 也仍然存活。因此它既不等于单个 HTTP／数据库资源的精确并发限制，也不保证整体在途请求数和内存占用有界。整体过载保护还需要在外部请求入口限制接纳数量，并在具体资源所属位置控制并发。
 

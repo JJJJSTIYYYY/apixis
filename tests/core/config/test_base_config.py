@@ -100,7 +100,7 @@ def test_legacy_categories_are_not_read(monkeypatch):
             assert core_config.SHOW_EVENT_DISPATCH is False
             assert core_config.LOG_LEVEL == "NONE"
             assert core_config.EVENT_PIPE_MAX_LEN == 65536
-            assert core_config.EVENT_LOOP_BACKPRESSURE == 1024
+            assert core_config.EVENT_LOOP_BACKPRESSURE is None
             assert core_config.HANDLER_CHAIN_CACHE_SIZE == 8192
     finally:
         importlib.reload(core_config)
@@ -119,6 +119,24 @@ def test_all_numeric_configuration_rejects_invalid_capacities(monkeypatch, secti
             patch.setattr(base, "_config", {section: {key: value}})
             with pytest.raises(ValueError if type(value) is int else TypeError, match=key):
                 importlib.reload(core_config)
+    finally:
+        importlib.reload(core_config)
+
+
+@pytest.mark.parametrize("settings, expected", [
+    ({}, None),
+    ({"event_loop_backpressure": None}, None),
+    ({"event_loop_backpressure": 1}, 1),
+    ({"event_loop_backpressure": 2}, 2),
+    ({"event_loop_backpressure": 127}, 127),
+    ({"event_loop_backpressure": 256}, 256),
+])
+def test_optional_dispatch_backpressure(monkeypatch, settings, expected):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(base, "_config", {"EVENT": settings})
+            importlib.reload(core_config)
+            assert core_config.EVENT_LOOP_BACKPRESSURE == expected
     finally:
         importlib.reload(core_config)
 
@@ -143,7 +161,7 @@ from apixis.core.config import core_config
 from apixis import GraphManager
 assert core_config.GRAPH_MAX_SNAPSHOTS == 3
 assert core_config.EVENT_PIPE_MAX_LEN == 2
-assert core_config.EVENT_LOOP_BACKPRESSURE == 128
+assert core_config.EVENT_LOOP_BACKPRESSURE == 1
 assert core_config.HANDLER_CHAIN_CACHE_SIZE == 7
 assert core_config.SHOW_EVENT_DISPATCH is True
 assert core_config.LOG_LEVEL == "WARNING"

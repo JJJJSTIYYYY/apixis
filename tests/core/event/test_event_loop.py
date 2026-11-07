@@ -470,7 +470,7 @@ class TestDispatchEvent:
             matches.assert_not_called()
 
         core.assert_awaited_once_with(event)
-        assert handler._event_semaphore._value == EVENT_LOOP_BACKPRESSURE
+        assert handler._event_semaphore._value == (EVENT_LOOP_BACKPRESSURE or 0)
 
 
 # ============================

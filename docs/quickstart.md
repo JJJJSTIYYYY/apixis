@@ -93,7 +93,7 @@ asyncio.run(main())
 APIXIS:
   EVENT:
     event_pipe_max_len: 65536
-    event_loop_backpressure: 1024
+    event_loop_backpressure: null
   LOG:
     level: INFO
     show_event_dispatch: false
