@@ -1014,3 +1014,8 @@ async def test_child_outliving_dispatch_cannot_reclaim_its_slot(runtime, wait_fo
         if child_task is not None:
             child_task.cancel()
             await asyncio.gather(child_task, return_exceptions=True)
+
+
+async def test_suspend_process_without_handler_context_is_a_noop():
+    async with suspend_process():
+        await asyncio.sleep(0)

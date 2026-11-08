@@ -1,16 +1,17 @@
-"""Current handler registry with lazily resolved event-specific chains."""
+"""Registered handlers, ordinary routing caches, ordering, and group indexes."""
 
 from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
-from heapq import merge
 from typing import Literal
 
-from apixis.core.utils import logger
-from apixis.core.event.base import ApixEventHandler
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.event.handler_registry.matching import is_glob_pattern, matches_handler
+from apixis.core.event.handler_registry.waiter_cache import WaiterHandlerCache
+from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_int, validate_non_empty_string, validate_number
 from apixis.core.utils.exception import (
     EventHandlerAlreadyRegisteredError,
@@ -58,7 +59,7 @@ class ApixHandlerRegistry:
         self._handler_order: dict[str, tuple[float, int]] = {}
         self._bucket_next_order: dict[float, int] = {}
         self._register_order = 0
-        self._waiter_cache = _WaiterHandlerCache(self._cache_size)
+        self._waiter_cache = WaiterHandlerCache(self._cache_size)
 
     def clear(self) -> None:
         """Remove registrations and cached chains without changing observations.
@@ -102,22 +103,6 @@ class ApixHandlerRegistry:
                 f"Every pattern in {argument_name or 'patterns'} must be a non-empty string."
             )
         return list(dict.fromkeys(supplied))
-
-    @staticmethod
-    def _is_glob(pattern: str) -> bool:
-        return "*" in pattern or "?" in pattern or "[" in pattern
-
-    @staticmethod
-    def _matches_handler(handler: ApixEventHandler, event_name: str) -> bool:
-        """Return whether a handler accepts one exact, case-sensitive event."""
-        subscribed = any(
-            fnmatchcase(event_name, pattern)
-            for pattern in handler.subscribe
-        )
-        return subscribed and not any(
-            fnmatchcase(event_name, pattern)
-            for pattern in handler.filter_event
-        )
 
     def _find_handler_position(self, handler_name: str) -> tuple[float, int] | None:
         """Return the active bucket and index for a handler name."""
@@ -203,12 +188,12 @@ class ApixHandlerRegistry:
         # Exact subscriptions identify their own cache keys.
         event_names = (
             self.cached_chain
-            if any(self._is_glob(pattern) for pattern in handler.subscribe)
+            if any(is_glob_pattern(pattern) for pattern in handler.subscribe)
             else (name for name in handler.subscribe if name in self.cached_chain)
         )
         need_delete = []
         for event_name in event_names:
-            if self._matches_handler(handler, event_name):
+            if matches_handler(handler, event_name):
                 need_delete.append(event_name)
         for event_name in need_delete:
             self.cached_chain.pop(event_name, None)
@@ -306,7 +291,7 @@ class ApixHandlerRegistry:
         exact_names = []
         glob_patterns = []
         for pattern in handler.subscribe:
-            if self._is_glob(pattern):
+            if is_glob_pattern(pattern):
                 glob_patterns.append(pattern)
             else:
                 exact_names.append(pattern)
@@ -472,98 +457,6 @@ class ApixHandlerRegistry:
         ]
 
 
-class _WaiterHandlerCache:
-    """Index single-pattern listeners independently of ordinary chain caches."""
-
-    def __init__(self, cache_size: int) -> None:
-        self._cache_size = cache_size
-        self.positions: dict[str, int] = {}
-        self._exact: dict[str, dict[str, ApixEventHandler]] = {}
-        self._glob: dict[str, ApixEventHandler] = {}
-        self._chains: OrderedDict[
-            str, tuple[list[ApixEventHandler], list[ApixEventHandler]]
-        ] = OrderedDict()
-
-    def __contains__(self, name: str) -> bool:
-        return name in self.positions
-
-    def clear(self) -> None:
-        self.positions.clear()
-        self._exact.clear()
-        self._glob.clear()
-        self._chains.clear()
-
-    def _invalidate(self, handler: ApixEventHandler, is_glob: bool) -> None:
-        if not self._chains:
-            return
-        pattern = handler.subscribe[0]
-        if not is_glob:
-            self._chains.pop(pattern, None)
-            return
-        expired = [
-            name for name in self._chains
-            if ApixHandlerRegistry._matches_handler(handler, name)
-        ]
-        for name in expired:
-            del self._chains[name]
-
-    def register(
-        self, handler: ApixEventHandler, point: Literal['received', 'processed'],
-    ) -> None:
-        self.positions[handler.name] = 0 if point == 'received' else 1
-        pattern = handler.subscribe[0]
-        is_glob = ApixHandlerRegistry._is_glob(pattern)
-        if is_glob:
-            self._glob[handler.name] = handler
-        else:
-            self._exact.setdefault(pattern, {})[handler.name] = handler
-        self._invalidate(handler, is_glob)
-
-    def unregister(self, handler: ApixEventHandler) -> None:
-        del self.positions[handler.name]
-        pattern = handler.subscribe[0]
-        is_glob = handler.name in self._glob
-        if is_glob:
-            del self._glob[handler.name]
-        else:
-            handlers = self._exact[pattern]
-            del handlers[handler.name]
-            if not handlers:
-                del self._exact[pattern]
-        if not self.positions:
-            # Do not retain empty event names after the last waiter closes.
-            self._chains.clear()
-        else:
-            self._invalidate(handler, is_glob)
-
-    def get(
-        self, event_name: str,
-    ) -> tuple[list[ApixEventHandler], list[ApixEventHandler]]:
-        cached = self._chains.get(event_name)
-        if cached is not None:
-            self._chains.move_to_end(event_name)
-            return cached
-        exact = self._exact.get(event_name)
-        candidates = exact.values() if exact else ()
-        if self._glob:
-            # Both indexes retain registration order; merge only matched
-            # candidates instead of sorting or scanning unrelated exact waits.
-            glob = (
-                handler for handler in self._glob.values()
-                if fnmatchcase(event_name, handler.subscribe[0])
-            )
-            candidates = (
-                merge(candidates, glob, key=lambda handler: handler._register_order)
-                if exact else glob
-            )
-        cached = ([], [])
-        for handler in candidates:
-            if not any(fnmatchcase(event_name, pattern) for pattern in handler.filter_event):
-                cached[self.positions[handler.name]].append(handler)
-        self._chains[event_name] = cached
-        if len(self._chains) > self._cache_size:
-            self._chains.popitem(last=False)
-        return cached
-
-
-__all__ = ["ApixHandlerRegistry"]
+__all__ = [
+    "ApixHandlerRegistry",
+]

@@ -120,7 +120,11 @@ async def test_exact_wait_does_not_traverse_unrelated_caches_or_listeners(monkey
     cache = registry._waiter_cache
     monkeypatch.setattr(cache, "_chains", NoTraversal(cache._chains))
     try:
-        with patch("apixis.core.event.handler_registry.fnmatchcase", side_effect=AssertionError):
+        with (
+            patch("apixis.core.event.handler_registry.registry.fnmatchcase", side_effect=AssertionError),
+            patch("apixis.core.event.handler_registry.waiter_cache.fnmatchcase", side_effect=AssertionError),
+            patch("apixis.core.event.handler_registry.matching.fnmatchcase", side_effect=AssertionError),
+        ):
             waiter = EventWaiter("reply.fixed")
             assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
             waiter.close()
@@ -157,7 +161,7 @@ async def test_glob_wait_cache_targets_matches_and_snapshots_filter_input():
 
 async def test_wait_cache_is_bounded_and_group_clear_preserves_captured_handlers(monkeypatch):
     registry = ApixHandlerRegistry(ApixEventRegistry(), cache_size=2)
-    monkeypatch.setattr("apixis.core.event.subscription.get_handler_registry", lambda: registry)
+    monkeypatch.setattr("apixis.core.event.subscription.waiter.get_handler_registry", lambda: registry)
     waiter = EventWaiter("reply.*")
     try:
         captured = registry.get_handlers_for_event("reply.first")

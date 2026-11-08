@@ -2,6 +2,30 @@
 
 事件 API 负责创建、发布、路由和处理 `ApixEvent`。常用接口可直接从 `apixis` 导入。
 
+## 源码职责
+
+`base`、`handler_registry`、`subscription` 按职责组织为包，包的 `__init__.py` 只导出接口。原有 `apixis`、`apixis.core.event` 以及这三个模块入口的公开导入保持一致。
+
+| 实现位置 | 职责 |
+| --- | --- |
+| [base/event.py](../../../src/apixis/core/event/base/event.py) | 事件类型、事件数据、错误记录与回调类型 |
+| [base/handler.py](../../../src/apixis/core/event/base/handler.py) | handler 执行、错误通知、取消清理与实例注册接口 |
+| [base/process.py](../../../src/apixis/core/event/base/process.py) | handler chain 上下文、许可归属与暂停/恢复 |
+| [handler_registry/registry.py](../../../src/apixis/core/event/handler_registry/registry.py) | 订阅索引、优先级、分组与普通 handler chain 缓存 |
+| [handler_registry/waiter_cache.py](../../../src/apixis/core/event/handler_registry/waiter_cache.py) | received/processed 临时监听索引及独立缓存 |
+| [handler_registry/matching.py](../../../src/apixis/core/event/handler_registry/matching.py) | 普通订阅与临时监听共用的匹配规则 |
+| [subscription/handlers.py](../../../src/apixis/core/event/subscription/handlers.py) | 全局订阅、取消订阅与注册信息查询 |
+| [subscription/publication.py](../../../src/apixis/core/event/subscription/publication.py) | 全局异步发布与线程安全发布入口 |
+| [subscription/waiter.py](../../../src/apixis/core/event/subscription/waiter.py) | 异步等待、超时、结果收集与临时监听生命周期 |
+| [subscription/thread_waiter.py](../../../src/apixis/core/event/subscription/thread_waiter.py) | 工作线程等待、注册就绪确认与清理确认 |
+| [factory.py](../../../src/apixis/core/event/factory.py) | 共享核心的依赖组装、启动、停止与访问 |
+| [event_pipe.py](../../../src/apixis/core/event/event_pipe.py)、[pipe_channel.py](../../../src/apixis/core/event/pipe_channel.py) | 事件创建、上下文快照与本地有界队列 |
+| [event_loop.py](../../../src/apixis/core/event/event_loop.py) | 消费、捕获处理链、派发与并发容量管理 |
+| [thread_bridge.py](../../../src/apixis/core/event/thread_bridge.py) | 跨线程请求队列、取消和关闭协议 |
+| [event_registry.py](../../../src/apixis/core/event/event_registry.py) | 已观察事件名的记录与查询 |
+
+临时监听缓存只依赖 handler 类型和共享匹配规则，不依赖 registry 实现；工作线程等待复用异步等待器，跨线程通信仍由桥接层负责。调整执行逻辑时进入所属实现文件，公开入口无需增加转发函数。
+
 ## 共享事件系统
 
 ### `await start_core()`

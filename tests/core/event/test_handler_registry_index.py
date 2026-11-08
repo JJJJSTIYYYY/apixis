@@ -9,6 +9,7 @@ import pytest
 from apixis.core.event.base import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.handler_registry import ApixHandlerRegistry
+from apixis.core.event.handler_registry import registry as registry_module
 
 
 async def noop(event):
@@ -36,7 +37,7 @@ def test_exact_mutations_do_not_match_unrelated_cached_names():
         registry.get_handlers_chain_for_event(name)
     unaffected = registry.cached_chain["reply.excluded"]
     handler = entry("waiter", ["reply.one", "reply.excluded"], filters=["*.excluded"])
-    with patch.object(registry, "_matches_handler", wraps=registry._matches_handler) as match:
+    with patch.object(registry_module, "matches_handler", wraps=registry_module.matches_handler) as match:
         registry.register_handler(handler)
         assert [call.args[1] for call in match.call_args_list] == ["reply.one", "reply.excluded"]
         assert registry.cached_chain["reply.excluded"] is unaffected
@@ -50,7 +51,7 @@ def test_exact_mutations_do_not_match_unrelated_cached_names():
 
 def test_exact_resolution_does_not_visit_unrelated_handlers():
     registry = ApixHandlerRegistry(ApixEventRegistry())
-    with patch("apixis.core.event.handler_registry.fnmatchcase", side_effect=AssertionError("unexpected glob match")):
+    with patch("apixis.core.event.handler_registry.registry.fnmatchcase", side_effect=AssertionError("unexpected glob match")):
         for index in range(100):
             registry.register_handler(entry(f"handler.{index}", [f"event.{index}"]))
         assert registry.get_handlers_chain_for_event("event.99") == ["handler.99"]

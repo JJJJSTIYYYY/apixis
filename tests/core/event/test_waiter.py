@@ -1,4 +1,4 @@
-"""Tests for event-waiting and temporary process suspension helpers."""
+"""Contracts for async event waiting and temporary listener lifecycles."""
 
 import asyncio
 
@@ -8,7 +8,6 @@ from apixis import post_event
 from apixis.core.event.base import (
     ApixEvent,
     EventType,
-    suspend_process,
 )
 from apixis.core.event.factory import (
     get_event_loop,
@@ -41,11 +40,6 @@ async def wait_until_registered(previous_names: set[str]) -> None:
     async with asyncio.timeout(1):
         while set(registry.registry) == previous_names:
             await asyncio.sleep(0)
-
-
-async def test_suspend_process_without_handler_context_is_a_noop():
-    async with suspend_process():
-        await asyncio.sleep(0)
 
 
 async def test_await_for_received_resolves_before_foreground_processing(

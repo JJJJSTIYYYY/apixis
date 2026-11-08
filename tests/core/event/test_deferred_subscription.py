@@ -7,7 +7,7 @@ import weakref
 import pytest
 
 from apixis.core.event import EventType
-from apixis.core.event import subscription
+from apixis.core.event.subscription import waiter as waiter_module
 from apixis.core.event.base import ApixEvent, ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.factory import get_event_loop, get_event_pipe, get_handler_registry
@@ -210,7 +210,7 @@ async def test_waiter_closes_the_registry_that_registered_its_handlers(monkeypat
     handler.subscribe = ["unrelated"]
     handler.priority = 1
     replacement.register_handler(handler)
-    monkeypatch.setattr(subscription, "get_handler_registry", lambda: replacement)
+    monkeypatch.setattr(waiter_module, "get_handler_registry", lambda: replacement)
     waiter.close()
     assert set(registry.registry) == registered
     assert replacement.get_handler(handler.name) is handler

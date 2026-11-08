@@ -329,7 +329,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.logger") as mock_logger:
             result = await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -357,7 +357,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.logger") as mock_logger:
             result = await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -388,7 +388,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger"):
+        with patch("apixis.core.event.base.handler.logger"):
             await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -419,7 +419,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger"):
+        with patch("apixis.core.event.base.handler.logger"):
             await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -462,7 +462,7 @@ class TestDispatchEvent:
         entry = ApixEventHandler(core)
         with (
             patch.object(registry, "get_handler") as lookup,
-            patch.object(registry, "_matches_handler") as matches,
+            patch("apixis.core.event.handler_registry.registry.matches_handler") as matches,
         ):
             event = _make_event()
             await handler._dispatch_event(event, [entry])
@@ -526,7 +526,7 @@ class TestRunBackgroundHandler:
         registry.register_handler(entry)
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.logger") as mock_logger:
             await handler._run_background_handler(entry, event)
             mock_logger.error.assert_called()
 
@@ -561,7 +561,7 @@ class TestRunBackgroundHandler:
         registry.register_handler(entry)
         event = _make_event()
 
-        with patch("apixis.core.event.base.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.logger") as mock_logger:
             await handler._run_background_handler(entry, event)
             mock_logger.error.assert_called()
 

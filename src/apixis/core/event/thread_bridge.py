@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from threading import Condition, current_thread, main_thread
 from typing import Any
 
-from apixis.core.event.base import handler_chain_context
+from apixis.core.event.base.process import handler_chain_context
 
 
 @dataclass(eq=False)

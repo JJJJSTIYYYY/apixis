@@ -2,7 +2,7 @@
 
 from threading import RLock
 
-from apixis.core.event.base import ApixEvent, EventType
+from apixis.core.event.base.event import ApixEvent, EventType
 
 
 class ApixEventRegistry:

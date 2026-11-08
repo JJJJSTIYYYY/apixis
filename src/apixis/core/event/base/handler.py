@@ -1,179 +1,14 @@
+"""Handler execution, notifications, cancellation, and registration metadata."""
+
 import asyncio
-from contextlib import asynccontextmanager
 import traceback
-from contextvars import Context, ContextVar
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
+from apixis.core.event.base.event import ApixEvent, ApixEventError, EventHandlerFunc, EventHandlerErrorFunc
+from apixis.core.event.base.process import handler_chain_context, suspend_process
 from apixis.core.utils import logger
-from apixis.core.utils.semaphore import ApixisSemaphore
 from apixis.core.utils.validation import validate_non_empty_string, validate_timeout
-
-
-@dataclass(slots=True)
-class HandlerChainToken:
-    """Shared ownership markers for one foreground handler chain.
-
-    The consumer creates this token after acquiring a permit. Suspension and
-    dispatch completion update it; the token itself never operates on the
-    semaphore. Child tasks share the token and serialize permit reacquisition.
-    """
-
-    semaphore: ApixisSemaphore
-    held: bool = True
-    closed: bool = False
-    suspended: int = 0
-    resume_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    owner: asyncio.Task | None = field(default=None, repr=False)
-    resuming_task: asyncio.Task | None = field(default=None, repr=False)
-
-
-handler_chain_context: ContextVar[HandlerChainToken | None] = ContextVar(
-    "apixis_handler_chain", default=None,
-)
-
-
-@asynccontextmanager
-async def suspend_process():
-    """Suspend the current event process chain (handler chain).
-
-    While the ``async with`` block is running, the current handler chain
-    is paused so that other chains can proceed. The chain is resumed
-    when the block exits.
-
-    Nested calls share the outer suspension, including child tasks created
-    inside it. Independently suspended branches share one permit: the last
-    branch to resume reacquires it. Background handlers have no chain token.
-    Child cancellation is deferred during reacquisition while its dispatch
-    remains live. Cancelling the dispatch itself still propagates promptly.
-
-    Yields:
-        None
-
-    Example:
-        ```python
-        async with suspend_process():
-            await do_something()
-        ```
-    """
-    chain = handler_chain_context.get()
-
-    if chain is None or chain.closed:
-        yield
-        return
-
-    owner = chain.owner
-    token = handler_chain_context.set(None)
-    try:
-        chain.suspended += 1
-        if chain.held:
-            chain.semaphore.release()
-            chain.held = False
-        try:
-            yield
-        finally:
-            chain.suspended -= 1
-            if chain.suspended == 0 and not chain.closed and not owner.done():
-                # A sibling may suspend while acquisition waits for capacity.
-                task = asyncio.current_task()
-                if task is not owner and owner.cancelling():
-                    # The dispatch cannot finish cancelling a gather while a
-                    # cancelled child waits for another event's permit.
-                    raise asyncio.CancelledError
-                cancelled = None
-                while True:
-                    try:
-                        async with chain.resume_lock:
-                            if not chain.closed and not chain.held and chain.suspended == 0:
-                                chain.resuming_task = task
-                                try:
-                                    await chain.semaphore.acquire()
-                                finally:
-                                    chain.resuming_task = None
-                                if chain.closed or chain.suspended:
-                                    # The dispatch ended or a sibling suspended.
-                                    chain.semaphore.release()
-                                else:
-                                    chain.held = True
-                        break
-                    except asyncio.CancelledError as exc:
-                        if (
-                            task is owner
-                            or chain.closed
-                            or owner.done()
-                            or owner.cancelling()
-                        ):
-                            raise
-                        # The owner may catch this child's cancellation and
-                        # continue. Restore its permit before returning to it.
-                        cancelled = exc
-                if cancelled is not None:
-                    raise cancelled
-    finally:
-        handler_chain_context.reset(token)
-
-
-class EventType(str, Enum):
-    TRANSIENT = 'transient' # Transient events are dispatched without recording their names.
-    WORKFLOW = 'workflow'
-    LIFECYCLE = 'lifecycle'
-    INFO = 'info'
-    WARNING = 'warning'
-    ERROR = 'error'
-
-
-@dataclass(frozen=True, slots=True)
-class ApixEventError:
-    """Serializable failure details without references to live traceback frames."""
-
-    handler_name: str
-    phase: Literal["core_func", "on_has_error", "on_accepted", "on_error"]
-    exception_type: str
-    message: str
-    traceback: str
-
-
-@dataclass(slots=True)
-class ApixEvent:
-    event_id: str
-    event_type: EventType
-    event_name: str
-    context: Any
-    timestamp: float
-    accepted: bool = False
-    seen: list[str] = field(default_factory=list) # Handler names recorded immediately before core execution.
-    error_stack: list[ApixEventError] = field(default_factory=list)
-    _execution_context: Context | None = field(
-        default=None, init=False, repr=False, compare=False,
-    )
-
-    def accept(self) -> None:
-        '''
-        Mark this event item as accepted.
-
-        Once accepted, subsequent handlers skip their core functions but
-        still receive applicable error and acceptance notifications.
-        '''
-        self.accepted = True
-
-    @property
-    def has_error(self) -> bool:
-        """Return whether a foreground handler has recorded a failure."""
-        return bool(self.error_stack)
-
-    @property
-    def datetime(self) -> datetime:
-        '''
-        Convert timestamp to datetime object.
-        '''
-        return datetime.fromtimestamp(self.timestamp)
-
-
-EventHandlerFunc = Callable[[ApixEvent], Awaitable[None]]
-EventHandlerErrorFunc = Callable[[ApixEvent, Exception], Awaitable[None]]
 
 
 class ApixEventHandler:
@@ -444,7 +279,7 @@ class ApixEventHandler:
             This instance after successful registration or replacement.
         """
         # Import at call time because handler_registry imports this class.
-        from apixis.core.event.subscription import subscribe
+        from apixis.core.event.subscription.handlers import subscribe
 
         return subscribe(
             *event_names,
@@ -472,9 +307,14 @@ class ApixEventHandler:
         using the group index instead. Missing groups follow ``missing_ok``.
         """
         # Import at call time because handler_registry imports this class.
-        from apixis.core.event.subscription import unsubscribe
+        from apixis.core.event.subscription.handlers import unsubscribe
 
         if same_group:
             unsubscribe(group=self.group, missing_ok=missing_ok)
         else:
             unsubscribe(self.name, missing_ok=missing_ok)
+
+
+__all__ = [
+    "ApixEventHandler",
+]

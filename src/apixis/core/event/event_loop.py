@@ -9,9 +9,9 @@ from apixis.core.config.core_config import (
     EVENT_LOOP_BACKPRESSURE,
     SHOW_EVENT_DISPATCH,
 )
-from apixis.core.event.base import (
-    ApixEvent, ApixEventHandler, HandlerChainToken, handler_chain_context,
-)
+from apixis.core.event.base.event import ApixEvent
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.base.process import HandlerChainToken, handler_chain_context
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
@@ -19,9 +19,6 @@ from apixis.core.utils import logger
 from apixis.core.utils.semaphore import ApixisSemaphore
 
 
-# =========================
-# Common Event Handler
-# =========================
 class ApixEventLoop:
     """Consume events and limit concurrent foreground event dispatches."""
 

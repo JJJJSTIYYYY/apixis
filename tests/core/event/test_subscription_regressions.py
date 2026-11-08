@@ -8,7 +8,7 @@ from apixis import (
     EventType, EventWaiter, get_event_loop, get_event_pipe,
     get_handler_meta, get_handler_registry, subscribe,
 )
-from apixis.core.event import subscription
+from apixis.core.event.subscription import waiter as waiter_module
 
 
 async def test_metadata_edits_do_not_change_routing_or_cache(wait_for_dispatch):
@@ -89,7 +89,7 @@ async def test_invalid_waiter_options_fail_before_registry_access(monkeypatch, o
     def unexpected_registry():
         pytest.fail("Invalid arguments must fail before fetching the shared runtime")
 
-    monkeypatch.setattr(subscription, "get_handler_registry", unexpected_registry)
+    monkeypatch.setattr(waiter_module, "get_handler_registry", unexpected_registry)
     with pytest.raises(error):
         EventWaiter("reply", **options)
 
@@ -99,7 +99,7 @@ async def test_invalid_waiter_options_fail_before_registry_access(monkeypatch, o
     (["reply", 1], ValueError), (None, TypeError), (1, TypeError),
 ])
 async def test_invalid_waiter_patterns_fail_before_registry_access(monkeypatch, names, error):
-    monkeypatch.setattr(subscription, "get_handler_registry", lambda: pytest.fail("registry accessed"))
+    monkeypatch.setattr(waiter_module, "get_handler_registry", lambda: pytest.fail("registry accessed"))
     with pytest.raises(error):
         EventWaiter(names)
 
