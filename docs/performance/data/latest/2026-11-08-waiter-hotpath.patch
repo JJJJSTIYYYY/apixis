@@ -1,0 +1,137 @@
+--- a/src/apixis/core/event/subscription.py
++++ b/src/apixis/core/event/subscription.py
+@@ -8,7 +8,6 @@
+ from functools import partial
+ from threading import current_thread, main_thread
+ from typing import Any, Literal, Self, cast
+-from uuid import uuid4
+ 
+ from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, EventType, suspend_process
+ from apixis.core.event.factory import get_event_pipe, get_handler_registry, get_thread_bridge
+@@ -551,7 +550,7 @@
+         self._remaining = len(self._events)
+         loop = asyncio.get_running_loop()
+         self._future: asyncio.Future[dict[str, ApixEvent]] = loop.create_future()
+-        self._timeout_future: asyncio.Future[None] = loop.create_future()
++        self._timeout_future: asyncio.Future[None] | None = None
+         self._deadline: float | None = None
+         self._timeout_handle: asyncio.TimerHandle | None = None
+         self._keep_listening = keep_listening
+@@ -605,6 +604,8 @@
+             self._keep_listening = keep_listening
+         if not self._future.done():
+             self._start_timeout(time_out)
++            if self._timeout_future is None:
++                self._timeout_future = asyncio.get_running_loop().create_future()
+         try:
+             async with suspend_process():
+                 while not self._future.done():
+@@ -637,7 +638,9 @@
+             raise RuntimeError("The event waiter is closed.")
+         try:
+             async with suspend_process():
+-                events = await asyncio.shield(self._future)
++                # Cancelling any result wait closes the whole collection, so
++                # shielding its Future only adds a Future and two callbacks.
++                events = await self._future
+         except asyncio.CancelledError:
+             self.close()
+             raise
+@@ -646,9 +649,10 @@
+     def _start_timeout(self, time_out: float | None) -> None:
+         if self._timeout_handle is not None:
+             self._timeout_handle.cancel()
+-        self._timeout_future.cancel()
+         loop = asyncio.get_running_loop()
+-        self._timeout_future = loop.create_future()
++        if self._timeout_future is not None:
++            self._timeout_future.cancel()
++            self._timeout_future = loop.create_future()
+         self._deadline = None if time_out is None else loop.time() + time_out
+         self._timeout_handle = (
+             None if self._deadline is None else loop.call_at(self._deadline, self._expire)
+@@ -659,7 +663,7 @@
+             return
+         self._deadline = None
+         if self._keep_listening:
+-            if not self._timeout_future.done():
++            if self._timeout_future is not None and not self._timeout_future.done():
+                 self._timeout_future.set_result(None)
+         else:
+             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
+@@ -701,8 +705,8 @@
+                 on_has_error=resolve,
+                 on_error=resolve,
+                 stop_when_error=False,
+-                name='resolve_future-'+uuid4().hex,
+             )
++            handler.name = 'resolve_future-' + handler.id
+             handler.subscribe = [event_name]
+             handler.filter_event = filters
+             self._registry.register_wait_handler(handler, point=point)
+@@ -715,7 +719,8 @@
+         self._closed = True
+         if self._timeout_handle is not None:
+             self._timeout_handle.cancel()
+-        self._timeout_future.cancel()
++        if self._timeout_future is not None:
++            self._timeout_future.cancel()
+         for handler in self._handlers:
+             self._registry.unregister_handler(handler.name, missing_ok=True)
+         self._handlers.clear()
+--- a/src/apixis/core/event/handler_registry.py
++++ b/src/apixis/core/event/handler_registry.py
+@@ -105,7 +105,7 @@
+ 
+     @staticmethod
+     def _is_glob(pattern: str) -> bool:
+-        return any(character in pattern for character in "*?[")
++        return "*" in pattern or "?" in pattern or "[" in pattern
+ 
+     @staticmethod
+     def _matches_handler(handler: ApixEventHandler, event_name: str) -> bool:
+@@ -493,9 +493,11 @@
+         self._glob.clear()
+         self._chains.clear()
+ 
+-    def _invalidate(self, handler: ApixEventHandler) -> None:
++    def _invalidate(self, handler: ApixEventHandler, is_glob: bool) -> None:
++        if not self._chains:
++            return
+         pattern = handler.subscribe[0]
+-        if not ApixHandlerRegistry._is_glob(pattern):
++        if not is_glob:
+             self._chains.pop(pattern, None)
+             return
+         expired = [
+@@ -510,16 +512,18 @@
+     ) -> None:
+         self.positions[handler.name] = 0 if point == 'received' else 1
+         pattern = handler.subscribe[0]
+-        if ApixHandlerRegistry._is_glob(pattern):
++        is_glob = ApixHandlerRegistry._is_glob(pattern)
++        if is_glob:
+             self._glob[handler.name] = handler
+         else:
+             self._exact.setdefault(pattern, {})[handler.name] = handler
+-        self._invalidate(handler)
++        self._invalidate(handler, is_glob)
+ 
+     def unregister(self, handler: ApixEventHandler) -> None:
+         del self.positions[handler.name]
+         pattern = handler.subscribe[0]
+-        if ApixHandlerRegistry._is_glob(pattern):
++        is_glob = handler.name in self._glob
++        if is_glob:
+             del self._glob[handler.name]
+         else:
+             handlers = self._exact[pattern]
+@@ -530,7 +534,7 @@
+             # Do not retain empty event names after the last waiter closes.
+             self._chains.clear()
+         else:
+-            self._invalidate(handler)
++            self._invalidate(handler, is_glob)
+ 
+     def get(
+         self, event_name: str,

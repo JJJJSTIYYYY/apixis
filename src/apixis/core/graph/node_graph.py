@@ -248,12 +248,10 @@ class NodeGraph:
         temp_hook.__name__ = handler_name
         handler = BlockEventHandler(temp_hook)
         handler.set_core_func(require_interrupted_hook)
-        # Use the reserved trailing priority, as await_for(point="processed")
-        # does, so hooks at every public numeric priority can handle the block.
+        # Run after hooks at every numeric priority, before later processed waits.
         handler.subscribe = [event_name]
-        handler.priority = -10000
         handler.group = self.handler_group
-        get_handler_registry().register_handler(handler, exist_ok=False)
+        get_handler_registry().register_wait_handler(handler, point="processed")
 
     def set_max_steps(self, steps: int):
         self._ensure_not_decomposed()

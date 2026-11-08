@@ -41,7 +41,7 @@ async def test_waiter_keeps_partial_listeners_and_cache_until_complete(
     before = set(registry.registry)
     waiter = EventWaiter(["job.*", "job.done", "saved"], point=point)
     listeners = set(registry.registry) - before
-    chain = registry.get_handlers_chain_for_event("job.done")
+    chain = registry.get_subscription_chain_for_event("job.done")
     removed = []
     unregister = registry.unregister_handler
 
@@ -57,7 +57,7 @@ async def test_waiter_keeps_partial_listeners_and_cache_until_complete(
         await wait_for_dispatch(get_event_loop())
         assert set(registry.registry) == before | listeners
         assert not removed
-        assert registry.get_handlers_chain_for_event("job.done") is chain
+        assert registry.get_subscription_chain_for_event("job.done") is chain
         # Repeated matches neither overwrite the first event nor unregister early.
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.done", context="second",
@@ -117,3 +117,57 @@ async def test_invalid_resumed_wait_does_not_replace_deadline_or_policy():
         assert waiter._keep_listening is True
     finally:
         waiter.close()
+
+
+async def test_cancelling_one_result_wait_closes_shared_partial_collection(wait_for_dispatch):
+    registry = get_handler_registry()
+    baseline = set(registry.registry)
+    waiter = EventWaiter(["first", "last"])
+    independent = EventWaiter("last")
+    getters = [asyncio.create_task(waiter.get_result()) for _ in range(2)]
+    waiting = asyncio.create_task(waiter.wait())
+    try:
+        await asyncio.sleep(0)
+        await get_event_pipe().post_event(event_type=EventType.INFO, event_name="first")
+        await wait_for_dispatch(get_event_loop())
+        assert all(not getter.done() for getter in getters)
+        getters[0].cancel()
+        outcomes = await asyncio.gather(*getters, waiting, return_exceptions=True)
+        assert all(isinstance(outcome, asyncio.CancelledError) for outcome in outcomes)
+        assert set(registry.registry) == baseline | {handler.name for handler in independent._handlers}
+        with pytest.raises(RuntimeError, match="closed"):
+            await waiter.get_result()
+        await get_event_pipe().post_event(event_type=EventType.INFO, event_name="last")
+        assert (await independent.get_result()).event_name == "last"
+        await wait_for_dispatch(get_event_loop())
+        assert set(registry.registry) == baseline
+    finally:
+        waiter.close()
+        independent.close()
+        for task in (*getters, waiting):
+            task.cancel()
+        await asyncio.gather(*getters, waiting, return_exceptions=True)
+
+
+async def test_shared_result_waits_survive_soft_deadline_without_wait_call(wait_for_dispatch):
+    waiter = EventWaiter("reply", time_out=0, keep_listening=True)
+    getters = [asyncio.create_task(waiter.get_result()) for _ in range(2)]
+    try:
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert all(not getter.done() for getter in getters)
+        assert await waiter.wait(time_out=0, keep_listening=True) is waiter
+        assert all(not getter.done() for getter in getters)
+        await get_event_pipe().post_event(
+            event_type=EventType.INFO, event_name="reply", context="late",
+        )
+        first, second = await asyncio.wait_for(asyncio.gather(*getters), 1)
+        assert first is second
+        assert first.context == "late"
+        assert await waiter.get_result() is first
+        await wait_for_dispatch(get_event_loop())
+    finally:
+        waiter.close()
+        for task in getters:
+            task.cancel()
+        await asyncio.gather(*getters, return_exceptions=True)

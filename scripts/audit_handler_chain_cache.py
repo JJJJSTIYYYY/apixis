@@ -28,9 +28,9 @@ class CountingRegistry(ApixHandlerRegistry):
         self.builds = Counter()
         self.snapshots = 0
 
-    def get_handlers_chain_for_event(self, event_name):
+    def get_subscription_chain_for_event(self, event_name):
         self.lookups[event_name] += 1
-        return super().get_handlers_chain_for_event(event_name)
+        return super().get_subscription_chain_for_event(event_name)
 
     def _resolve_handler_chain(self, event_name):
         self.builds[event_name] += 1
@@ -236,7 +236,7 @@ async def runtime_audit(results):
             await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="request.fixed")
             await waiter.wait(time_out=10)
     await drain(core)
-    assert core.handler_registry.builds == {"request.fixed": 1, "reply.fixed": 512}
+    assert core.handler_registry.builds == {"request.fixed": 1, "reply.fixed": 1}
     results.append({"scenario": "request-reply-with-transient-listeners", "builds_by_name": dict(core.handler_registry.builds), **core.handler_registry.metrics()})
     await stop_core()
 

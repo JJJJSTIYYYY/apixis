@@ -1,0 +1,4576 @@
+{
+  "schema_version": 1,
+  "retention": "Historical summaries retain metrics, extrema, workloads and fingerprints; historical per-round samples are removed. Latest complete results are in latest/.",
+  "chart": {
+    "workload": {
+      "listeners": 64,
+      "events": 512,
+      "samples_per_version": 18
+    },
+    "measurement_points": [
+      {
+        "comparison": "2026-11-08-waiter-mix",
+        "label": "before",
+        "source": "5b095fd"
+      },
+      {
+        "comparison": "2026-11-08-waiter-mix",
+        "label": "after",
+        "source": "2234bd3"
+      },
+      {
+        "comparison": "2026-11-08-waiter-hotpath",
+        "label": "before",
+        "source": "2234bd3"
+      },
+      {
+        "comparison": "2026-11-08-waiter-hotpath",
+        "label": "after",
+        "source": "9e9af39"
+      }
+    ],
+    "series": [
+      {
+        "waiting_percent": 0,
+        "median_ms": [
+          37.24812503787689,
+          37.577708513708785,
+          36.739167029736564,
+          37.23629200248979
+        ]
+      },
+      {
+        "waiting_percent": 25,
+        "median_ms": [
+          183.57081251451746,
+          160.680061992025,
+          159.77477101841941,
+          120.29227096354589
+        ]
+      },
+      {
+        "waiting_percent": 50,
+        "median_ms": [
+          285.9439375170041,
+          253.15527099883184,
+          254.08141649677418,
+          180.71024998789653
+        ]
+      },
+      {
+        "waiting_percent": 75,
+        "median_ms": [
+          409.12000052048825,
+          365.5378330440726,
+          367.3832920030691,
+          239.53222899581306
+        ]
+      },
+      {
+        "waiting_percent": 100,
+        "median_ms": [
+          507.72593752481043,
+          456.42987501923926,
+          459.7263130126521,
+          317.70808348665014
+        ]
+      }
+    ],
+    "paired_segments": [
+      [
+        0,
+        1
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "retest_segment": [
+      1,
+      2
+    ]
+  },
+  "comparisons": [
+    {
+      "id": "2026-10-22-runtime",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 3,
+      "summary": {
+        "registry/cold": {
+          "before": {
+            "seconds": 0.3752247920492664,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.3726551670115441,
+            "max_seconds": 0.38178241695277393
+          },
+          "after": {
+            "seconds": 0.0009165420196950436,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.0007970830192789435,
+            "max_seconds": 0.0009311249013990164
+          },
+          "elapsed_change_pct": -99.75573521816365,
+          "throughput_change_pct": 40839.180527054625
+        },
+        "registry/hot": {
+          "before": {
+            "seconds": 0.0028331249486654997,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.0027967080241069198,
+            "max_seconds": 0.002841500099748373
+          },
+          "after": {
+            "seconds": 0.0030357710202224553,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.0029916659696027637,
+            "max_seconds": 0.003083250019699335
+          },
+          "elapsed_change_pct": 7.152740356630183,
+          "throughput_change_pct": -6.675275249913481
+        },
+        "registry/mutation": {
+          "before": {
+            "seconds": 0.03281910449732095,
+            "operations": 1.0,
+            "retained_names": 50000.0,
+            "samples": 6,
+            "min_seconds": 0.03214283403940499,
+            "max_seconds": 0.03306091600097716
+          },
+          "after": {
+            "seconds": 2.958520781248808e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 6,
+            "min_seconds": 2.749962732195854e-06,
+            "max_seconds": 3.4170225262641907e-06
+          },
+          "elapsed_change_pct": -99.99098537017824,
+          "throughput_change_pct": 1109207.8914750034
+        },
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.3043938744813204,
+            "build_seconds": 0.00011872901814058423,
+            "prepare_seconds": 0.0013565204571932554,
+            "execute_seconds": 0.3028944584657438,
+            "nodes_per_second": 26912.508281594266,
+            "execute_nodes_per_second": 27045.735698587923,
+            "latency_p50_ms": 299.1377295111306,
+            "latency_p95_ms": 302.50912497285753,
+            "latency_p99_ms": 302.8024170198478,
+            "loop_lag_max_ms": 5.934416491072625,
+            "loop_lag_p95_ms": 2.8814584366045892,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.30069612502120435,
+            "max_seconds": 0.32238166697788984
+          },
+          "after": {
+            "seconds": 0.31110462499782443,
+            "build_seconds": 0.00011681253090500832,
+            "prepare_seconds": 0.0013710834900848567,
+            "execute_seconds": 0.30963395797880366,
+            "nodes_per_second": 26332.08607218642,
+            "execute_nodes_per_second": 26457.161762604635,
+            "latency_p50_ms": 305.80872850259766,
+            "latency_p95_ms": 309.2422499903478,
+            "latency_p99_ms": 309.5411455142312,
+            "loop_lag_max_ms": 6.15602097241208,
+            "loop_lag_p95_ms": 3.178854414727539,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3020740000065416,
+            "max_seconds": 0.32030174997635186
+          },
+          "elapsed_change_pct": 2.2046273197642297,
+          "throughput_change_pct": -2.15707192284621
+        },
+        "graph/independent-chain": {
+          "before": {
+            "seconds": 0.6200595000409521,
+            "build_seconds": 0.03228179150028154,
+            "prepare_seconds": 0.0015700624790042639,
+            "execute_seconds": 0.5852818959974684,
+            "nodes_per_second": 13211.960124089139,
+            "execute_nodes_per_second": 13997.049145387395,
+            "latency_p50_ms": 581.4540624269284,
+            "latency_p95_ms": 584.8905834718607,
+            "latency_p99_ms": 585.192083439324,
+            "loop_lag_max_ms": 84.34191643027589,
+            "loop_lag_p95_ms": 11.315541516523808,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.6120036670472473,
+            "max_seconds": 0.6356999999843538
+          },
+          "after": {
+            "seconds": 0.3785842919605784,
+            "build_seconds": 0.033898520458023995,
+            "prepare_seconds": 0.0016043750219978392,
+            "execute_seconds": 0.3434111879905686,
+            "nodes_per_second": 21638.721366377613,
+            "execute_nodes_per_second": 23855.35048745505,
+            "latency_p50_ms": 339.49310396565124,
+            "latency_p95_ms": 343.01706246333197,
+            "latency_p99_ms": 343.31891703186557,
+            "loop_lag_max_ms": 13.541770458687097,
+            "loop_lag_p95_ms": 3.1084794318303466,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.37480508303269744,
+            "max_seconds": 0.40266329201404005
+          },
+          "elapsed_change_pct": -38.94387684801626,
+          "throughput_change_pct": 63.78373672870672
+        },
+        "graph/shared-parallel": {
+          "before": {
+            "seconds": 0.15227602096274495,
+            "build_seconds": 0.00011068751337006688,
+            "prepare_seconds": 0.001396646082866937,
+            "execute_seconds": 0.15075933345360681,
+            "nodes_per_second": 53797.09566107132,
+            "execute_nodes_per_second": 54338.30105726016,
+            "latency_p50_ms": 147.0032499055378,
+            "latency_p95_ms": 150.3807499539107,
+            "latency_p99_ms": 150.66649997606874,
+            "loop_lag_max_ms": 8.344958478119224,
+            "loop_lag_p95_ms": 7.127853925339878,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.15129241603426635,
+            "max_seconds": 0.15392150008119643
+          },
+          "after": {
+            "seconds": 0.1509123749565333,
+            "build_seconds": 0.00010239554103463888,
+            "prepare_seconds": 0.001367646036669612,
+            "execute_seconds": 0.14944179146550596,
+            "nodes_per_second": 54283.813638646025,
+            "execute_nodes_per_second": 54817.99767174089,
+            "latency_p50_ms": 145.49537497805431,
+            "latency_p95_ms": 149.04406247660518,
+            "latency_p99_ms": 149.34924995759502,
+            "loop_lag_max_ms": 8.292708487715572,
+            "loop_lag_p95_ms": 7.005562889389694,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.1489254579646513,
+            "max_seconds": 0.1534670409746468
+          },
+          "elapsed_change_pct": -0.8955093504480649,
+          "throughput_change_pct": 0.9036011835374058
+        },
+        "graph/independent-parallel": {
+          "before": {
+            "seconds": 0.4509199165622704,
+            "build_seconds": 0.0341728960047476,
+            "prepare_seconds": 0.0015909374924376607,
+            "execute_seconds": 0.41547510406235233,
+            "nodes_per_second": 18167.478068193126,
+            "execute_nodes_per_second": 19717.287842069105,
+            "latency_p50_ms": 411.5467085503042,
+            "latency_p95_ms": 415.0786875397898,
+            "latency_p99_ms": 415.3807500260882,
+            "loop_lag_max_ms": 86.00047940853983,
+            "loop_lag_p95_ms": 57.23531194962561,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.4460024170111865,
+            "max_seconds": 0.45482691598590463
+          },
+          "after": {
+            "seconds": 0.20826889551244676,
+            "build_seconds": 0.035284875018987805,
+            "prepare_seconds": 0.001675270963460207,
+            "execute_seconds": 0.1716308540198952,
+            "nodes_per_second": 39333.86363960101,
+            "execute_nodes_per_second": 47732.35881925392,
+            "latency_p50_ms": 167.6946664811112,
+            "latency_p95_ms": 171.24100000364706,
+            "latency_p99_ms": 171.53806251008064,
+            "loop_lag_max_ms": 18.230416462756693,
+            "loop_lag_p95_ms": 14.698687475174665,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.2038895000005141,
+            "max_seconds": 0.23385858302935958
+          },
+          "elapsed_change_pct": -53.812442550719396,
+          "throughput_change_pct": 116.50852637057466
+        },
+        "state/fixed-small": {
+          "before": {
+            "seconds": 0.2145896460278891,
+            "build_seconds": 0.00010581244714558125,
+            "prepare_seconds": 0.0007030210108496249,
+            "execute_seconds": 0.21377787500387058,
+            "nodes_per_second": 38175.20280632554,
+            "execute_nodes_per_second": 38320.1627466825,
+            "latency_p50_ms": 213.21395848644897,
+            "latency_p95_ms": 213.7072705081664,
+            "latency_p99_ms": 213.73581246007234,
+            "loop_lag_max_ms": 5.084416945464909,
+            "loop_lag_p95_ms": 0.7997709326446056,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21250887494534254,
+            "max_seconds": 0.21518766705412418
+          },
+          "after": {
+            "seconds": 0.21443889598594978,
+            "build_seconds": 0.00011024996638298035,
+            "prepare_seconds": 0.0007013124995864928,
+            "execute_seconds": 0.21362197952112183,
+            "nodes_per_second": 38202.025569043224,
+            "execute_nodes_per_second": 38348.114336567145,
+            "latency_p50_ms": 213.06429151445627,
+            "latency_p95_ms": 213.55241647688672,
+            "latency_p99_ms": 213.58066704124212,
+            "loop_lag_max_ms": 4.7634789370931685,
+            "loop_lag_p95_ms": 0.8257919689640403,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.2127252499340102,
+            "max_seconds": 0.22339429194107652
+          },
+          "elapsed_change_pct": -0.07025038007645312,
+          "throughput_change_pct": 0.07029976592922704
+        },
+        "state/large-snapshots": {
+          "before": {
+            "seconds": 0.20304981246590614,
+            "build_seconds": 9.349995525553823e-05,
+            "prepare_seconds": 0.005862729507498443,
+            "execute_seconds": 0.19708460400579497,
+            "nodes_per_second": 2521.6050309205957,
+            "execute_nodes_per_second": 2597.9283652177005,
+            "latency_p50_ms": 194.24137502210215,
+            "latency_p95_ms": 196.86918752267957,
+            "latency_p99_ms": 197.03872903482988,
+            "loop_lag_max_ms": 14.778854441829026,
+            "loop_lag_p95_ms": 14.778854441829026,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.20122045802418143,
+            "max_seconds": 0.2056753330398351
+          },
+          "after": {
+            "seconds": 0.2012850209721364,
+            "build_seconds": 9.679148206487298e-05,
+            "prepare_seconds": 0.0058394374791532755,
+            "execute_seconds": 0.1953358129831031,
+            "nodes_per_second": 2543.6591041256734,
+            "execute_nodes_per_second": 2621.1299846782194,
+            "latency_p50_ms": 192.49977095751092,
+            "latency_p95_ms": 195.12087502516806,
+            "latency_p99_ms": 195.29031252022833,
+            "loop_lag_max_ms": 14.30441637057811,
+            "loop_lag_p95_ms": 14.30441637057811,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.2001863329205662,
+            "max_seconds": 0.20205062499735504
+          },
+          "elapsed_change_pct": -0.8691421441554215,
+          "throughput_change_pct": 0.8767624561660803
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "seconds": 0.10921816696645692,
+            "build_seconds": 8.927052840590477e-05,
+            "prepare_seconds": 0.005830333509948105,
+            "execute_seconds": 0.10333222901681438,
+            "nodes_per_second": 4687.889851870629,
+            "execute_nodes_per_second": 4954.913736832565,
+            "latency_p50_ms": 100.54974950617179,
+            "latency_p95_ms": 103.11414551688358,
+            "latency_p99_ms": 103.28393703093752,
+            "loop_lag_max_ms": 5.448416457511485,
+            "loop_lag_p95_ms": 5.448416457511485,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.1084886669414118,
+            "max_seconds": 0.11014104110654444
+          },
+          "after": {
+            "seconds": 0.1091111665009521,
+            "build_seconds": 8.993747178465128e-05,
+            "prepare_seconds": 0.00576722901314497,
+            "execute_seconds": 0.10321879206458107,
+            "nodes_per_second": 4692.462865625308,
+            "execute_nodes_per_second": 4960.337158185794,
+            "latency_p50_ms": 100.47439602203667,
+            "latency_p95_ms": 103.0073335277848,
+            "latency_p99_ms": 103.17581304116175,
+            "loop_lag_max_ms": 5.336062982678413,
+            "loop_lag_p95_ms": 5.336062982678413,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.10871258389670402,
+            "max_seconds": 0.11113479197956622
+          },
+          "elapsed_change_pct": -0.09796947566212966,
+          "throughput_change_pct": 0.09806554996723005
+        },
+        "sleep/capacity-128": {
+          "before": {
+            "seconds": 0.7296911250450648,
+            "build_seconds": 8.168746717274189e-05,
+            "prepare_seconds": 0.005809771071653813,
+            "execute_seconds": 0.7238151040510274,
+            "nodes_per_second": 11226.671800782027,
+            "execute_nodes_per_second": 11317.811348179384,
+            "latency_p50_ms": 716.3167290273122,
+            "latency_p95_ms": 723.3674374874681,
+            "latency_p99_ms": 723.6102295573801,
+            "loop_lag_max_ms": 16.020666458643973,
+            "loop_lag_p95_ms": 0.4251874051988125,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7206958750030026,
+            "max_seconds": 0.778916124952957
+          },
+          "after": {
+            "seconds": 0.7539497915422544,
+            "build_seconds": 8.710403926670551e-05,
+            "prepare_seconds": 0.005965875519905239,
+            "execute_seconds": 0.7479464579955675,
+            "nodes_per_second": 10867.921782040012,
+            "execute_nodes_per_second": 10955.132843242598,
+            "latency_p50_ms": 737.2154164477251,
+            "latency_p95_ms": 747.424062457867,
+            "latency_p99_ms": 747.8311249869876,
+            "loop_lag_max_ms": 16.176937497220933,
+            "loop_lag_p95_ms": 0.5550204077735543,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7329432499827817,
+            "max_seconds": 0.7746212090132758
+          },
+          "elapsed_change_pct": 3.3245116549404985,
+          "throughput_change_pct": -3.2175440287034007
+        },
+        "sleep/capacity-512": {
+          "before": {
+            "seconds": 0.3568136250250973,
+            "build_seconds": 8.008297299966216e-05,
+            "prepare_seconds": 0.005799333506729454,
+            "execute_seconds": 0.3509101044619456,
+            "nodes_per_second": 22959.054590823194,
+            "execute_nodes_per_second": 23345.275886686213,
+            "latency_p50_ms": 339.73214600700885,
+            "latency_p95_ms": 350.3827294916846,
+            "latency_p99_ms": 350.74350045761093,
+            "loop_lag_max_ms": 19.58579191705212,
+            "loop_lag_p95_ms": 5.5584164801985025,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.34826374996919185,
+            "max_seconds": 0.42580462503246963
+          },
+          "after": {
+            "seconds": 0.3640178124769591,
+            "build_seconds": 8.356251055374742e-05,
+            "prepare_seconds": 0.005883458012249321,
+            "execute_seconds": 0.3580746249645017,
+            "nodes_per_second": 22504.39891267241,
+            "execute_nodes_per_second": 22877.91669784282,
+            "latency_p50_ms": 349.09589594462886,
+            "latency_p95_ms": 357.6790209626779,
+            "latency_p99_ms": 357.9117290209979,
+            "loop_lag_max_ms": 19.417624454945326,
+            "loop_lag_p95_ms": 5.9073540032841265,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.34049120801500976,
+            "max_seconds": 0.4085977920331061
+          },
+          "elapsed_change_pct": 2.019033732625841,
+          "throughput_change_pct": -1.9790755300793994
+        },
+        "sleep/capacity-1024": {
+          "before": {
+            "seconds": 0.35354366700630635,
+            "build_seconds": 8.385354885831475e-05,
+            "prepare_seconds": 0.00584589596837759,
+            "execute_seconds": 0.3475971880252473,
+            "nodes_per_second": 23173.865435453547,
+            "execute_nodes_per_second": 23570.453468297488,
+            "latency_p50_ms": 334.6622710232623,
+            "latency_p95_ms": 347.0918539678678,
+            "latency_p99_ms": 347.4440625286661,
+            "loop_lag_max_ms": 31.35787497740239,
+            "loop_lag_p95_ms": 17.182375479023904,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3481234160717577,
+            "max_seconds": 0.37556025001686066
+          },
+          "after": {
+            "seconds": 0.3631222295225598,
+            "build_seconds": 8.914602221921086e-05,
+            "prepare_seconds": 0.0059914784505963326,
+            "execute_seconds": 0.357017167028971,
+            "nodes_per_second": 22560.497085799303,
+            "execute_nodes_per_second": 22946.313047109616,
+            "latency_p50_ms": 338.26629200484604,
+            "latency_p95_ms": 356.6043125465512,
+            "latency_p99_ms": 356.8536465172656,
+            "loop_lag_max_ms": 31.40039596473798,
+            "loop_lag_p95_ms": 16.996645950712264,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3436643750173971,
+            "max_seconds": 0.3758844999829307
+          },
+          "elapsed_change_pct": 2.709301116142626,
+          "throughput_change_pct": -2.6378342435403934
+        }
+      },
+      "memory": {
+        "state/large-snapshots": {
+          "before": {
+            "peak_python_MiB": 27.47049570083618
+          },
+          "after": {
+            "peak_python_MiB": 27.469330310821533
+          }
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "peak_python_MiB": 3.200472354888916
+          },
+          "after": {
+            "peak_python_MiB": 3.195859909057617
+          }
+        },
+        "registry/unique-names": {
+          "before": {
+            "retained_python_MiB": 5.06536865234375,
+            "peak_python_MiB": 5.065673828125,
+            "retained_names": 30000.0,
+            "queried_names": 30000.0
+          },
+          "after": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          }
+        }
+      },
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "df4886dca75c23c821bb3b10bfb62c147c60b885264885f45ca704f0fa41ff1e",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "814a69c96d3e5f8769b21696c6c18fd3075094a83f2a1f86b2c7f1152a05855f",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "814a69c96d3e5f8769b21696c6c18fd3075094a83f2a1f86b2c7f1152a05855f",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "df4886dca75c23c821bb3b10bfb62c147c60b885264885f45ca704f0fa41ff1e",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "registry/cold": {},
+        "registry/hot": {},
+        "registry/mutation": {},
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "graph/independent-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "graph/shared-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4
+          },
+          "capacity": 128
+        },
+        "graph/independent-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4,
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "state/fixed-small": {
+          "workload": {
+            "count": 256,
+            "nodes": 32,
+            "state": "fixed"
+          },
+          "capacity": 128
+        },
+        "state/large-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256
+          },
+          "capacity": 128
+        },
+        "state/large-no-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256,
+            "no_snapshot": true
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-128": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-512": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 512
+        },
+        "sleep/capacity-1024": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 1024
+        }
+      }
+    },
+    {
+      "id": "2026-11-08-documented-runtime",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 3,
+      "summary": {
+        "registry/cold": {
+          "before": {
+            "seconds": 0.0008841664821375161,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.0007742919842712581,
+            "max_seconds": 0.0008915410144254565
+          },
+          "after": {
+            "seconds": 0.0008703744970262051,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.0007628339808434248,
+            "max_seconds": 0.0009053329704329371
+          },
+          "elapsed_change_pct": -1.5598855407828016,
+          "throughput_change_pct": 1.5846035423181526
+        },
+        "registry/hot": {
+          "before": {
+            "seconds": 0.0030951454828027636,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.003029791987501085,
+            "max_seconds": 0.003172249998897314
+          },
+          "after": {
+            "seconds": 0.0030732089944649488,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.0030649169930256903,
+            "max_seconds": 0.0031047920347191393
+          },
+          "elapsed_change_pct": -0.708738521652641,
+          "throughput_change_pct": 0.7137974793554269
+        },
+        "registry/mutation": {
+          "before": {
+            "seconds": 2.874992787837982e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 6,
+            "min_seconds": 2.666027285158634e-06,
+            "max_seconds": 3.2079988159239292e-06
+          },
+          "after": {
+            "seconds": 3.3335236366838217e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 6,
+            "min_seconds": 2.9579969123005867e-06,
+            "max_seconds": 3.4580007195472717e-06
+          },
+          "elapsed_change_pct": 15.9489390994493,
+          "throughput_change_pct": -13.755140170596913
+        },
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.30961702050990425,
+            "build_seconds": 0.00012758301454596221,
+            "prepare_seconds": 0.001344270509434864,
+            "execute_seconds": 0.3081562709994614,
+            "nodes_per_second": 26458.53314962641,
+            "execute_nodes_per_second": 26583.954349843323,
+            "latency_p50_ms": 304.30295850965194,
+            "latency_p95_ms": 307.7611664775759,
+            "latency_p99_ms": 308.06262500118464,
+            "loop_lag_max_ms": 6.145625025965273,
+            "loop_lag_p95_ms": 3.038729017134756,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3086473750299774,
+            "max_seconds": 0.31294554204214364
+          },
+          "after": {
+            "seconds": 0.3129170624888502,
+            "build_seconds": 0.00014054100029170513,
+            "prepare_seconds": 0.0014248954830691218,
+            "execute_seconds": 0.31130295849288814,
+            "nodes_per_second": 26179.464698473654,
+            "execute_nodes_per_second": 26315.208777458993,
+            "latency_p50_ms": 307.43445799453184,
+            "latency_p95_ms": 310.89314550627023,
+            "latency_p99_ms": 311.20558350812644,
+            "loop_lag_max_ms": 6.419062498025596,
+            "loop_lag_p95_ms": 2.8881045000161976,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3090228330111131,
+            "max_seconds": 0.3236809579539113
+          },
+          "elapsed_change_pct": 1.0658464361911202,
+          "throughput_change_pct": -1.0546059561912013
+        },
+        "graph/independent-chain": {
+          "before": {
+            "seconds": 0.383704937499715,
+            "build_seconds": 0.03487402098835446,
+            "prepare_seconds": 0.0016106040275190026,
+            "execute_seconds": 0.34742885403102264,
+            "nodes_per_second": 21349.738367062942,
+            "execute_nodes_per_second": 23578.95987809819,
+            "latency_p50_ms": 343.5811040108092,
+            "latency_p95_ms": 347.02556201955304,
+            "latency_p99_ms": 347.33293700264767,
+            "loop_lag_max_ms": 14.49370852787979,
+            "loop_lag_p95_ms": 3.117875021416694,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.38055341597646475,
+            "max_seconds": 0.4107827499974519
+          },
+          "after": {
+            "seconds": 0.4039569169981405,
+            "build_seconds": 0.040611458505736664,
+            "prepare_seconds": 0.001697270490694791,
+            "execute_seconds": 0.36175360399647616,
+            "nodes_per_second": 20281.03548762408,
+            "execute_nodes_per_second": 22646.872503651262,
+            "latency_p50_ms": 357.67920801299624,
+            "latency_p95_ms": 361.31274950457737,
+            "latency_p99_ms": 361.6564165276941,
+            "loop_lag_max_ms": 15.196666994597763,
+            "loop_lag_p95_ms": 3.055167035199702,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3953472090070136,
+            "max_seconds": 0.4271383340237662
+          },
+          "elapsed_change_pct": 5.278008573564552,
+          "throughput_change_pct": -5.013400847031102
+        },
+        "graph/shared-parallel": {
+          "before": {
+            "seconds": 0.151957437483361,
+            "build_seconds": 0.00011387499398551881,
+            "prepare_seconds": 0.0013907085231039673,
+            "execute_seconds": 0.15045202101464383,
+            "nodes_per_second": 53909.92496288392,
+            "execute_nodes_per_second": 54449.36295792906,
+            "latency_p50_ms": 146.63802101858892,
+            "latency_p95_ms": 150.049438001588,
+            "latency_p99_ms": 150.35204202285968,
+            "loop_lag_max_ms": 8.149395987857133,
+            "loop_lag_p95_ms": 7.030458014924079,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.15072604198940098,
+            "max_seconds": 0.15288787498138845
+          },
+          "after": {
+            "seconds": 0.15400904198759235,
+            "build_seconds": 0.0001267709885723889,
+            "prepare_seconds": 0.0014469585148617625,
+            "execute_seconds": 0.15243600000394508,
+            "nodes_per_second": 53230.11146325257,
+            "execute_nodes_per_second": 53780.02913396733,
+            "latency_p50_ms": 148.49741649231873,
+            "latency_p95_ms": 152.0259579992853,
+            "latency_p99_ms": 152.32906202436425,
+            "loop_lag_max_ms": 6.91360398195684,
+            "loop_lag_p95_ms": 6.678103993181139,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.148178416013252,
+            "max_seconds": 0.16929829202126712
+          },
+          "elapsed_change_pct": 1.3501178607700615,
+          "throughput_change_pct": -1.3321325019323593
+        },
+        "graph/independent-parallel": {
+          "before": {
+            "seconds": 0.2102572914736811,
+            "build_seconds": 0.03650177048984915,
+            "prepare_seconds": 0.0016811879759188741,
+            "execute_seconds": 0.17272516648517922,
+            "nodes_per_second": 38961.91288253365,
+            "execute_nodes_per_second": 47429.10812672984,
+            "latency_p50_ms": 168.71693747816607,
+            "latency_p95_ms": 172.32852047891356,
+            "latency_p99_ms": 172.63156251283363,
+            "loop_lag_max_ms": 19.384916522540152,
+            "loop_lag_p95_ms": 15.740916540380567,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.2063705829787068,
+            "max_seconds": 0.231666291016154
+          },
+          "after": {
+            "seconds": 0.21651375052169897,
+            "build_seconds": 0.041064479504711926,
+            "prepare_seconds": 0.001761791470926255,
+            "execute_seconds": 0.17368593750870787,
+            "nodes_per_second": 37835.95521096933,
+            "execute_nodes_per_second": 47166.31419925159,
+            "latency_p50_ms": 169.7921460145153,
+            "latency_p95_ms": 173.29283300205134,
+            "latency_p99_ms": 173.5920205246657,
+            "loop_lag_max_ms": 18.65585401537828,
+            "loop_lag_p95_ms": 14.045125019038096,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21440641599474475,
+            "max_seconds": 0.23351412499323487
+          },
+          "elapsed_change_pct": 2.9756204905745154,
+          "throughput_change_pct": -2.889635892844067
+        },
+        "state/fixed-small": {
+          "before": {
+            "seconds": 0.21864027049741708,
+            "build_seconds": 0.00012070848606526852,
+            "prepare_seconds": 0.000733812979888171,
+            "execute_seconds": 0.21778152050683275,
+            "nodes_per_second": 37468.15096375925,
+            "execute_nodes_per_second": 37615.92127368458,
+            "latency_p50_ms": 217.21222950145602,
+            "latency_p95_ms": 217.71345849265344,
+            "latency_p99_ms": 217.74195853504352,
+            "loop_lag_max_ms": 5.24047898943536,
+            "loop_lag_p95_ms": 0.8736670133657753,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21458466700278223,
+            "max_seconds": 0.23253891698550433
+          },
+          "after": {
+            "seconds": 0.22248741699149832,
+            "build_seconds": 0.0001354374981019646,
+            "prepare_seconds": 0.0007298539858311415,
+            "execute_seconds": 0.22161852099816315,
+            "nodes_per_second": 36822.699254521045,
+            "execute_nodes_per_second": 36967.087434456014,
+            "latency_p50_ms": 221.0084164980799,
+            "latency_p95_ms": 221.54789601336233,
+            "latency_p99_ms": 221.5801250131335,
+            "loop_lag_max_ms": 4.677666496718302,
+            "loop_lag_p95_ms": 0.9320415265392512,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21896899997955188,
+            "max_seconds": 0.23254995897877961
+          },
+          "elapsed_change_pct": 1.7595781807847155,
+          "throughput_change_pct": -1.7291523925724972
+        },
+        "state/large-snapshots": {
+          "before": {
+            "seconds": 0.20455700001912192,
+            "build_seconds": 0.00011556249228306115,
+            "prepare_seconds": 0.005872875015484169,
+            "execute_seconds": 0.19848829149850644,
+            "nodes_per_second": 2503.2810868076294,
+            "execute_nodes_per_second": 2579.813342245465,
+            "latency_p50_ms": 195.58897899696603,
+            "latency_p95_ms": 198.26722898869775,
+            "latency_p99_ms": 198.43956248951145,
+            "loop_lag_max_ms": 14.927875017747283,
+            "loop_lag_p95_ms": 14.927875017747283,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.19976458401652053,
+            "max_seconds": 0.21407141699455678
+          },
+          "after": {
+            "seconds": 0.20152708297246136,
+            "build_seconds": 0.00012083348701708019,
+            "prepare_seconds": 0.005882125493371859,
+            "execute_seconds": 0.1955182914971374,
+            "nodes_per_second": 2540.60272864147,
+            "execute_nodes_per_second": 2618.682163947936,
+            "latency_p50_ms": 192.6506040035747,
+            "latency_p95_ms": 195.29689601040445,
+            "latency_p99_ms": 195.46912499936298,
+            "loop_lag_max_ms": 13.959208503365517,
+            "loop_lag_p95_ms": 13.959208503365517,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.19990537501871586,
+            "max_seconds": 0.2087743750307709
+          },
+          "elapsed_change_pct": -1.481209172200082,
+          "throughput_change_pct": 1.5034788386603992
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "seconds": 0.11278370846412145,
+            "build_seconds": 0.00011685400386340916,
+            "prepare_seconds": 0.006123416969785467,
+            "execute_seconds": 0.10654858298948966,
+            "nodes_per_second": 4539.69614841492,
+            "execute_nodes_per_second": 4805.357898151284,
+            "latency_p50_ms": 103.76200001337565,
+            "latency_p95_ms": 106.33383301319554,
+            "latency_p99_ms": 106.50262451963499,
+            "loop_lag_max_ms": 5.722520494600758,
+            "loop_lag_p95_ms": 5.722520494600758,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.10870700003579259,
+            "max_seconds": 0.12407016602810472
+          },
+          "after": {
+            "seconds": 0.10976708348607644,
+            "build_seconds": 0.00011766699026338756,
+            "prepare_seconds": 0.00586143700638786,
+            "execute_seconds": 0.10383437547716312,
+            "nodes_per_second": 4664.427213768182,
+            "execute_nodes_per_second": 4930.935551945844,
+            "latency_p50_ms": 100.90210448834114,
+            "latency_p95_ms": 103.6111669964157,
+            "latency_p99_ms": 103.78570898319595,
+            "loop_lag_max_ms": 5.440041481051594,
+            "loop_lag_p95_ms": 5.440041481051594,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.10853862500516698,
+            "max_seconds": 0.11860516696469858
+          },
+          "elapsed_change_pct": -2.6746992266215908,
+          "throughput_change_pct": 2.748205456718411
+        },
+        "sleep/capacity-128": {
+          "before": {
+            "seconds": 0.7447127080231439,
+            "build_seconds": 9.085453348234296e-05,
+            "prepare_seconds": 0.005974645493552089,
+            "execute_seconds": 0.7386541875021067,
+            "nodes_per_second": 11003.861609012569,
+            "execute_nodes_per_second": 11094.159829817145,
+            "latency_p50_ms": 730.3241670015268,
+            "latency_p95_ms": 738.089937978657,
+            "latency_p99_ms": 738.5466044943314,
+            "loop_lag_max_ms": 16.107520990772173,
+            "loop_lag_p95_ms": 0.49179152119904757,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7216059170314111,
+            "max_seconds": 0.7785737909725867
+          },
+          "after": {
+            "seconds": 0.7725636670074891,
+            "build_seconds": 0.00011229200754314661,
+            "prepare_seconds": 0.006131541507784277,
+            "execute_seconds": 0.766264771023998,
+            "nodes_per_second": 10604.95208378166,
+            "execute_nodes_per_second": 10692.205966082814,
+            "latency_p50_ms": 753.6349169968162,
+            "latency_p95_ms": 765.6209584965836,
+            "latency_p99_ms": 766.1437504866626,
+            "loop_lag_max_ms": 19.867375522153452,
+            "loop_lag_p95_ms": 0.6576665036845952,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7378737090039067,
+            "max_seconds": 0.9192027079989202
+          },
+          "elapsed_change_pct": 3.7398259334497252,
+          "throughput_change_pct": -3.605005020780405
+        },
+        "sleep/capacity-512": {
+          "before": {
+            "seconds": 0.41955964599037543,
+            "build_seconds": 0.00010422899504192173,
+            "prepare_seconds": 0.005902854521991685,
+            "execute_seconds": 0.41356114551308565,
+            "nodes_per_second": 19531.473800471802,
+            "execute_nodes_per_second": 19814.89932397187,
+            "latency_p50_ms": 401.746353978524,
+            "latency_p95_ms": 413.1429164845031,
+            "latency_p99_ms": 413.3854789834004,
+            "loop_lag_max_ms": 19.945458479924127,
+            "loop_lag_p95_ms": 6.034083518898115,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.37768041697563604,
+            "max_seconds": 0.4362216659937985
+          },
+          "after": {
+            "seconds": 0.43441431247629225,
+            "build_seconds": 0.00010750049841590226,
+            "prepare_seconds": 0.00616937450831756,
+            "execute_seconds": 0.42821677098982036,
+            "nodes_per_second": 18857.659001523134,
+            "execute_nodes_per_second": 19130.5712824096,
+            "latency_p50_ms": 416.72068799380213,
+            "latency_p95_ms": 427.729958522832,
+            "latency_p99_ms": 428.0942920013331,
+            "loop_lag_max_ms": 22.7114585286472,
+            "loop_lag_p95_ms": 5.791937495814636,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.41215925000142306,
+            "max_seconds": 0.4698243749444373
+          },
+          "elapsed_change_pct": 3.5405374725331784,
+          "throughput_change_pct": -3.419469860751312
+        },
+        "sleep/capacity-1024": {
+          "before": {
+            "seconds": 0.37820564600406215,
+            "build_seconds": 9.758298983797431e-05,
+            "prepare_seconds": 0.0059880620101466775,
+            "execute_seconds": 0.37210427099489607,
+            "nodes_per_second": 21660.174166046814,
+            "execute_nodes_per_second": 22015.33478089556,
+            "latency_p50_ms": 360.7613539788872,
+            "latency_p95_ms": 371.6084794723429,
+            "latency_p99_ms": 371.8478960217908,
+            "loop_lag_max_ms": 31.594000000040978,
+            "loop_lag_p95_ms": 18.971708021126688,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.37351641699206084,
+            "max_seconds": 0.38571599998977035
+          },
+          "after": {
+            "seconds": 0.3871952914923895,
+            "build_seconds": 0.00010818798909895122,
+            "prepare_seconds": 0.006183249992318451,
+            "execute_seconds": 0.3809057915059384,
+            "nodes_per_second": 21158.471481877204,
+            "execute_nodes_per_second": 21507.842629863764,
+            "latency_p50_ms": 370.71554153226316,
+            "latency_p95_ms": 380.3719579882454,
+            "latency_p99_ms": 380.77810453251004,
+            "loop_lag_max_ms": 33.998062514001504,
+            "loop_lag_p95_ms": 20.089124998776242,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3744437500135973,
+            "max_seconds": 0.4323247920256108
+          },
+          "elapsed_change_pct": 2.376919959632451,
+          "throughput_change_pct": -2.321734196115366
+        },
+        "event/cached-pipe": {
+          "before": {
+            "seconds": 0.1229423750191927,
+            "publish_seconds": 0.04913597847917117,
+            "operations": 16384.0,
+            "events_per_second": 133265.76229194878,
+            "samples": 6,
+            "min_seconds": 0.1217685830197297,
+            "max_seconds": 0.13737549999495968
+          },
+          "after": {
+            "seconds": 0.1234138545114547,
+            "publish_seconds": 0.049942500481847674,
+            "operations": 16384.0,
+            "events_per_second": 132767.41792055513,
+            "samples": 6,
+            "min_seconds": 0.121631084010005,
+            "max_seconds": 0.12761470896657556
+          },
+          "elapsed_change_pct": 0.38349632678593704,
+          "throughput_change_pct": -0.3820312509712931
+        },
+        "event/request-reply": {
+          "before": {
+            "seconds": 0.19463131303200498,
+            "operations": 2048.0,
+            "roundtrips_per_second": 10522.459987997943,
+            "samples": 6,
+            "min_seconds": 0.19284849998075515,
+            "max_seconds": 0.20332716696429998
+          },
+          "after": {
+            "seconds": 0.24913802099763416,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8220.343547574472,
+            "samples": 6,
+            "min_seconds": 0.24536683404585347,
+            "max_seconds": 0.2619872920331545
+          },
+          "elapsed_change_pct": 28.00510725458969,
+          "throughput_change_pct": -21.878117096445415
+        },
+        "event/getter": {
+          "before": {
+            "seconds": 0.0190740630205255,
+            "operations": 200000.0,
+            "samples": 6,
+            "min_seconds": 0.018919666996225715,
+            "max_seconds": 0.01921479101292789
+          },
+          "after": {
+            "seconds": 0.03728691648575477,
+            "operations": 200000.0,
+            "samples": 6,
+            "min_seconds": 0.03693454200401902,
+            "max_seconds": 0.03774950001388788
+          },
+          "elapsed_change_pct": 95.48491816153965,
+          "throughput_change_pct": -48.8451585214545
+        }
+      },
+      "memory": {
+        "state/large-snapshots": {
+          "before": {
+            "peak_python_MiB": 27.46685218811035
+          },
+          "after": {
+            "peak_python_MiB": 27.471360206604004
+          }
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "peak_python_MiB": 3.2009763717651367
+          },
+          "after": {
+            "peak_python_MiB": 3.1992268562316895
+          }
+        },
+        "registry/unique-names": {
+          "before": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          },
+          "after": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          }
+        }
+      },
+      "unpaired_scenarios": [
+        "event/global-post"
+      ],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "814a69c96d3e5f8769b21696c6c18fd3075094a83f2a1f86b2c7f1152a05855f",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "814a69c96d3e5f8769b21696c6c18fd3075094a83f2a1f86b2c7f1152a05855f",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "registry/cold": {},
+        "registry/hot": {},
+        "registry/mutation": {},
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "graph/independent-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "graph/shared-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4
+          },
+          "capacity": 128
+        },
+        "graph/independent-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4,
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "state/fixed-small": {
+          "workload": {
+            "count": 256,
+            "nodes": 32,
+            "state": "fixed"
+          },
+          "capacity": 128
+        },
+        "state/large-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256
+          },
+          "capacity": 128
+        },
+        "state/large-no-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256,
+            "no_snapshot": true
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-128": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-512": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 512
+        },
+        "sleep/capacity-1024": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 1024
+        },
+        "event/cached-pipe": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/request-reply": {
+          "workload": {
+            "roundtrips": 2048
+          },
+          "capacity": 128
+        },
+        "event/getter": {}
+      }
+    },
+    {
+      "id": "2026-11-08-pre-thread-confirmation",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 7,
+      "summary": {
+        "registry/cold": {
+          "before": {
+            "seconds": 0.0008614160178694874,
+            "operations": 2000.0,
+            "samples": 14,
+            "min_seconds": 0.0007718750275671482,
+            "max_seconds": 0.001132874982431531
+          },
+          "after": {
+            "seconds": 0.0008503959979861975,
+            "operations": 2000.0,
+            "samples": 14,
+            "min_seconds": 0.0007630420150235295,
+            "max_seconds": 0.000917874975129962
+          },
+          "elapsed_change_pct": -1.2792912663204703,
+          "throughput_change_pct": 1.2958692079203304
+        },
+        "registry/hot": {
+          "before": {
+            "seconds": 0.0030681249918416142,
+            "operations": 30000.0,
+            "samples": 14,
+            "min_seconds": 0.0030171250109560788,
+            "max_seconds": 0.003558041003998369
+          },
+          "after": {
+            "seconds": 0.0031389165087603033,
+            "operations": 30000.0,
+            "samples": 14,
+            "min_seconds": 0.0030714169843122363,
+            "max_seconds": 0.010510375024750829
+          },
+          "elapsed_change_pct": 2.3073218042592547,
+          "throughput_change_pct": -2.2552851189612477
+        },
+        "registry/mutation": {
+          "before": {
+            "seconds": 3.437511622905731e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 14,
+            "min_seconds": 2.874992787837982e-06,
+            "max_seconds": 4.04199818149209e-06
+          },
+          "after": {
+            "seconds": 3.208988346159458e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 14,
+            "min_seconds": 2.874992787837982e-06,
+            "max_seconds": 3.958004526793957e-06
+          },
+          "elapsed_change_pct": -6.647927390950958,
+          "throughput_change_pct": 7.121349537456911
+        },
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.30523733352310956,
+            "build_seconds": 0.00013114549801684916,
+            "prepare_seconds": 0.0013698749826289713,
+            "execute_seconds": 0.30373712550499476,
+            "nodes_per_second": 26838.132518857165,
+            "execute_nodes_per_second": 26970.690766340114,
+            "latency_p50_ms": 299.8057504883036,
+            "latency_p95_ms": 303.348791989265,
+            "latency_p99_ms": 303.64525000914,
+            "loop_lag_max_ms": 6.030832999385893,
+            "loop_lag_p95_ms": 2.8410415106918663,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.30168812500778586,
+            "max_seconds": 0.3274297500029206
+          },
+          "after": {
+            "seconds": 0.32741549948696047,
+            "build_seconds": 0.00013529148418456316,
+            "prepare_seconds": 0.0014068125165067613,
+            "execute_seconds": 0.3258849789854139,
+            "nodes_per_second": 25045.3100059023,
+            "execute_nodes_per_second": 25163.161656811004,
+            "latency_p50_ms": 321.1074999999255,
+            "latency_p95_ms": 325.35387499956414,
+            "latency_p99_ms": 325.7624999678228,
+            "loop_lag_max_ms": 6.82456252980046,
+            "loop_lag_p95_ms": 3.6068125045858324,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.30672737496206537,
+            "max_seconds": 0.561097958998289
+          },
+          "elapsed_change_pct": 7.265875935904087,
+          "throughput_change_pct": -6.7737068033134396
+        },
+        "graph/independent-chain": {
+          "before": {
+            "seconds": 0.40066362550714985,
+            "build_seconds": 0.04010049952194095,
+            "prepare_seconds": 0.0016961459768936038,
+            "execute_seconds": 0.35922310448950157,
+            "nodes_per_second": 20446.101243906767,
+            "execute_nodes_per_second": 22804.849606399646,
+            "latency_p50_ms": 355.25439598131925,
+            "latency_p95_ms": 358.8250835018698,
+            "latency_p99_ms": 359.1306254675146,
+            "loop_lag_max_ms": 15.987791528459638,
+            "loop_lag_p95_ms": 3.0596459982916713,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.3894870420335792,
+            "max_seconds": 0.4205840830109082
+          },
+          "after": {
+            "seconds": 0.40738406250602566,
+            "build_seconds": 0.04101452050963417,
+            "prepare_seconds": 0.0016737084661144763,
+            "execute_seconds": 0.36412427100003697,
+            "nodes_per_second": 20108.841623061984,
+            "execute_nodes_per_second": 22497.818443885586,
+            "latency_p50_ms": 360.1134794880636,
+            "latency_p95_ms": 363.7101045169402,
+            "latency_p99_ms": 364.0283754793927,
+            "loop_lag_max_ms": 16.18956250604242,
+            "loop_lag_p95_ms": 3.0815000063739717,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.3972886659903452,
+            "max_seconds": 0.45286945899715647
+          },
+          "elapsed_change_pct": 1.677326458165318,
+          "throughput_change_pct": -1.6496563359732375
+        },
+        "graph/shared-parallel": {
+          "before": {
+            "seconds": 0.14890962501522154,
+            "build_seconds": 0.00012833299115300179,
+            "prepare_seconds": 0.0014370210119523108,
+            "execute_seconds": 0.14735058351652697,
+            "nodes_per_second": 55013.256201116135,
+            "execute_nodes_per_second": 55595.33598415644,
+            "latency_p50_ms": 143.37712503038347,
+            "latency_p95_ms": 146.9477915088646,
+            "latency_p99_ms": 147.25583299878053,
+            "loop_lag_max_ms": 6.789624982047826,
+            "loop_lag_p95_ms": 6.695187010336667,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.14669266599230468,
+            "max_seconds": 0.1652701249695383
+          },
+          "after": {
+            "seconds": 0.1507062079908792,
+            "build_seconds": 0.00012958349543623626,
+            "prepare_seconds": 0.0014398959756363183,
+            "execute_seconds": 0.1491372080054134,
+            "nodes_per_second": 54357.468917189995,
+            "execute_nodes_per_second": 54929.33761413279,
+            "latency_p50_ms": 145.07456251885742,
+            "latency_p95_ms": 148.7364159838762,
+            "latency_p99_ms": 149.0431244892534,
+            "loop_lag_max_ms": 6.758103991160169,
+            "loop_lag_p95_ms": 6.704083527438343,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.14932179200695828,
+            "max_seconds": 0.15455062495311722
+          },
+          "elapsed_change_pct": 1.206492176361329,
+          "throughput_change_pct": -1.1921094688855716
+        },
+        "graph/independent-parallel": {
+          "before": {
+            "seconds": 0.21996218751883134,
+            "build_seconds": 0.04175841651158407,
+            "prepare_seconds": 0.0017261045286431909,
+            "execute_seconds": 0.1765535204904154,
+            "nodes_per_second": 37243.33241744655,
+            "execute_nodes_per_second": 46400.561581316855,
+            "latency_p50_ms": 172.51231250702403,
+            "latency_p95_ms": 176.14795797271654,
+            "latency_p99_ms": 176.45825000363402,
+            "loop_lag_max_ms": 20.376250031404197,
+            "loop_lag_p95_ms": 15.314271004172042,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.21602241700747982,
+            "max_seconds": 0.24949791701510549
+          },
+          "after": {
+            "seconds": 0.22299500001827255,
+            "build_seconds": 0.042461354489205405,
+            "prepare_seconds": 0.00174162452458404,
+            "execute_seconds": 0.17779954196885228,
+            "nodes_per_second": 36736.249887796606,
+            "execute_nodes_per_second": 46074.381194124835,
+            "latency_p50_ms": 173.75681299017742,
+            "latency_p95_ms": 177.39393797819503,
+            "latency_p99_ms": 177.702145971125,
+            "loop_lag_max_ms": 20.626562502002344,
+            "loop_lag_p95_ms": 15.850020514335483,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.21703783399425447,
+            "max_seconds": 0.24504050001269206
+          },
+          "elapsed_change_pct": 1.3787881151989145,
+          "throughput_change_pct": -1.36003609910208
+        },
+        "state/fixed-small": {
+          "before": {
+            "seconds": 0.22140441701048985,
+            "build_seconds": 0.0001415215083397925,
+            "prepare_seconds": 0.0007459585322067142,
+            "execute_seconds": 0.22053441649768502,
+            "nodes_per_second": 37000.35018309804,
+            "execute_nodes_per_second": 37146.31478223471,
+            "latency_p50_ms": 219.91933297249489,
+            "latency_p95_ms": 220.46156198484823,
+            "latency_p99_ms": 220.49227048410103,
+            "loop_lag_max_ms": 6.261062517296523,
+            "loop_lag_p95_ms": 0.8907915325835347,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.21774995903251693,
+            "max_seconds": 0.24172658298630267
+          },
+          "after": {
+            "seconds": 0.22475843800930306,
+            "build_seconds": 0.00014272949192672968,
+            "prepare_seconds": 0.000747437501559034,
+            "execute_seconds": 0.223860333499033,
+            "nodes_per_second": 36448.02792822465,
+            "execute_nodes_per_second": 36594.25894866654,
+            "latency_p50_ms": 223.24064598069526,
+            "latency_p95_ms": 223.7872289842926,
+            "latency_p99_ms": 223.81952096475288,
+            "loop_lag_max_ms": 5.655645480146632,
+            "loop_lag_p95_ms": 0.9192499855998904,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.22315308300312608,
+            "max_seconds": 0.2407534999656491
+          },
+          "elapsed_change_pct": 1.514884411115558,
+          "throughput_change_pct": -1.492278122467816
+        },
+        "state/large-snapshots": {
+          "before": {
+            "seconds": 0.2024015210045036,
+            "build_seconds": 0.00012643748777918518,
+            "prepare_seconds": 0.005854332965100184,
+            "execute_seconds": 0.1963549584907014,
+            "nodes_per_second": 2529.6262139135406,
+            "execute_nodes_per_second": 2607.5243844074585,
+            "latency_p50_ms": 193.4779374860227,
+            "latency_p95_ms": 196.12720850273035,
+            "latency_p99_ms": 196.3047709723469,
+            "loop_lag_max_ms": 15.165458054980263,
+            "loop_lag_p95_ms": 15.165458054980263,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 14,
+            "min_seconds": 0.20035070896847174,
+            "max_seconds": 0.22510670899646357
+          },
+          "after": {
+            "seconds": 0.2041766874899622,
+            "build_seconds": 0.00012854149099439383,
+            "prepare_seconds": 0.005879603966604918,
+            "execute_seconds": 0.1981894999917131,
+            "nodes_per_second": 2507.6386462371693,
+            "execute_nodes_per_second": 2583.393968952094,
+            "latency_p50_ms": 195.27733349241316,
+            "latency_p95_ms": 197.96514601330273,
+            "latency_p99_ms": 198.1428125000093,
+            "loop_lag_max_ms": 15.221708512399346,
+            "loop_lag_p95_ms": 15.221708512399346,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 14,
+            "min_seconds": 0.20145225001033396,
+            "max_seconds": 0.22258383402368054
+          },
+          "elapsed_change_pct": 0.8770519493374263,
+          "throughput_change_pct": -0.8694266261645933
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "seconds": 0.10901410449878313,
+            "build_seconds": 0.00011652099783532321,
+            "prepare_seconds": 0.005837395990965888,
+            "execute_seconds": 0.10306220850907266,
+            "nodes_per_second": 4696.641666512272,
+            "execute_nodes_per_second": 4967.875080625825,
+            "latency_p50_ms": 100.30439551337622,
+            "latency_p95_ms": 102.85081251640804,
+            "latency_p99_ms": 103.01645801519044,
+            "loop_lag_max_ms": 5.386625009123236,
+            "loop_lag_p95_ms": 5.386625009123236,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 14,
+            "min_seconds": 0.1078766249702312,
+            "max_seconds": 0.1100937079754658
+          },
+          "after": {
+            "seconds": 0.10933545848820359,
+            "build_seconds": 0.00011270851246081293,
+            "prepare_seconds": 0.005833686998812482,
+            "execute_seconds": 0.10332604148425162,
+            "nodes_per_second": 4682.8433440700355,
+            "execute_nodes_per_second": 4955.201394252084,
+            "latency_p50_ms": 100.5624370300211,
+            "latency_p95_ms": 103.11252102837898,
+            "latency_p99_ms": 103.28314601792954,
+            "loop_lag_max_ms": 5.409875011537224,
+            "loop_lag_p95_ms": 5.409875011537224,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 14,
+            "min_seconds": 0.1085359159624204,
+            "max_seconds": 0.12077316700015217
+          },
+          "elapsed_change_pct": 0.29478202925938835,
+          "throughput_change_pct": -0.2939156188338732
+        },
+        "sleep/capacity-128": {
+          "before": {
+            "seconds": 0.7361371035221964,
+            "build_seconds": 0.00010408350499346852,
+            "prepare_seconds": 0.006292833510087803,
+            "execute_seconds": 0.7295986460230779,
+            "nodes_per_second": 11128.403583923979,
+            "execute_nodes_per_second": 11228.131469844155,
+            "latency_p50_ms": 720.7615000079386,
+            "latency_p95_ms": 728.9350210048724,
+            "latency_p99_ms": 729.4732085138094,
+            "loop_lag_max_ms": 18.33643752615899,
+            "loop_lag_p95_ms": 0.469500053441152,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.7212762919953093,
+            "max_seconds": 0.7987347499583848
+          },
+          "after": {
+            "seconds": 0.7765839995117858,
+            "build_seconds": 0.00011093751527369022,
+            "prepare_seconds": 0.0062889999826438725,
+            "execute_seconds": 0.7699788540194277,
+            "nodes_per_second": 10550.965111696394,
+            "execute_nodes_per_second": 10641.565790443798,
+            "latency_p50_ms": 756.7575414723251,
+            "latency_p95_ms": 769.4249374908395,
+            "latency_p99_ms": 769.7981875098776,
+            "loop_lag_max_ms": 19.74485401296988,
+            "loop_lag_p95_ms": 0.6667085108347237,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.7321172090014443,
+            "max_seconds": 0.9007584169739857
+          },
+          "elapsed_change_pct": 5.494478650249124,
+          "throughput_change_pct": -5.208309212527828
+        },
+        "sleep/capacity-512": {
+          "before": {
+            "seconds": 0.4407990005274769,
+            "build_seconds": 0.0001052290026564151,
+            "prepare_seconds": 0.006108687521191314,
+            "execute_seconds": 0.43452716700267047,
+            "nodes_per_second": 18588.83876925165,
+            "execute_nodes_per_second": 18857.36920115004,
+            "latency_p50_ms": 422.82702098600566,
+            "latency_p95_ms": 433.70349999167956,
+            "latency_p99_ms": 434.40462547005154,
+            "loop_lag_max_ms": 21.244104515062645,
+            "loop_lag_p95_ms": 5.4160000290721655,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.3792524160235189,
+            "max_seconds": 0.4821562920114957
+          },
+          "after": {
+            "seconds": 0.4536257294821553,
+            "build_seconds": 0.00010641649714671075,
+            "prepare_seconds": 0.006199187511811033,
+            "execute_seconds": 0.44722187498700805,
+            "nodes_per_second": 18058.959353209648,
+            "execute_nodes_per_second": 18317.551344922853,
+            "latency_p50_ms": 436.0996254836209,
+            "latency_p95_ms": 446.76177052315325,
+            "latency_p99_ms": 447.0807494944893,
+            "loop_lag_max_ms": 22.58552101557143,
+            "loop_lag_p95_ms": 5.616582988295704,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.3986852919915691,
+            "max_seconds": 0.4989314590347931
+          },
+          "elapsed_change_pct": 2.9098815876010153,
+          "throughput_change_pct": -2.827601725616624
+        },
+        "sleep/capacity-1024": {
+          "before": {
+            "seconds": 0.38250533351674676,
+            "build_seconds": 0.0001051870349328965,
+            "prepare_seconds": 0.006237875029910356,
+            "execute_seconds": 0.3761994795058854,
+            "nodes_per_second": 21416.704741076137,
+            "execute_nodes_per_second": 21775.700335592417,
+            "latency_p50_ms": 369.903291517403,
+            "latency_p95_ms": 375.7751874800306,
+            "latency_p99_ms": 376.0570414888207,
+            "loop_lag_max_ms": 33.937083528144285,
+            "loop_lag_p95_ms": 21.070542017696425,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.36204929201630875,
+            "max_seconds": 0.42013029201189056
+          },
+          "after": {
+            "seconds": 0.3973822499974631,
+            "build_seconds": 0.00010654149809852242,
+            "prepare_seconds": 0.0061802084965165704,
+            "execute_seconds": 0.39112964548985474,
+            "nodes_per_second": 20614.974415312216,
+            "execute_nodes_per_second": 20944.534737139507,
+            "latency_p50_ms": 379.04627100215293,
+            "latency_p95_ms": 390.5943749996368,
+            "latency_p99_ms": 390.9889374917839,
+            "loop_lag_max_ms": 35.62258300371468,
+            "loop_lag_p95_ms": 20.406250521773472,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 14,
+            "min_seconds": 0.3697432500193827,
+            "max_seconds": 0.4155909580294974
+          },
+          "elapsed_change_pct": 3.889335697345242,
+          "throughput_change_pct": -3.743729489883174
+        },
+        "event/cached-pipe": {
+          "before": {
+            "seconds": 0.12628962498274632,
+            "publish_seconds": 0.049899437522981316,
+            "operations": 16384.0,
+            "events_per_second": 129734.78533140676,
+            "samples": 14,
+            "min_seconds": 0.1225831659976393,
+            "max_seconds": 0.13098274997901171
+          },
+          "after": {
+            "seconds": 0.12544868799159303,
+            "publish_seconds": 0.04995664599118754,
+            "operations": 16384.0,
+            "events_per_second": 130603.40784558914,
+            "samples": 14,
+            "min_seconds": 0.12319583300268278,
+            "max_seconds": 0.12658062495756894
+          },
+          "elapsed_change_pct": -0.6658797120255744,
+          "throughput_change_pct": 0.6703433926783298
+        },
+        "event/global-post": {
+          "before": {
+            "seconds": 0.13373656250769272,
+            "publish_seconds": 0.053361145983217284,
+            "operations": 16384.0,
+            "events_per_second": 122512.68912058673,
+            "samples": 14,
+            "min_seconds": 0.13113929098472,
+            "max_seconds": 0.1448539579869248
+          },
+          "after": {
+            "seconds": 0.13603589549893513,
+            "publish_seconds": 0.05656645802082494,
+            "operations": 16384.0,
+            "events_per_second": 120439.13991396743,
+            "samples": 14,
+            "min_seconds": 0.13422362494748086,
+            "max_seconds": 0.14585158397676423
+          },
+          "elapsed_change_pct": 1.7193002034205485,
+          "throughput_change_pct": -1.6902399052905914
+        },
+        "event/request-reply": {
+          "before": {
+            "seconds": 0.24877124998602085,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8232.464933584772,
+            "samples": 14,
+            "min_seconds": 0.24418754200451076,
+            "max_seconds": 0.26248437497997656
+          },
+          "after": {
+            "seconds": 0.2481566880014725,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8252.85449969432,
+            "samples": 14,
+            "min_seconds": 0.245891208993271,
+            "max_seconds": 0.2572590839699842
+          },
+          "elapsed_change_pct": -0.2470389904713155,
+          "throughput_change_pct": 0.24765078446915556
+        },
+        "event/getter": {
+          "before": {
+            "seconds": 0.01924441650044173,
+            "operations": 200000.0,
+            "samples": 14,
+            "min_seconds": 0.01860225002747029,
+            "max_seconds": 0.020561833982355893
+          },
+          "after": {
+            "seconds": 0.03705735452240333,
+            "operations": 200000.0,
+            "samples": 14,
+            "min_seconds": 0.036629207956139,
+            "max_seconds": 0.03748674999224022
+          },
+          "elapsed_change_pct": 92.56159063878464,
+          "throughput_change_pct": -48.068563586190805
+        }
+      },
+      "memory": {
+        "state/large-snapshots": {
+          "before": {
+            "peak_python_MiB": 27.470338821411133
+          },
+          "after": {
+            "peak_python_MiB": 27.473825454711914
+          }
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "peak_python_MiB": 3.196803569793701
+          },
+          "after": {
+            "peak_python_MiB": 3.1970415115356445
+          }
+        },
+        "registry/unique-names": {
+          "before": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          },
+          "after": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          }
+        }
+      },
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "registry/cold": {},
+        "registry/hot": {},
+        "registry/mutation": {},
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "graph/independent-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "graph/shared-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4
+          },
+          "capacity": 128
+        },
+        "graph/independent-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4,
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "state/fixed-small": {
+          "workload": {
+            "count": 256,
+            "nodes": 32,
+            "state": "fixed"
+          },
+          "capacity": 128
+        },
+        "state/large-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256
+          },
+          "capacity": 128
+        },
+        "state/large-no-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256,
+            "no_snapshot": true
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-128": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-512": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 512
+        },
+        "sleep/capacity-1024": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 1024
+        },
+        "event/cached-pipe": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/global-post": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/request-reply": {
+          "workload": {
+            "roundtrips": 2048
+          },
+          "capacity": 128
+        },
+        "event/getter": {}
+      }
+    },
+    {
+      "id": "2026-11-08-pre-thread-focused",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 9,
+      "summary": {
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.3110916670120787,
+            "build_seconds": 0.00013729147030971944,
+            "cpu_seconds": 0.30210700000000007,
+            "gc_collections": 530.0,
+            "prepare_seconds": 0.0013960415381006896,
+            "execute_seconds": 0.3095272709906567,
+            "nodes_per_second": 26333.710980974258,
+            "execute_nodes_per_second": 26466.85190794955,
+            "latency_p50_ms": 305.3962709964253,
+            "latency_p95_ms": 309.0958124957979,
+            "latency_p99_ms": 309.4115830026567,
+            "loop_lag_max_ms": 6.357645528623834,
+            "loop_lag_p95_ms": 2.89493752643466,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.30122283298987895,
+            "max_seconds": 0.3357259170152247
+          },
+          "after": {
+            "seconds": 0.31482308349222876,
+            "build_seconds": 0.0001345209893770516,
+            "cpu_seconds": 0.30603,
+            "gc_collections": 530.0,
+            "prepare_seconds": 0.0013944375095888972,
+            "execute_seconds": 0.3127368124842178,
+            "nodes_per_second": 26021.044044507573,
+            "execute_nodes_per_second": 26194.549776202402,
+            "latency_p50_ms": 308.7504584691487,
+            "latency_p95_ms": 312.32575050671585,
+            "latency_p99_ms": 312.6420834742021,
+            "loop_lag_max_ms": 6.091229006415233,
+            "loop_lag_p95_ms": 2.8757084801327437,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.30817608296638355,
+            "max_seconds": 0.3364120830083266
+          },
+          "elapsed_change_pct": 1.1994588334650613,
+          "throughput_change_pct": -1.1852423395256495
+        },
+        "sleep/capacity-128": {
+          "before": {
+            "seconds": 0.7638050834939349,
+            "build_seconds": 9.187500108964741e-05,
+            "cpu_seconds": 0.3710325000000001,
+            "gc_collections": 306.5,
+            "prepare_seconds": 0.006058020517230034,
+            "execute_seconds": 0.757669562502997,
+            "nodes_per_second": 10725.252067398127,
+            "execute_nodes_per_second": 10812.103793778038,
+            "latency_p50_ms": 748.8213334872853,
+            "latency_p95_ms": 757.1206879802048,
+            "latency_p99_ms": 757.5636460096575,
+            "loop_lag_max_ms": 17.83333352068439,
+            "loop_lag_p95_ms": 0.6003125454299152,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.7188974590389989,
+            "max_seconds": 0.8780155000276864
+          },
+          "after": {
+            "seconds": 0.7728463749808725,
+            "build_seconds": 9.843750740401447e-05,
+            "cpu_seconds": 0.3791605,
+            "gc_collections": 307.5,
+            "prepare_seconds": 0.006056520476704463,
+            "execute_seconds": 0.7665959375153761,
+            "nodes_per_second": 10600.979332533294,
+            "execute_nodes_per_second": 10687.418758082207,
+            "latency_p50_ms": 758.2471250207163,
+            "latency_p95_ms": 766.0169580194633,
+            "latency_p99_ms": 766.4295415161178,
+            "loop_lag_max_ms": 18.611875013448298,
+            "loop_lag_p95_ms": 0.7050415151752532,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.7175817079842091,
+            "max_seconds": 0.8645405829884112
+          },
+          "elapsed_change_pct": 1.183717113478644,
+          "throughput_change_pct": -1.169869171885718
+        },
+        "event/global-post": {
+          "before": {
+            "seconds": 0.1263666039740201,
+            "publish_seconds": 0.051972478977404535,
+            "operations": 16384.0,
+            "events_per_second": 129654.52628905293,
+            "samples": 18,
+            "min_seconds": 0.12516699999105185,
+            "max_seconds": 0.13908725004876032
+          },
+          "after": {
+            "seconds": 0.13062331252149306,
+            "publish_seconds": 0.05569981248117983,
+            "operations": 16384.0,
+            "events_per_second": 125429.46101061106,
+            "samples": 18,
+            "min_seconds": 0.12906904198462144,
+            "max_seconds": 0.14472366694826633
+          },
+          "elapsed_change_pct": 3.368539165892348,
+          "throughput_change_pct": -3.2587663452284144
+        },
+        "event/request-reply": {
+          "before": {
+            "seconds": 0.24861512501956895,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8237.634038109567,
+            "samples": 18,
+            "min_seconds": 0.24649658397538587,
+            "max_seconds": 0.29937679099384695
+          },
+          "after": {
+            "seconds": 0.24812058298266493,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8254.051223387582,
+            "samples": 18,
+            "min_seconds": 0.24452574999304488,
+            "max_seconds": 0.26600529201095924
+          },
+          "elapsed_change_pct": -0.19891872502330044,
+          "throughput_change_pct": 0.1993152002784715
+        },
+        "event/getter": {
+          "before": {
+            "seconds": 0.019099103985354304,
+            "operations": 200000.0,
+            "samples": 18,
+            "min_seconds": 0.018662959046196193,
+            "max_seconds": 0.01966866699513048
+          },
+          "after": {
+            "seconds": 0.03720093797892332,
+            "operations": 200000.0,
+            "samples": 18,
+            "min_seconds": 0.0370672499993816,
+            "max_seconds": 0.03819791600108147
+          },
+          "elapsed_change_pct": 94.77844619019812,
+          "throughput_change_pct": -48.659617141441025
+        }
+      },
+      "memory": {},
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-128": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 128
+        },
+        "event/global-post": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/request-reply": {
+          "workload": {
+            "roundtrips": 2048
+          },
+          "capacity": 128
+        },
+        "event/getter": {}
+      }
+    },
+    {
+      "id": "2026-11-08-pre-thread-runtime",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 3,
+      "summary": {
+        "registry/cold": {
+          "before": {
+            "seconds": 0.0008762704965192825,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.0007842080085538328,
+            "max_seconds": 0.0009258329519070685
+          },
+          "after": {
+            "seconds": 0.0008943125139921904,
+            "operations": 2000.0,
+            "samples": 6,
+            "min_seconds": 0.0007915419992059469,
+            "max_seconds": 0.006131041969638318
+          },
+          "elapsed_change_pct": 2.058955259200701,
+          "throughput_change_pct": -2.017417534768551
+        },
+        "registry/hot": {
+          "before": {
+            "seconds": 0.003085479518631473,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.0030533750541508198,
+            "max_seconds": 0.003120333014521748
+          },
+          "after": {
+            "seconds": 0.0031339375127572566,
+            "operations": 30000.0,
+            "samples": 6,
+            "min_seconds": 0.0030880830017849803,
+            "max_seconds": 0.005912874999921769
+          },
+          "elapsed_change_pct": 1.570517445770525,
+          "throughput_change_pct": -1.546233577680678
+        },
+        "registry/mutation": {
+          "before": {
+            "seconds": 2.9999646358191967e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 6,
+            "min_seconds": 2.9170187190175056e-06,
+            "max_seconds": 3.2079988159239292e-06
+          },
+          "after": {
+            "seconds": 3.291497705504298e-06,
+            "operations": 1.0,
+            "retained_names": 8192.0,
+            "samples": 6,
+            "min_seconds": 2.9170187190175056e-06,
+            "max_seconds": 7.833004929125309e-06
+          },
+          "elapsed_change_pct": 9.717883544500271,
+          "throughput_change_pct": -8.857155488748402
+        },
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.3072164789773524,
+            "build_seconds": 0.00013591648894362152,
+            "prepare_seconds": 0.0014058749948162585,
+            "execute_seconds": 0.30569612499675713,
+            "nodes_per_second": 26665.358623616776,
+            "execute_nodes_per_second": 26797.97152028049,
+            "latency_p50_ms": 301.841354026692,
+            "latency_p95_ms": 305.3049380250741,
+            "latency_p99_ms": 305.6014795147348,
+            "loop_lag_max_ms": 6.130270514404401,
+            "loop_lag_p95_ms": 2.943500003311783,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.30132458300795406,
+            "max_seconds": 0.33134662499651313
+          },
+          "after": {
+            "seconds": 0.314029645989649,
+            "build_seconds": 0.00013566698180511594,
+            "prepare_seconds": 0.0014003955002408475,
+            "execute_seconds": 0.31249191699316725,
+            "nodes_per_second": 26086.738774402995,
+            "execute_nodes_per_second": 26215.11052593132,
+            "latency_p50_ms": 308.5668334970251,
+            "latency_p95_ms": 312.10206300602295,
+            "latency_p99_ms": 312.3997710063122,
+            "loop_lag_max_ms": 6.047125032637268,
+            "loop_lag_p95_ms": 2.9961875115986913,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3122538750176318,
+            "max_seconds": 0.33611295896116644
+          },
+          "elapsed_change_pct": 2.217708840025767,
+          "throughput_change_pct": -2.1695935715958514
+        },
+        "graph/independent-chain": {
+          "before": {
+            "seconds": 0.39107262500328943,
+            "build_seconds": 0.039276396040804684,
+            "prepare_seconds": 0.0016594164771959186,
+            "execute_seconds": 0.349852520506829,
+            "nodes_per_second": 20947.84452077805,
+            "execute_nodes_per_second": 23415.70019787088,
+            "latency_p50_ms": 345.88189551141113,
+            "latency_p95_ms": 349.4514375051949,
+            "latency_p99_ms": 349.7577915259171,
+            "loop_lag_max_ms": 14.497333497274667,
+            "loop_lag_p95_ms": 3.0021874990779907,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3849047500407323,
+            "max_seconds": 0.4128045419929549
+          },
+          "after": {
+            "seconds": 0.39726856249035336,
+            "build_seconds": 0.04020939549081959,
+            "prepare_seconds": 0.0016766464977990836,
+            "execute_seconds": 0.35617324998020194,
+            "nodes_per_second": 20620.840925760807,
+            "execute_nodes_per_second": 23000.198617875565,
+            "latency_p50_ms": 352.2359374910593,
+            "latency_p95_ms": 355.7645829860121,
+            "latency_p99_ms": 356.08189550112,
+            "loop_lag_max_ms": 15.240500011714175,
+            "loop_lag_p95_ms": 3.011646040249616,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3951172080123797,
+            "max_seconds": 0.404588709003292
+          },
+          "elapsed_change_pct": 1.5843444646660654,
+          "throughput_change_pct": -1.5596344820802077
+        },
+        "graph/shared-parallel": {
+          "before": {
+            "seconds": 0.14737479150062427,
+            "build_seconds": 0.00012752049951814115,
+            "prepare_seconds": 0.0014470004825852811,
+            "execute_seconds": 0.14576779151684605,
+            "nodes_per_second": 55586.440262658754,
+            "execute_nodes_per_second": 56199.214124476675,
+            "latency_p50_ms": 141.89002101193182,
+            "latency_p95_ms": 145.36856199265458,
+            "latency_p99_ms": 145.6742705195211,
+            "loop_lag_max_ms": 6.655750010395423,
+            "loop_lag_p95_ms": 6.627000024309382,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.14616216701688245,
+            "max_seconds": 0.14843012497294694
+          },
+          "after": {
+            "seconds": 0.14989706251071766,
+            "build_seconds": 0.00013302048319019377,
+            "prepare_seconds": 0.0014586875040549785,
+            "execute_seconds": 0.14832777102128603,
+            "nodes_per_second": 54652.2077019415,
+            "execute_nodes_per_second": 55230.35188552115,
+            "latency_p50_ms": 144.3918750155717,
+            "latency_p95_ms": 147.92524953372777,
+            "latency_p99_ms": 148.23191650793888,
+            "loop_lag_max_ms": 6.747312494553626,
+            "loop_lag_p95_ms": 6.699146033497527,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.1481031250441447,
+            "max_seconds": 0.17783016699831933
+          },
+          "elapsed_change_pct": 1.7114670591969583,
+          "throughput_change_pct": -1.6826687380301686
+        },
+        "graph/independent-parallel": {
+          "before": {
+            "seconds": 0.21305610449053347,
+            "build_seconds": 0.04011925050872378,
+            "prepare_seconds": 0.0017288329545408487,
+            "execute_seconds": 0.17137156301760115,
+            "nodes_per_second": 38450.014769179106,
+            "execute_nodes_per_second": 47803.330249163526,
+            "latency_p50_ms": 167.38754205289297,
+            "latency_p95_ms": 170.95200053881854,
+            "latency_p99_ms": 171.2731460283976,
+            "loop_lag_max_ms": 18.636791995959356,
+            "loop_lag_p95_ms": 13.630478992126882,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21070475003216416,
+            "max_seconds": 0.21728908299701288
+          },
+          "after": {
+            "seconds": 0.21808137549669482,
+            "build_seconds": 0.041265167004894465,
+            "prepare_seconds": 0.0017237294814549387,
+            "execute_seconds": 0.17467431249679066,
+            "nodes_per_second": 37565.57903756958,
+            "execute_nodes_per_second": 46898.86007014156,
+            "latency_p50_ms": 170.6163125054445,
+            "latency_p95_ms": 174.26789601449855,
+            "latency_p99_ms": 174.5785000093747,
+            "loop_lag_max_ms": 18.981500004883856,
+            "loop_lag_p95_ms": 14.305499993497506,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.2147525409818627,
+            "max_seconds": 0.22146012500161305
+          },
+          "elapsed_change_pct": 2.358660888021924,
+          "throughput_change_pct": -2.3043100286376905
+        },
+        "state/fixed-small": {
+          "before": {
+            "seconds": 0.2148215624911245,
+            "build_seconds": 0.00012912499369122088,
+            "prepare_seconds": 0.0007307500345632434,
+            "execute_seconds": 0.21396422950783744,
+            "nodes_per_second": 38133.98211102314,
+            "execute_nodes_per_second": 38286.781442238964,
+            "latency_p50_ms": 213.34802050841972,
+            "latency_p95_ms": 213.89356252620928,
+            "latency_p99_ms": 213.92477102926932,
+            "loop_lag_max_ms": 4.456021008081734,
+            "loop_lag_p95_ms": 0.8441460086032748,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21339887502836064,
+            "max_seconds": 0.2286476250155829
+          },
+          "after": {
+            "seconds": 0.21896654198644683,
+            "build_seconds": 0.0001399794709868729,
+            "prepare_seconds": 0.0007452289864886552,
+            "execute_seconds": 0.21807849998003803,
+            "nodes_per_second": 37412.130074658635,
+            "execute_nodes_per_second": 37564.47739745515,
+            "latency_p50_ms": 217.47454098658636,
+            "latency_p95_ms": 218.00818695919588,
+            "latency_p99_ms": 218.03920797538012,
+            "loop_lag_max_ms": 4.328208509832621,
+            "loop_lag_p95_ms": 0.8702500199433416,
+            "completed": 256.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.21609041700139642,
+            "max_seconds": 0.22020779101876542
+          },
+          "elapsed_change_pct": 1.9294988115979184,
+          "throughput_change_pct": -1.8929739026425696
+        },
+        "state/large-snapshots": {
+          "before": {
+            "seconds": 0.19945939551689662,
+            "build_seconds": 0.00011108300532214344,
+            "prepare_seconds": 0.005825749976793304,
+            "execute_seconds": 0.19354191652382724,
+            "nodes_per_second": 2566.9399866765943,
+            "execute_nodes_per_second": 2645.4242626791884,
+            "latency_p50_ms": 190.70981250843033,
+            "latency_p95_ms": 193.3190205018036,
+            "latency_p99_ms": 193.49616699037142,
+            "loop_lag_max_ms": 13.815687532769516,
+            "loop_lag_p95_ms": 13.815687532769516,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.19808658299734816,
+            "max_seconds": 0.2010358750121668
+          },
+          "after": {
+            "seconds": 0.20225197900435887,
+            "build_seconds": 0.00011274998541921377,
+            "prepare_seconds": 0.005868395499419421,
+            "execute_seconds": 0.19618822948541492,
+            "nodes_per_second": 2531.4962839607792,
+            "execute_nodes_per_second": 2609.739351476845,
+            "latency_p50_ms": 193.3274169859942,
+            "latency_p95_ms": 195.96735449158587,
+            "latency_p99_ms": 196.13841699901968,
+            "loop_lag_max_ms": 14.218104013707489,
+            "loop_lag_p95_ms": 14.218104013707489,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.2018909170292318,
+            "max_seconds": 0.21518187504261732
+          },
+          "elapsed_change_pct": 1.400076181031884,
+          "throughput_change_pct": -1.3807447033198472
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "seconds": 0.10820093753864057,
+            "build_seconds": 0.0001010415144264698,
+            "prepare_seconds": 0.00577564598643221,
+            "execute_seconds": 0.10231179153197445,
+            "nodes_per_second": 4731.938245150479,
+            "execute_nodes_per_second": 5004.312649852862,
+            "latency_p50_ms": 99.57881201989949,
+            "latency_p95_ms": 102.09699950064532,
+            "latency_p99_ms": 102.26810403401032,
+            "loop_lag_max_ms": 5.299562501022592,
+            "loop_lag_p95_ms": 5.299562501022592,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.10785245802253485,
+            "max_seconds": 0.10861900000600144
+          },
+          "after": {
+            "seconds": 0.10946560400770977,
+            "build_seconds": 0.00010652150376699865,
+            "prepare_seconds": 0.005786917026853189,
+            "execute_seconds": 0.10359362498275004,
+            "nodes_per_second": 4677.270127717506,
+            "execute_nodes_per_second": 4942.390773540227,
+            "latency_p50_ms": 100.79160396708176,
+            "latency_p95_ms": 103.37264597183093,
+            "latency_p99_ms": 103.54645847110078,
+            "loop_lag_max_ms": 5.460624524857849,
+            "loop_lag_p95_ms": 5.460624524857849,
+            "completed": 32.0,
+            "node_executions": 512.0,
+            "samples": 6,
+            "min_seconds": 0.10899095796048641,
+            "max_seconds": 0.11205654201330617
+          },
+          "elapsed_change_pct": 1.168812856744017,
+          "throughput_change_pct": -1.1553094513415574
+        },
+        "sleep/capacity-128": {
+          "before": {
+            "seconds": 0.758331666525919,
+            "build_seconds": 9.860401041805744e-05,
+            "prepare_seconds": 0.006036896025761962,
+            "execute_seconds": 0.7522032500128262,
+            "nodes_per_second": 10803.035650662518,
+            "execute_nodes_per_second": 10891.055661619297,
+            "latency_p50_ms": 743.7898955249693,
+            "latency_p95_ms": 751.6872914857231,
+            "latency_p99_ms": 752.0850415166933,
+            "loop_lag_max_ms": 18.200416525360197,
+            "loop_lag_p95_ms": 0.5489790055435151,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7394069160218351,
+            "max_seconds": 0.8002891250071116
+          },
+          "after": {
+            "seconds": 0.7951902704953682,
+            "build_seconds": 9.910450899042189e-05,
+            "prepare_seconds": 0.00606227049138397,
+            "execute_seconds": 0.7889851455111057,
+            "nodes_per_second": 10302.152432310511,
+            "execute_nodes_per_second": 10383.194862516351,
+            "latency_p50_ms": 779.9775000312366,
+            "latency_p95_ms": 788.3322915004101,
+            "latency_p99_ms": 788.8451039907522,
+            "loop_lag_max_ms": 18.7251454917714,
+            "loop_lag_p95_ms": 0.7918750343378633,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.7222260839771479,
+            "max_seconds": 0.8407462500035763
+          },
+          "elapsed_change_pct": 4.860485932007341,
+          "throughput_change_pct": -4.635193027008233
+        },
+        "sleep/capacity-512": {
+          "before": {
+            "seconds": 0.43062397951143794,
+            "build_seconds": 9.712501196190715e-05,
+            "prepare_seconds": 0.006180958007462323,
+            "execute_seconds": 0.42439625051338226,
+            "nodes_per_second": 19023.854927056207,
+            "execute_nodes_per_second": 19302.997972147423,
+            "latency_p50_ms": 411.7383749980945,
+            "latency_p95_ms": 423.8871044944972,
+            "latency_p99_ms": 424.26022948347963,
+            "loop_lag_max_ms": 21.1899790156167,
+            "loop_lag_p95_ms": 5.720708519220352,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.40488966600969434,
+            "max_seconds": 0.43734304094687104
+          },
+          "after": {
+            "seconds": 0.4413477085181512,
+            "build_seconds": 0.00010175001807510853,
+            "prepare_seconds": 0.006143479025922716,
+            "execute_seconds": 0.43516060450929217,
+            "nodes_per_second": 18562.015773755436,
+            "execute_nodes_per_second": 18825.917160751,
+            "latency_p50_ms": 420.2786044916138,
+            "latency_p95_ms": 434.7649999835994,
+            "latency_p99_ms": 435.0135420099832,
+            "loop_lag_max_ms": 22.23539602709934,
+            "loop_lag_p95_ms": 5.324999976437539,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3892920829821378,
+            "max_seconds": 0.44766929099569097
+          },
+          "elapsed_change_pct": 2.4902767883200116,
+          "throughput_change_pct": -2.429768819400635
+        },
+        "sleep/capacity-1024": {
+          "before": {
+            "seconds": 0.37551283347420394,
+            "build_seconds": 9.679197682999074e-05,
+            "prepare_seconds": 0.006126624997705221,
+            "execute_seconds": 0.36929816647898406,
+            "nodes_per_second": 21816.14027906352,
+            "execute_nodes_per_second": 22183.251479520593,
+            "latency_p50_ms": 351.9191039958969,
+            "latency_p95_ms": 368.76977048814297,
+            "latency_p99_ms": 369.0347084775567,
+            "loop_lag_max_ms": 32.55181250278838,
+            "loop_lag_p95_ms": 19.294688012450933,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.34971754194702953,
+            "max_seconds": 0.38035320898052305
+          },
+          "after": {
+            "seconds": 0.379238791501848,
+            "build_seconds": 0.00010552100138738751,
+            "prepare_seconds": 0.006169145985040814,
+            "execute_seconds": 0.3729562289954629,
+            "nodes_per_second": 21601.28680450885,
+            "execute_nodes_per_second": 21965.15653542496,
+            "latency_p50_ms": 365.45439550536685,
+            "latency_p95_ms": 372.4265834898688,
+            "latency_p99_ms": 372.80664552235976,
+            "loop_lag_max_ms": 33.06864597834647,
+            "loop_lag_p95_ms": 18.511979025788605,
+            "completed": 2048.0,
+            "node_executions": 8192.0,
+            "samples": 6,
+            "min_seconds": 0.3648265000083484,
+            "max_seconds": 0.3928589169518091
+          },
+          "elapsed_change_pct": 0.9922318747862535,
+          "throughput_change_pct": -0.9824833617069317
+        },
+        "event/cached-pipe": {
+          "before": {
+            "seconds": 0.12320299999555573,
+            "publish_seconds": 0.04977166699245572,
+            "operations": 16384.0,
+            "events_per_second": 132983.79610902158,
+            "samples": 6,
+            "min_seconds": 0.12233533401740715,
+            "max_seconds": 0.12344549997942522
+          },
+          "after": {
+            "seconds": 0.12290385403321125,
+            "publish_seconds": 0.049985458492301404,
+            "operations": 16384.0,
+            "events_per_second": 133308.03749934022,
+            "samples": 6,
+            "min_seconds": 0.12254587502684444,
+            "max_seconds": 0.1251596249639988
+          },
+          "elapsed_change_pct": -0.2428073686154386,
+          "throughput_change_pct": 0.24339835776316932
+        },
+        "event/global-post": {
+          "before": {
+            "seconds": 0.12796362550579943,
+            "publish_seconds": 0.05218504197546281,
+            "operations": 16384.0,
+            "events_per_second": 128036.63618486602,
+            "samples": 6,
+            "min_seconds": 0.12718141596997157,
+            "max_seconds": 0.13049587502609938
+          },
+          "after": {
+            "seconds": 0.13229804148431867,
+            "publish_seconds": 0.05647787498310208,
+            "operations": 16384.0,
+            "events_per_second": 123841.59149723919,
+            "samples": 6,
+            "min_seconds": 0.131452709028963,
+            "max_seconds": 0.13439441699301824
+          },
+          "elapsed_change_pct": 3.387225050389664,
+          "throughput_change_pct": -3.2762510539757317
+        },
+        "event/request-reply": {
+          "before": {
+            "seconds": 0.24318256301921792,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8421.920669132065,
+            "samples": 6,
+            "min_seconds": 0.2400239589624107,
+            "max_seconds": 0.24745799996890128
+          },
+          "after": {
+            "seconds": 0.2476801039883867,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8268.731383634014,
+            "samples": 6,
+            "min_seconds": 0.2449443339719437,
+            "max_seconds": 0.25614374998258427
+          },
+          "elapsed_change_pct": 1.8494504348214091,
+          "throughput_change_pct": -1.8158668769695185
+        },
+        "event/getter": {
+          "before": {
+            "seconds": 0.018693666497711092,
+            "operations": 200000.0,
+            "samples": 6,
+            "min_seconds": 0.018224625033326447,
+            "max_seconds": 0.019125540973618627
+          },
+          "after": {
+            "seconds": 0.037486374989384785,
+            "operations": 200000.0,
+            "samples": 6,
+            "min_seconds": 0.036933875002432615,
+            "max_seconds": 0.038160249998327345
+          },
+          "elapsed_change_pct": 100.52981577463535,
+          "throughput_change_pct": -50.132103989770485
+        }
+      },
+      "memory": {
+        "state/large-snapshots": {
+          "before": {
+            "peak_python_MiB": 27.476828575134277
+          },
+          "after": {
+            "peak_python_MiB": 27.475000381469727
+          }
+        },
+        "state/large-no-snapshots": {
+          "before": {
+            "peak_python_MiB": 3.1937689781188965
+          },
+          "after": {
+            "peak_python_MiB": 3.1951723098754883
+          }
+        },
+        "registry/unique-names": {
+          "before": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          },
+          "after": {
+            "retained_python_MiB": 2.0289230346679688,
+            "peak_python_MiB": 2.4249048233032227,
+            "retained_names": 8192.0,
+            "queried_names": 30000.0
+          }
+        }
+      },
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+            "driver_sha256": "bfc6b67f0d1021cfc0953df3026acc84e25e9ad060a9a33d6a0f2277788f02c4",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "registry/cold": {},
+        "registry/hot": {},
+        "registry/mutation": {},
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "graph/independent-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "graph/shared-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4
+          },
+          "capacity": 128
+        },
+        "graph/independent-parallel": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits",
+            "width": 4,
+            "independent": true
+          },
+          "capacity": 128
+        },
+        "state/fixed-small": {
+          "workload": {
+            "count": 256,
+            "nodes": 32,
+            "state": "fixed"
+          },
+          "capacity": 128
+        },
+        "state/large-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256
+          },
+          "capacity": 128
+        },
+        "state/large-no-snapshots": {
+          "workload": {
+            "count": 32,
+            "nodes": 16,
+            "state": "fixed",
+            "payload_items": 256,
+            "no_snapshot": true
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-128": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 128
+        },
+        "sleep/capacity-512": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 512
+        },
+        "sleep/capacity-1024": {
+          "workload": {
+            "count": 2048,
+            "nodes": 4,
+            "state": "fixed",
+            "sleep": 0.01
+          },
+          "capacity": 1024
+        },
+        "event/cached-pipe": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/global-post": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/request-reply": {
+          "workload": {
+            "roundtrips": 2048
+          },
+          "capacity": 128
+        },
+        "event/getter": {}
+      }
+    },
+    {
+      "id": "2026-11-08-waiter-cache-registry",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 15,
+      "summary": {
+        "registry/cold": {
+          "before": {
+            "seconds": 0.0008926245209295303,
+            "operations": 2000.0,
+            "samples": 30,
+            "min_seconds": 0.0007660410483367741,
+            "max_seconds": 0.003739749954547733
+          },
+          "after": {
+            "seconds": 0.0008540829585399479,
+            "operations": 2000.0,
+            "samples": 30,
+            "min_seconds": 0.0008263750351034105,
+            "max_seconds": 0.0038670829962939024
+          },
+          "elapsed_change_pct": -4.31777992715765,
+          "throughput_change_pct": 4.512625150075467
+        },
+        "registry/hot": {
+          "before": {
+            "seconds": 0.0032075420022010803,
+            "operations": 30000.0,
+            "samples": 30,
+            "min_seconds": 0.003107041004113853,
+            "max_seconds": 0.00809341698186472
+          },
+          "after": {
+            "seconds": 0.0037309165054466575,
+            "operations": 30000.0,
+            "samples": 30,
+            "min_seconds": 0.0036323750391602516,
+            "max_seconds": 0.003994667029473931
+          },
+          "elapsed_change_pct": 16.316996095029367,
+          "throughput_change_pct": -14.028041165797145
+        }
+      },
+      "memory": {},
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "registry/cold": {},
+        "registry/hot": {}
+      }
+    },
+    {
+      "id": "2026-11-08-waiter-cache-runtime",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 9,
+      "summary": {
+        "graph/shared-chain": {
+          "before": {
+            "seconds": 0.30958841647952795,
+            "build_seconds": 0.00012539600720629096,
+            "cpu_seconds": 0.30138849999999995,
+            "gc_collections": 530.0,
+            "prepare_seconds": 0.0013928334810771048,
+            "execute_seconds": 0.3080831874976866,
+            "nodes_per_second": 26461.417816140347,
+            "execute_nodes_per_second": 26590.72354606755,
+            "latency_p50_ms": 304.2227709956933,
+            "latency_p95_ms": 307.6755419897381,
+            "latency_p99_ms": 307.98470848822035,
+            "loop_lag_max_ms": 5.983959010336548,
+            "loop_lag_p95_ms": 2.8461669862736017,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.3025691250222735,
+            "max_seconds": 0.3327528749941848
+          },
+          "after": {
+            "seconds": 0.31166470801690593,
+            "build_seconds": 0.00012470848741941154,
+            "cpu_seconds": 0.3034815000000002,
+            "gc_collections": 530.0,
+            "prepare_seconds": 0.0013918745098635554,
+            "execute_seconds": 0.31014225000399165,
+            "nodes_per_second": 26284.657496757478,
+            "execute_nodes_per_second": 26413.68638819683,
+            "latency_p50_ms": 306.20041699148715,
+            "latency_p95_ms": 309.74637551116757,
+            "latency_p99_ms": 310.04743798985146,
+            "loop_lag_max_ms": 6.065270485123619,
+            "loop_lag_p95_ms": 2.9014585306867957,
+            "completed": 512.0,
+            "node_executions": 8192.0,
+            "samples": 18,
+            "min_seconds": 0.30983179196482524,
+            "max_seconds": 0.365652666951064
+          },
+          "elapsed_change_pct": 0.6706618939392062,
+          "throughput_change_pct": -0.6661939847438125
+        },
+        "event/cached-pipe": {
+          "before": {
+            "seconds": 0.1202859585173428,
+            "publish_seconds": 0.04859120800392702,
+            "operations": 16384.0,
+            "events_per_second": 136208.78096186093,
+            "samples": 18,
+            "min_seconds": 0.11891341698355973,
+            "max_seconds": 0.12181420903652906
+          },
+          "after": {
+            "seconds": 0.12132974999258295,
+            "publish_seconds": 0.04874660400673747,
+            "operations": 16384.0,
+            "events_per_second": 135036.9569239891,
+            "samples": 18,
+            "min_seconds": 0.12045612500514835,
+            "max_seconds": 0.14894174999790266
+          },
+          "elapsed_change_pct": 0.8677583718881499,
+          "throughput_change_pct": -0.8602931064342845
+        },
+        "event/global-post": {
+          "before": {
+            "seconds": 0.12896741650183685,
+            "publish_seconds": 0.05513422851799987,
+            "operations": 16384.0,
+            "events_per_second": 127039.90381072705,
+            "samples": 18,
+            "min_seconds": 0.12771595898084342,
+            "max_seconds": 0.13093287497758865
+          },
+          "after": {
+            "seconds": 0.13010470801964402,
+            "publish_seconds": 0.055303708504652604,
+            "operations": 16384.0,
+            "events_per_second": 125929.43546437149,
+            "samples": 18,
+            "min_seconds": 0.12822458299342543,
+            "max_seconds": 0.13252754200948402
+          },
+          "elapsed_change_pct": 0.8818440724452037,
+          "throughput_change_pct": -0.8741355598257505
+        },
+        "event/request-reply": {
+          "before": {
+            "seconds": 0.2395949585188646,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8547.81400947103,
+            "samples": 18,
+            "min_seconds": 0.23600833298405632,
+            "max_seconds": 0.2433907079976052
+          },
+          "after": {
+            "seconds": 0.2326951244904194,
+            "operations": 2048.0,
+            "roundtrips_per_second": 8801.215776501711,
+            "samples": 18,
+            "min_seconds": 0.23027295799693093,
+            "max_seconds": 0.2600709160324186
+          },
+          "elapsed_change_pct": -2.879790990218989,
+          "throughput_change_pct": 2.9651820353155944
+        }
+      },
+      "memory": {},
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "84711f39573cd7aa80631c5400846b23d1add942edc9d41b3c838481e120dc89",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "graph/shared-chain": {
+          "workload": {
+            "count": 512,
+            "nodes": 16,
+            "state": "visits"
+          },
+          "capacity": 128
+        },
+        "event/cached-pipe": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/global-post": {
+          "workload": {
+            "events": 16384,
+            "queue_capacity": 65536
+          },
+          "capacity": 128
+        },
+        "event/request-reply": {
+          "workload": {
+            "roundtrips": 2048
+          },
+          "capacity": 128
+        }
+      }
+    },
+    {
+      "id": "2026-11-08-waiter-mix",
+      "order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "repeats_per_worker": 9,
+      "summary": {
+        "event/mixed-wait-0": {
+          "before": {
+            "seconds": 0.03724812503787689,
+            "operations": 512.0,
+            "events_per_second": 13745.716367134437,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.03551866702036932,
+            "max_seconds": 0.03867320896824822
+          },
+          "after": {
+            "seconds": 0.037577708513708785,
+            "operations": 512.0,
+            "events_per_second": 13625.108282596198,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.03705433401046321,
+            "max_seconds": 0.03799016698030755
+          },
+          "elapsed_change_pct": 0.8848323922257872,
+          "throughput_change_pct": -0.877071777039462
+        },
+        "event/mixed-wait-25": {
+          "before": {
+            "seconds": 0.18357081251451746,
+            "operations": 512.0,
+            "events_per_second": 2789.116434343062,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.1817879169830121,
+            "max_seconds": 0.21539291698718444
+          },
+          "after": {
+            "seconds": 0.160680061992025,
+            "operations": 512.0,
+            "events_per_second": 3186.4566271613007,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.15908412501448765,
+            "max_seconds": 0.17724762501893565
+          },
+          "elapsed_change_pct": -12.469711393080074,
+          "throughput_change_pct": 14.246167345658979
+        },
+        "event/mixed-wait-50": {
+          "before": {
+            "seconds": 0.2859439375170041,
+            "operations": 512.0,
+            "events_per_second": 1790.5608213201724,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.28136770898709074,
+            "max_seconds": 0.31239708297653124
+          },
+          "after": {
+            "seconds": 0.25315527099883184,
+            "operations": 512.0,
+            "events_per_second": 2022.4742036058824,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.25150733400369063,
+            "max_seconds": 0.2546056659775786
+          },
+          "elapsed_change_pct": -11.466816468603191,
+          "throughput_change_pct": 12.951998348208814
+        },
+        "event/mixed-wait-75": {
+          "before": {
+            "seconds": 0.40912000052048825,
+            "operations": 512.0,
+            "events_per_second": 1251.4691246576704,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.4050758749945089,
+            "max_seconds": 0.6438402079511434
+          },
+          "after": {
+            "seconds": 0.3655378330440726,
+            "operations": 512.0,
+            "events_per_second": 1400.675811267171,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.3635962500120513,
+            "max_seconds": 0.3772963749943301
+          },
+          "elapsed_change_pct": -10.652661180330902,
+          "throughput_change_pct": 11.92275150111779
+        },
+        "event/mixed-wait-100": {
+          "before": {
+            "seconds": 0.5077259375248104,
+            "operations": 512.0,
+            "events_per_second": 1008.4180507750868,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.5037011249805801,
+            "max_seconds": 0.5309863749425858
+          },
+          "after": {
+            "seconds": 0.45642987501923926,
+            "operations": 512.0,
+            "events_per_second": 1121.7500488427622,
+            "handler_invocations": 32768.0,
+            "samples": 18,
+            "min_seconds": 0.453097167017404,
+            "max_seconds": 0.49069695797516033
+          },
+          "elapsed_change_pct": -10.103100652222352,
+          "throughput_change_pct": 11.238541846851934
+        }
+      },
+      "memory": {},
+      "unpaired_scenarios": [],
+      "processes": [
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "831201198a79c6a5e63770d553505e1467bfd03bbf32b1e4afbc1c8fee3b04ed",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "831201198a79c6a5e63770d553505e1467bfd03bbf32b1e4afbc1c8fee3b04ed",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "after",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+            "driver_sha256": "831201198a79c6a5e63770d553505e1467bfd03bbf32b1e4afbc1c8fee3b04ed",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        },
+        {
+          "label": "before",
+          "environment": {
+            "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+            "platform": "macOS-27.0.1-arm64-arm-64bit",
+            "gc_enabled": true,
+            "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+            "driver_sha256": "831201198a79c6a5e63770d553505e1467bfd03bbf32b1e4afbc1c8fee3b04ed",
+            "logging": "ERROR",
+            "loop_lag_probe_interval_ms": 1
+          }
+        }
+      ],
+      "workloads": {
+        "event/mixed-wait-0": {
+          "workload": {
+            "events": 512,
+            "total_listeners": 64,
+            "waiting_percent": 0,
+            "waiting_listeners": 0,
+            "normal_subscribers": 64,
+            "received_waiters": 0,
+            "processed_waiters": 0,
+            "matching": "half exact, half glob in each listener category",
+            "normal_registration": "persistent",
+            "wait_registration": "each event",
+            "queue_capacity": 65536
+          },
+          "capacity": 128,
+          "cache_audit": {
+            "normal_chain_builds": 1,
+            "events": 512,
+            "normal_callbacks": 32768,
+            "wait_results": 0,
+            "leftover_waiters": 0
+          }
+        },
+        "event/mixed-wait-25": {
+          "workload": {
+            "events": 512,
+            "total_listeners": 64,
+            "waiting_percent": 25,
+            "waiting_listeners": 16,
+            "normal_subscribers": 48,
+            "received_waiters": 8,
+            "processed_waiters": 8,
+            "matching": "half exact, half glob in each listener category",
+            "normal_registration": "persistent",
+            "wait_registration": "each event",
+            "queue_capacity": 65536
+          },
+          "capacity": 128,
+          "cache_audit": {
+            "normal_chain_builds": 512,
+            "events": 512,
+            "normal_callbacks": 24576,
+            "wait_results": 8192,
+            "leftover_waiters": 0
+          }
+        },
+        "event/mixed-wait-50": {
+          "workload": {
+            "events": 512,
+            "total_listeners": 64,
+            "waiting_percent": 50,
+            "waiting_listeners": 32,
+            "normal_subscribers": 32,
+            "received_waiters": 16,
+            "processed_waiters": 16,
+            "matching": "half exact, half glob in each listener category",
+            "normal_registration": "persistent",
+            "wait_registration": "each event",
+            "queue_capacity": 65536
+          },
+          "capacity": 128,
+          "cache_audit": {
+            "normal_chain_builds": 512,
+            "events": 512,
+            "normal_callbacks": 16384,
+            "wait_results": 16384,
+            "leftover_waiters": 0
+          }
+        },
+        "event/mixed-wait-75": {
+          "workload": {
+            "events": 512,
+            "total_listeners": 64,
+            "waiting_percent": 75,
+            "waiting_listeners": 48,
+            "normal_subscribers": 16,
+            "received_waiters": 24,
+            "processed_waiters": 24,
+            "matching": "half exact, half glob in each listener category",
+            "normal_registration": "persistent",
+            "wait_registration": "each event",
+            "queue_capacity": 65536
+          },
+          "capacity": 128,
+          "cache_audit": {
+            "normal_chain_builds": 512,
+            "events": 512,
+            "normal_callbacks": 8192,
+            "wait_results": 24576,
+            "leftover_waiters": 0
+          }
+        },
+        "event/mixed-wait-100": {
+          "workload": {
+            "events": 512,
+            "total_listeners": 64,
+            "waiting_percent": 100,
+            "waiting_listeners": 64,
+            "normal_subscribers": 0,
+            "received_waiters": 32,
+            "processed_waiters": 32,
+            "matching": "half exact, half glob in each listener category",
+            "normal_registration": "persistent",
+            "wait_registration": "each event",
+            "queue_capacity": 65536
+          },
+          "capacity": 128,
+          "cache_audit": {
+            "normal_chain_builds": 512,
+            "events": 512,
+            "normal_callbacks": 0,
+            "wait_results": 32768,
+            "leftover_waiters": 0
+          }
+        }
+      }
+    }
+  ],
+  "audit_summaries": [
+    {
+      "id": "2026-10-22-backpressure-before",
+      "data": {
+        "date": "2026-10-22",
+        "kind": "correctness_defect_reproduction",
+        "scope": "Isolated overlay of the current package with only event/base.py and event/event_loop.py restored from the archived HEAD runtime. Current handler indexing and clear() are retained for fixture compatibility. This is not the full performance baseline.",
+        "selected_test": "source/tests/integration/event/test_backpressure_boundaries.py::test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit",
+        "case_filter": "not body",
+        "case_filter_reason": "Select repeated child cancellation and owner cancellation during reacquisition. First owner cancellation in the child body is excluded from this focused defect reproduction.",
+        "python": "3.12.12",
+        "external_watchdog_seconds": 30,
+        "overlay_import_verified": true,
+        "baseline_files_match_head": true,
+        "baseline_file_sha256": {
+          "source/apixis/core/event/base.py": "92034246b91d88823613588b7a688f06238dbe5ac8aeeba503a9a8c25c88cc66",
+          "source/apixis/core/event/event_loop.py": "48dc4cc34a6914df1b4f68e0180686d46c383fa5b05b1a643e157749a8ab119f"
+        },
+        "test_file_sha256": "e433b60ba87112073587707228620960d9f7fe37600cd44a8171f91e0690868f",
+        "exit_code": 1,
+        "counts": {
+          "passed": 8,
+          "failed": 8
+        },
+        "assertion_message": "The parent handler resumed after catching repeated child cancellation while its token held no foreground permit and all configured permits remained occupied.",
+        "cases": [
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity0]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity1]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity2]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-never-event_runtime_capacity3]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity0]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity1]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity2]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[False-resume-event_runtime_capacity3]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity0]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity1]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity2]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-never-event_runtime_capacity3]",
+            "status": "failed",
+            "assertion": "assert not continued.is_set()",
+            "observed": "continued.is_set() is True while all foreground permits remain occupied"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity0]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity1]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity2]",
+            "status": "passed"
+          },
+          {
+            "test": "test_parent_catching_repeated_parallel_child_cancellation_keeps_its_permit[True-resume-event_runtime_capacity3]",
+            "status": "passed"
+          }
+        ],
+        "reproduction": [
+          "Copy the current source/apixis package into a temporary source overlay.",
+          "Replace only core/event/base.py and core/event/event_loop.py using the archived HEAD files identified by baseline_file_sha256.",
+          "Set PYTHONPATH to the temporary source overlay and verify both event modules import from it.",
+          "Run python -m pytest -q with selected_test, -k \"not body\", --tb=short and a 30 second external subprocess watchdog."
+        ]
+      }
+    },
+    {
+      "id": "2026-10-22-backpressure-stress",
+      "data": {
+        "process_runs": 20,
+        "cases_per_run": 84,
+        "passed_cases": 1680,
+        "per_process_timeout_seconds": 20,
+        "total_seconds": 5.935632457956672
+      }
+    },
+    {
+      "id": "2026-11-08-handler-chain-cache",
+      "data": {
+        "python": "3.12.12",
+        "source_sha256_excluding_version": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+        "scenarios": [
+          {
+            "scenario": "warm-exact-and-glob",
+            "lookups": 100000,
+            "builds": 1,
+            "hits": 99999,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "empty-chain",
+            "lookups": 100000,
+            "builds": 1,
+            "hits": 99999,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "unrelated-exact-registration-churn",
+            "registration_pairs": 1000,
+            "lookups": 1001,
+            "builds": 1,
+            "hits": 1000,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "indexed-group-removal",
+            "lookups": 4,
+            "builds": 3,
+            "hits": 1,
+            "handler_snapshots": 0,
+            "cached_names": 2,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "replacement-with-new-instance",
+            "lookups": 6,
+            "builds": 5,
+            "hits": 1,
+            "handler_snapshots": 0,
+            "cached_names": 3,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "glob-filtered-and-matching-invalidation",
+            "lookups": 103,
+            "builds": 3,
+            "hits": 100,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "hot-key-with-50000-distinct-names",
+            "hot_builds": 1,
+            "lookups": 100000,
+            "builds": 50001,
+            "hits": 49999,
+            "handler_snapshots": 0,
+            "cached_names": 8192,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "cyclic-working-set-exceeds-lru",
+            "lookups": 16386,
+            "builds": 16386,
+            "hits": 0,
+            "handler_snapshots": 0,
+            "cached_names": 8192,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "real-dispatch-32768-events-32-names",
+            "lookups": 32768,
+            "builds": 32,
+            "hits": 32736,
+            "handler_snapshots": 32768,
+            "cached_names": 32,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "thread-publication-32-workers-8192-events",
+            "lookups": 8192,
+            "builds": 1,
+            "hits": 8191,
+            "handler_snapshots": 8192,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "stop-restart-retains-chain",
+            "lookups": 8193,
+            "builds": 1,
+            "hits": 8192,
+            "handler_snapshots": 8193,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "public-instance-reregistration",
+            "lookups": 3,
+            "builds": 3,
+            "hits": 0,
+            "handler_snapshots": 0,
+            "cached_names": 2,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "shared-graph-128-invocations-16-nodes",
+            "node_executions": 2048,
+            "dispatch_lookups": 2176,
+            "lookups": 2176,
+            "builds": 1,
+            "hits": 2175,
+            "handler_snapshots": 2176,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "request-reply-with-transient-listeners",
+            "builds_by_name": {
+              "request.fixed": 1,
+              "reply.fixed": 512
+            },
+            "lookups": 1024,
+            "builds": 513,
+            "hits": 511,
+            "handler_snapshots": 1024,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          }
+        ],
+        "findings": [
+          {
+            "scenario": "in-place-subscriptions-before-reregistration",
+            "expected_chain": [],
+            "cached_chain": [
+              "worker"
+            ],
+            "freshly_rebuilt_chain": [],
+            "defect_reproduced": true
+          },
+          {
+            "scenario": "in-place-filters-before-reregistration",
+            "expected_chain": [],
+            "cached_chain": [
+              "worker"
+            ],
+            "freshly_rebuilt_chain": [],
+            "defect_reproduced": true
+          },
+          {
+            "scenario": "unregister-after-in-place-reregistration",
+            "error": "KeyError('worker')",
+            "defect_reproduced": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "2026-11-08-waiter-cache-audit",
+      "data": {
+        "python": "3.12.12",
+        "scope": "normal registry and runtime scenarios",
+        "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+        "scenarios": [
+          {
+            "scenario": "warm-exact-and-glob",
+            "lookups": 100000,
+            "builds": 1,
+            "hits": 99999,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "empty-chain",
+            "lookups": 100000,
+            "builds": 1,
+            "hits": 99999,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "unrelated-exact-registration-churn",
+            "registration_pairs": 1000,
+            "lookups": 1001,
+            "builds": 1,
+            "hits": 1000,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "indexed-group-removal",
+            "lookups": 4,
+            "builds": 3,
+            "hits": 1,
+            "handler_snapshots": 0,
+            "cached_names": 2,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "replacement-with-new-instance",
+            "lookups": 6,
+            "builds": 5,
+            "hits": 1,
+            "handler_snapshots": 0,
+            "cached_names": 3,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "glob-filtered-and-matching-invalidation",
+            "lookups": 103,
+            "builds": 3,
+            "hits": 100,
+            "handler_snapshots": 0,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "hot-key-with-50000-distinct-names",
+            "hot_builds": 1,
+            "lookups": 100000,
+            "builds": 50001,
+            "hits": 49999,
+            "handler_snapshots": 0,
+            "cached_names": 8192,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "cyclic-working-set-exceeds-lru",
+            "lookups": 16386,
+            "builds": 16386,
+            "hits": 0,
+            "handler_snapshots": 0,
+            "cached_names": 8192,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "real-dispatch-32768-events-32-names",
+            "lookups": 32768,
+            "builds": 32,
+            "hits": 32736,
+            "handler_snapshots": 32768,
+            "cached_names": 32,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "thread-publication-32-workers-8192-events",
+            "lookups": 8192,
+            "builds": 1,
+            "hits": 8191,
+            "handler_snapshots": 8192,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "stop-restart-retains-chain",
+            "lookups": 8193,
+            "builds": 1,
+            "hits": 8192,
+            "handler_snapshots": 8193,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "public-instance-reregistration",
+            "lookups": 3,
+            "builds": 3,
+            "hits": 0,
+            "handler_snapshots": 0,
+            "cached_names": 2,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "shared-graph-128-invocations-16-nodes",
+            "node_executions": 2048,
+            "dispatch_lookups": 2176,
+            "lookups": 2176,
+            "builds": 1,
+            "hits": 2175,
+            "handler_snapshots": 2176,
+            "cached_names": 1,
+            "cache_capacity": 8192
+          },
+          {
+            "scenario": "request-reply-with-transient-listeners",
+            "builds_by_name": {
+              "request.fixed": 1,
+              "reply.fixed": 1
+            },
+            "lookups": 1024,
+            "builds": 2,
+            "hits": 1022,
+            "handler_snapshots": 1024,
+            "cached_names": 2,
+            "cache_capacity": 8192
+          }
+        ]
+      }
+    }
+  ],
+  "overview_chart": {
+    "metric": "elapsed_change_pct",
+    "interpretation": "Each point compares against its own matched ABBA baseline. Negative is faster. Lines connect adjacent measurements only; missing scenarios are not interpolated. This is not a cumulative version-performance index.",
+    "stages": [
+      {
+        "round": 1,
+        "id": "2026-10-22-runtime",
+        "labels": [
+          "10/22",
+          "索引与 LRU"
+        ],
+        "samples_per_version": 6
+      },
+      {
+        "round": 2,
+        "id": "2026-11-08-pre-thread-runtime",
+        "labels": [
+          "11/08",
+          "跨线程初测"
+        ],
+        "samples_per_version": 6
+      },
+      {
+        "round": 3,
+        "id": "2026-11-08-documented-runtime",
+        "labels": [
+          "历史基线",
+          "同场对照"
+        ],
+        "samples_per_version": 6
+      },
+      {
+        "round": 4,
+        "id": "2026-11-08-pre-thread-confirmation",
+        "labels": [
+          "跨线程",
+          "完整复核"
+        ],
+        "samples_per_version": 14
+      },
+      {
+        "round": 5,
+        "id": "2026-11-08-pre-thread-focused",
+        "labels": [
+          "跨线程",
+          "定向复核"
+        ],
+        "samples_per_version": 18
+      },
+      {
+        "round": 6,
+        "id": "2026-11-08-waiter-cache-runtime",
+        "labels": [
+          "缓存拆分",
+          "通用负载"
+        ],
+        "samples_per_version": 18
+      },
+      {
+        "round": 7,
+        "id": "2026-11-08-waiter-cache-registry",
+        "labels": [
+          "缓存拆分",
+          "微基准"
+        ],
+        "samples_per_version": 30
+      },
+      {
+        "round": 8,
+        "id": "2026-11-08-waiter-hotpath-controls",
+        "labels": [
+          "等待路径",
+          "普通复测"
+        ],
+        "samples_per_version": 18
+      }
+    ],
+    "panels": [
+      {
+        "title": "图执行",
+        "series": [
+          {
+            "scenario": "graph/shared-chain",
+            "label": "复用串行图",
+            "values": [
+              2.2046273197642297,
+              2.217708840025767,
+              1.0658464361911202,
+              7.265875935904087,
+              1.1994588334650613,
+              0.6706618939392062,
+              null,
+              0.043940770206329915
+            ]
+          },
+          {
+            "scenario": "graph/independent-chain",
+            "label": "独立串行图",
+            "values": [
+              -38.94387684801626,
+              1.5843444646660654,
+              5.278008573564552,
+              1.677326458165318,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "graph/shared-parallel",
+            "label": "复用并行图",
+            "values": [
+              -0.8955093504480649,
+              1.7114670591969583,
+              1.3501178607700615,
+              1.206492176361329,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "graph/independent-parallel",
+            "label": "独立并行图",
+            "values": [
+              -53.812442550719396,
+              2.358660888021924,
+              2.9756204905745154,
+              1.3787881151989145,
+              null,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "title": "状态与异步等待",
+        "series": [
+          {
+            "scenario": "state/fixed-small",
+            "label": "小固定状态",
+            "values": [
+              -0.07025038007645312,
+              1.9294988115979184,
+              1.7595781807847155,
+              1.514884411115558,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "state/large-snapshots",
+            "label": "大状态 / 完整快照",
+            "values": [
+              -0.8691421441554215,
+              1.400076181031884,
+              -1.481209172200082,
+              0.8770519493374263,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "state/large-no-snapshots",
+            "label": "大状态 / 无快照",
+            "values": [
+              -0.09796947566212966,
+              1.168812856744017,
+              -2.6746992266215908,
+              0.29478202925938835,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "sleep/capacity-128",
+            "label": "sleep / 背压 128",
+            "values": [
+              3.3245116549404985,
+              4.860485932007341,
+              3.7398259334497252,
+              5.494478650249124,
+              1.183717113478644,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "sleep/capacity-512",
+            "label": "sleep / 背压 512",
+            "values": [
+              2.019033732625841,
+              2.4902767883200116,
+              3.5405374725331784,
+              2.9098815876010153,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "sleep/capacity-1024",
+            "label": "sleep / 背压 1024",
+            "values": [
+              2.709301116142626,
+              0.9922318747862535,
+              2.376919959632451,
+              3.889335697345242,
+              null,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "title": "事件发布与请求响应",
+        "series": [
+          {
+            "scenario": "event/cached-pipe",
+            "label": "原生管道发布",
+            "values": [
+              null,
+              -0.2428073686154386,
+              0.38349632678593704,
+              -0.6658797120255744,
+              null,
+              0.8677583718881499,
+              null,
+              -0.6168102770394479
+            ]
+          },
+          {
+            "scenario": "event/global-post",
+            "label": "全局事件发布",
+            "values": [
+              null,
+              3.387225050389664,
+              null,
+              1.7193002034205485,
+              3.368539165892348,
+              0.8818440724452037,
+              null,
+              -0.5997282965143791
+            ]
+          },
+          {
+            "scenario": "event/request-reply",
+            "label": "请求 / 响应",
+            "values": [
+              null,
+              1.8494504348214091,
+              28.00510725458969,
+              -0.2470389904713155,
+              -0.19891872502330044,
+              -2.879790990218989,
+              null,
+              -3.6872293084826757
+            ]
+          }
+        ]
+      },
+      {
+        "title": "路由与 getter 微基准",
+        "series": [
+          {
+            "scenario": "registry/cold",
+            "label": "冷查询",
+            "values": [
+              -99.75573521816365,
+              2.058955259200701,
+              -1.5598855407828016,
+              -1.2792912663204703,
+              null,
+              null,
+              -4.31777992715765,
+              null
+            ]
+          },
+          {
+            "scenario": "registry/hot",
+            "label": "热引用快照",
+            "values": [
+              7.152740356630183,
+              1.570517445770525,
+              -0.708738521652641,
+              2.3073218042592547,
+              null,
+              null,
+              16.316996095029367,
+              -0.5703488995523753
+            ]
+          },
+          {
+            "scenario": "registry/mutation",
+            "label": "精确订阅增删",
+            "values": [
+              -99.99098537017824,
+              9.717883544500271,
+              15.9489390994493,
+              -6.647927390950958,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "scenario": "event/getter",
+            "label": "getter",
+            "values": [
+              null,
+              100.52981577463535,
+              95.48491816153965,
+              92.56159063878464,
+              94.77844619019812,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

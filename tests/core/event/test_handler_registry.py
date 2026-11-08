@@ -707,8 +707,8 @@ async def test_publish_does_not_resolve_but_dequeue_uses_latest_registration(run
         # Expire an existing populated cache before publishing.
         subscribe("event.*", priority=1)(first)
     await loop.stop()
-    with patch.object(registry, "get_handlers_chain_for_event",
-                      wraps=registry.get_handlers_chain_for_event) as resolve:
+    with patch.object(registry, "get_subscription_chain_for_event",
+                      wraps=registry.get_subscription_chain_for_event) as resolve:
         event = ApixEvent("id", EventType.INFO, "event.one", None, 0)
         if publish == "post":
             await pipe.post_event(event_type=EventType.INFO, event_name="event.one")
@@ -980,7 +980,7 @@ async def test_reordering_existing_name_only_changes_subsequent_dequeued_order(r
 
 async def test_chain_resolution_failure_acknowledges_event_and_keeps_consuming(runtime, wait_for_dispatch):
     pipe, loop = runtime
-    with patch.object(get_handler_registry(), "get_handlers_chain_for_event",
+    with patch.object(get_handler_registry(), "get_subscription_chain_for_event",
                       side_effect=[RuntimeError("resolution failed"), []]) as resolve:
         with patch("apixis.core.event.event_loop.logger") as logger:
             await pipe.post_event(event_type=EventType.INFO, event_name="event.one")

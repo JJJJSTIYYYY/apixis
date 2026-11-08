@@ -8,7 +8,6 @@ from copy import copy, deepcopy
 from functools import partial
 from threading import current_thread, main_thread
 from typing import Any, Literal, Self, cast
-from uuid import uuid4
 
 from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, EventType, suspend_process
 from apixis.core.event.factory import get_event_pipe, get_handler_registry, get_thread_bridge
@@ -427,7 +426,7 @@ def subscribe(
             in the handler registry.
     """
     if priority is not None:
-        priority = validate_number(priority, "priority", minimum=-9999, maximum=9999)
+        priority = validate_number(priority, "priority")
     def decorator[HandlerT: EventHandlerFunc | ApixEventHandler](
         func: HandlerT,
     ) -> HandlerT:
@@ -551,7 +550,7 @@ class EventWaiter:
         self._remaining = len(self._events)
         loop = asyncio.get_running_loop()
         self._future: asyncio.Future[dict[str, ApixEvent]] = loop.create_future()
-        self._timeout_future: asyncio.Future[None] = loop.create_future()
+        self._timeout_future: asyncio.Future[None] | None = None
         self._deadline: float | None = None
         self._timeout_handle: asyncio.TimerHandle | None = None
         self._keep_listening = keep_listening
@@ -605,6 +604,8 @@ class EventWaiter:
             self._keep_listening = keep_listening
         if not self._future.done():
             self._start_timeout(time_out)
+            if self._timeout_future is None:
+                self._timeout_future = asyncio.get_running_loop().create_future()
         try:
             async with suspend_process():
                 while not self._future.done():
@@ -637,7 +638,9 @@ class EventWaiter:
             raise RuntimeError("The event waiter is closed.")
         try:
             async with suspend_process():
-                events = await asyncio.shield(self._future)
+                # Cancelling any result wait closes the whole collection, so
+                # shielding its Future only adds a Future and two callbacks.
+                events = await self._future
         except asyncio.CancelledError:
             self.close()
             raise
@@ -646,9 +649,10 @@ class EventWaiter:
     def _start_timeout(self, time_out: float | None) -> None:
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
-        self._timeout_future.cancel()
         loop = asyncio.get_running_loop()
-        self._timeout_future = loop.create_future()
+        if self._timeout_future is not None:
+            self._timeout_future.cancel()
+            self._timeout_future = loop.create_future()
         self._deadline = None if time_out is None else loop.time() + time_out
         self._timeout_handle = (
             None if self._deadline is None else loop.call_at(self._deadline, self._expire)
@@ -659,7 +663,7 @@ class EventWaiter:
             return
         self._deadline = None
         if self._keep_listening:
-            if not self._timeout_future.done():
+            if self._timeout_future is not None and not self._timeout_future.done():
                 self._timeout_future.set_result(None)
         else:
             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
@@ -679,8 +683,8 @@ class EventWaiter:
         self._remaining -= 1
         if self._remaining == 0:
             self._future.set_result(cast(dict[str, ApixEvent], self._events))
-            # Keep every listener while collecting: partial unregistration would
-            # invalidate routing caches. Captured handlers cover overlapping patterns.
+            # Captured handlers cover overlapping patterns even as close()
+            # removes listeners from the separate waiting cache.
             self.close()
 
     def _register_wait_handler(
@@ -691,6 +695,7 @@ class EventWaiter:
         """Install every handler without yielding; constructor failure closes all."""
         if isinstance(filter, str):
             filter = [filter]
+        filters = list(dict.fromkeys(filter)) if filter else []
         for event_name in self._events:
             resolve = partial(self._resolve, event_name)
             handler = ApixEventHandler(
@@ -700,12 +705,11 @@ class EventWaiter:
                 on_has_error=resolve,
                 on_error=resolve,
                 stop_when_error=False,
-                name='resolve_future-'+uuid4().hex,
             )
+            handler.name = 'resolve_future-' + handler.id
             handler.subscribe = [event_name]
-            handler.priority = 10000 if point == 'received' else -10000
-            handler.filter_event = filter
-            self._registry.register_handler(handler, exist_ok=True)
+            handler.filter_event = filters
+            self._registry.register_wait_handler(handler, point=point)
             self._handlers.append(handler)
 
     def close(self) -> None:
@@ -715,7 +719,8 @@ class EventWaiter:
         self._closed = True
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
-        self._timeout_future.cancel()
+        if self._timeout_future is not None:
+            self._timeout_future.cancel()
         for handler in self._handlers:
             self._registry.unregister_handler(handler.name, missing_ok=True)
         self._handlers.clear()

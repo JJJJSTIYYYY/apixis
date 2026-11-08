@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-08",
+  "scope": "Latest waiting-hotpath comparison: both ABBA suites and all eight independent workers, profile, patch, 24 stress measurements and validation summaries.",
+  "files": [
+    {
+      "file": "2026-11-08-waiter-hotpath-1-before.json",
+      "bytes": 12138,
+      "sha256": "a4350d6c9666bd6f883b26b5cb628b62c2949236f0e15938d2ca87486281fbe8"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-2-after.json",
+      "bytes": 12129,
+      "sha256": "d84daa55cd3e3973b1cdb8b72b19d39242b25c36724332cfdce5f6b9ddc2b434"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-3-after.json",
+      "bytes": 12135,
+      "sha256": "33a97684279cc2c9b9712ccfe2b3a914d75d18c4bec88ae78ee1b2637053dceb"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-4-before.json",
+      "bytes": 12125,
+      "sha256": "f282227c39d0d9f5d8c6fdea8c5db58f7ab73f35dcf29438539a4dc5326ef10c"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-controls-1-before.json",
+      "bytes": 13078,
+      "sha256": "a8e658d4215aa20fc12b39df8a79ea0a28d13ac3b225d161b38cd34ab2960a9a"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-controls-2-after.json",
+      "bytes": 13132,
+      "sha256": "5ba3dde46e639d40c620fd045e45608247c93729952a0d65a43b15e81d3bfdfa"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-controls-3-after.json",
+      "bytes": 13082,
+      "sha256": "191b32758f741e5199914190f872485e455cdb7ff1ebfd81b6e48f8a7c3075cf"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-controls-4-before.json",
+      "bytes": 13110,
+      "sha256": "eac6dc8616c128ec96cb0d82868d740df532ab0d106f7d3339da10f9d24f9458"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-controls.json",
+      "bytes": 66927,
+      "sha256": "8ec8c913057988158aaea12b53b1e1d161fac81752a6cdd3791174c3a4a7460b"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath-profile.json",
+      "bytes": 15098,
+      "sha256": "20cb27a3a03516e5a144675b84ee36dfc80049f10a7c3f9ee04629ea50f6c46d"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath.json",
+      "bytes": 62538,
+      "sha256": "15c4a4944c6b1cb200943bcc8e38f74366ec21208a7e2ad90c7d0e159aa5392d"
+    },
+    {
+      "file": "2026-11-08-waiter-hotpath.patch",
+      "bytes": 5749,
+      "sha256": "eb7740ce85a99dbf229df87b25c502097aecef94cad6daca0aeda8b86c463c45"
+    },
+    {
+      "file": "thread-events-waiter-hotpath-2026-11-08.json",
+      "bytes": 5292,
+      "sha256": "17c8e68df0cf0288cddd420fa1f3d208d9316805608d0e35e0a23530ebcddbbf"
+    },
+    {
+      "file": "thread-events-waiter-hotpath-capacity-one-2026-11-08.json",
+      "bytes": 5237,
+      "sha256": "74493d91d6a28186bafdfcc6fcc9a65c2f4db3b5838dfe3ce0308be0f7cdb288"
+    },
+    {
+      "file": "validation.json",
+      "bytes": 895,
+      "sha256": "44c891377b34d22a13e477c50bd06642cd54627dbdfcde14707ced0a193f16f0"
+    }
+  ]
+}

@@ -277,7 +277,7 @@ async def test_filtered_hook_does_not_suppress_fallback():
         graph.decompose()
 
 
-@pytest.mark.parametrize("priority", [0, -1, -9999])
+@pytest.mark.parametrize("priority", [0, -1, -9999, -1e100])
 @pytest.mark.parametrize("register_before_graph", [False, True])
 @pytest.mark.parametrize("resolve", [False, True])
 async def test_default_validation_runs_after_low_priority_hooks(

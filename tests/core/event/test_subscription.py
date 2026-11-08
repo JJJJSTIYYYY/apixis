@@ -55,7 +55,7 @@ async def test_await_for_received_resolves_before_foreground_processing(
     entered = asyncio.Event()
     release = asyncio.Event()
 
-    @subscribe("job.*", priority=9999)
+    @subscribe("job.*", priority=1e100)
     async def process(event):
         entered.set()
         await release.wait()
@@ -90,7 +90,7 @@ async def test_await_for_processed_resolves_after_foreground_processing(
     entered = asyncio.Event()
     release = asyncio.Event()
 
-    @subscribe("job.*", priority=-9999)
+    @subscribe("job.*", priority=-1e100)
     async def process(event):
         entered.set()
         await release.wait()
@@ -628,7 +628,7 @@ async def test_await_for_partial_collection_cleanup(exit_mode, wait_for_dispatch
 async def test_wait_for_event_registers_multiple_handlers_without_yielding(monkeypatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    register = registry.register_handler
+    register = registry.register_wait_handler
     observed = []
 
     def register_and_schedule_observer(handler, **kwargs):
@@ -637,7 +637,7 @@ async def test_wait_for_event_registers_multiple_handlers_without_yielding(monke
             lambda: observed.append(set(registry.registry) - registered)
         )
 
-    monkeypatch.setattr(registry, "register_handler", register_and_schedule_observer)
+    monkeypatch.setattr(registry, "register_wait_handler", register_and_schedule_observer)
     async with wait_for_event(["job.first", "job.second"]):
         assert not observed
         installed = set(registry.registry) - registered
@@ -651,7 +651,7 @@ async def test_wait_for_event_registers_multiple_handlers_without_yielding(monke
 async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    register = registry.register_handler
+    register = registry.register_wait_handler
     calls = 0
 
     def fail_second_registration(handler, **kwargs):
@@ -661,7 +661,7 @@ async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypa
             raise ValueError("registration failed")
         register(handler, **kwargs)
 
-    monkeypatch.setattr(registry, "register_handler", fail_second_registration)
+    monkeypatch.setattr(registry, "register_wait_handler", fail_second_registration)
     with pytest.raises(ValueError, match="registration failed"):
         if interface == "context":
             async with wait_for_event(["job.first", "job.second"]):

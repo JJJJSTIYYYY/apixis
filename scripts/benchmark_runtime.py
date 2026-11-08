@@ -34,11 +34,17 @@ def parse_args():
     parser.add_argument("--count", type=int, default=512)
     parser.add_argument("--nodes", type=int, default=16)
     parser.add_argument("--events", type=int, default=16384)
+    parser.add_argument("--mixed-listeners", type=int, default=64,
+                        help="Total listeners per mixed waiting/subscription event; a multiple of 16.")
+    parser.add_argument("--mixed-events", type=int, default=512,
+                        help="Events per mixed waiting/subscription round.")
     parser.add_argument("--scenario", action="append", help="Run only named scenarios; repeat to select several.")
     parser.add_argument("--worker-source", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if min(args.count, args.nodes, args.repeats, args.events) <= 0:
-        parser.error("count, nodes, events and repeats must be positive")
+    if min(args.count, args.nodes, args.repeats, args.events, args.mixed_events) <= 0:
+        parser.error("count, nodes, events, mixed-events and repeats must be positive")
+    if args.mixed_listeners <= 0 or args.mixed_listeners % 16:
+        parser.error("mixed-listeners must be a positive multiple of 16")
     return args
 
 
@@ -304,6 +310,99 @@ async def run_worker(args):
         return {"seconds": finished - started, "operations": 2048,
                 "roundtrips_per_second": 2048 / (finished - started)}
 
+    async def mixed_wait_round(core, waiting_percent, *, audit=False):
+        """Churn real waits on the same event as persistent normal subscriptions.
+
+        Every event has the same total fan-out. Both listener categories use
+        half exact and half glob patterns; waits also split across both points.
+        Counting is a separate pass so instrumentation cannot bias timings.
+        """
+        registry = core.handler_registry
+        registry.clear()
+        event_name = "benchmark.mixed.ready"
+        patterns = (event_name, "benchmark.mixed.*")
+        waiting = args.mixed_listeners * waiting_percent // 100
+        normal = args.mixed_listeners - waiting
+        observed = 0
+        expected_context = None
+
+        async def receive(event):
+            nonlocal observed
+            assert event.context == expected_context
+            observed += 1
+
+        names = set()
+        for index in range(normal):
+            name = f"benchmark_mixed_{index}"
+            entry = ApixEventHandler(receive, name=name)
+            entry.subscribe = [patterns[index % 2]]
+            entry.priority = index % 3
+            registry.register_handler(entry)
+            names.add(name)
+
+        builds = 0
+        resolve = registry._resolve_handler_chain
+
+        def count_builds(name):
+            nonlocal builds
+            assert name == event_name
+            builds += 1
+            return resolve(name)
+
+        if audit:
+            registry._resolve_handler_chain = count_builds
+        waiters, tasks = [], []
+        started = time.perf_counter()
+        try:
+            for index in range(args.mixed_events):
+                expected_context = index
+                waiters = [
+                    subscription.EventWaiter(
+                        patterns[number % 2],
+                        point="received" if number % 4 < 2 else "processed",
+                    )
+                    for number in range(waiting)
+                ]
+                tasks = [asyncio.create_task(waiter.get_result()) for waiter in waiters]
+                await core.event_pipe.post_event(
+                    event_type=EventType.INFO, event_name=event_name, context=index,
+                )
+                if tasks:
+                    results = await asyncio.gather(*tasks)
+                    event = results[0]
+                    assert event.context == index and not event.has_error
+                    assert all(result is event for result in results)
+                # Include completion of every normal handler, including the
+                # zero-wait control and events observed at the received point.
+                await drain(core)
+                for waiter in waiters:
+                    waiter.close()
+            seconds = time.perf_counter() - started
+        finally:
+            for waiter in waiters:
+                waiter.close()
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            if audit:
+                del registry._resolve_handler_chain
+        assert observed == normal * args.mixed_events
+        assert set(registry.registry) == names
+        assert not core.event_loop._dispatch_tasks
+        assert not core.event_loop._background_handler_tasks
+        assert core.event_loop._event_semaphore._value == 128
+        if audit:
+            separate_cache = hasattr(registry, "get_subscription_chain_for_event")
+            assert builds == (1 if waiting == 0 or separate_cache else args.mixed_events)
+            return {"normal_chain_builds": builds, "events": args.mixed_events,
+                    "normal_callbacks": observed, "wait_results": waiting * args.mixed_events,
+                    "leftover_waiters": len(registry.registry) - normal}
+        return {"seconds": seconds, "operations": args.mixed_events,
+                "events_per_second": args.mixed_events / seconds,
+                "handler_invocations": args.mixed_listeners * args.mixed_events}
+
     def getter_round(core):
         started = time.perf_counter()
         for _ in range(200000):
@@ -385,6 +484,29 @@ async def run_worker(args):
         report["scenarios"]["event/getter"] = {
             "rounds": [getter_round(core) for _ in range(args.repeats)],
         }
+    for percent in (0, 25, 50, 75, 100):
+        name = f"event/mixed-wait-{percent}"
+        if not wanted(name):
+            continue
+        await mixed_wait_round(core, percent)
+        rounds = []
+        for _ in range(args.repeats):
+            gc.collect()
+            rounds.append(await mixed_wait_round(core, percent))
+        waiting = args.mixed_listeners * percent // 100
+        report["scenarios"][name] = {
+            "workload": {
+                "events": args.mixed_events, "total_listeners": args.mixed_listeners,
+                "waiting_percent": percent, "waiting_listeners": waiting,
+                "normal_subscribers": args.mixed_listeners - waiting,
+                "received_waiters": waiting // 2, "processed_waiters": waiting // 2,
+                "matching": "half exact, half glob in each listener category",
+                "normal_registration": "persistent", "wait_registration": "each event",
+                "queue_capacity": core.event_pipe.maxsize,
+            },
+            "capacity": 128, "rounds": rounds,
+            "cache_audit": await mixed_wait_round(core, percent, audit=True),
+        }
     core = await fresh_core(128)
     for name in ("state/large-snapshots", "state/large-no-snapshots"):
         if selected:
@@ -426,6 +548,8 @@ def compare(args):
             "--output", str(path), "--repeats", str(args.repeats),
             "--count", str(args.count), "--nodes", str(args.nodes),
             "--events", str(args.events),
+            "--mixed-listeners", str(args.mixed_listeners),
+            "--mixed-events", str(args.mixed_events),
             *(argument for scenario in args.scenario or () for argument in ("--scenario", scenario)),
         ], cwd=root, check=True, timeout=240)
         workers.append({"label": label, "file": path.name, "data": json.loads(path.read_text())})

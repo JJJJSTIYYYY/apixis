@@ -1,0 +1,201 @@
+{
+  "python": "3.12.12",
+  "platform": "Darwin",
+  "results": [
+    {
+      "workers": 32,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.3067145000095479,
+      "heartbeat_ticks": 203,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.34981929103378206,
+      "heartbeat_ticks": 212,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.3143632499850355,
+      "heartbeat_ticks": 207,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "roundtrips": 512,
+      "events": 1024,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.8234088749741204,
+      "heartbeat_ticks": 513,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "roundtrips": 512,
+      "events": 1024,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.6733436670037918,
+      "heartbeat_ticks": 357,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "roundtrips": 512,
+      "events": 1024,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.6629906659945846,
+      "heartbeat_ticks": 351,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "broadcast_recipients": 32,
+      "cancelled_waits": 512,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.19957658305065706,
+      "heartbeat_ticks": 129,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "broadcast_recipients": 32,
+      "cancelled_waits": 512,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.19479329197201878,
+      "heartbeat_ticks": 130,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "broadcast_recipients": 32,
+      "cancelled_waits": 512,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.19229070900473744,
+      "heartbeat_ticks": 127,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "async_operations_per_worker": 16,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.39920520799933,
+      "heartbeat_ticks": 233,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "async_operations_per_worker": 16,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.41318379098083824,
+      "heartbeat_ticks": 237,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 32,
+      "async_operations_per_worker": 16,
+      "events": 512,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 1,
+      "asyncio_debug": true,
+      "seconds": 0.39929566701175645,
+      "heartbeat_ticks": 232,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    }
+  ]
+}

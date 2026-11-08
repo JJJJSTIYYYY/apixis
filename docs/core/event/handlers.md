@@ -53,7 +53,7 @@ async def observe(event):
 
 ### `priority`
 
-数值越大，排序越靠前；相同优先级按注册顺序执行。`subscribe()` 接受 `[-9999, 9999]` 范围内的有限数值，未指定排序参数时默认优先级为 `1`。
+数值越大，排序越靠前；相同优先级按注册顺序执行。`subscribe()` 接受任意有限数值，未指定排序参数时默认优先级为 `1`。事件等待监听器不参与优先级排序：`received` 始终位于普通订阅之前，`processed` 始终位于普通订阅之后。
 
 ```python
 @subscribe("order.*", priority=100)

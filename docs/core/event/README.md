@@ -220,6 +220,10 @@ async def observe_job(event):
 
 ## 等待事件：`await_for` 与 `wait_for_event`
 
+等待监听器使用独立的精确事件索引与有界缓存，增删监听器不会使普通订阅的 handler_chain 缓存失效。事件出队时仅生成一份 handler 引用快照，按 `received` 监听器、普通订阅、`processed` 监听器的顺序执行；同一等待位置按注册顺序执行，不受普通订阅的数值优先级影响。
+
+`get_subscription_chain_for_event()` 查询普通订阅的缓存名称链；`get_handlers_chain_for_event()` 查询包含等待监听器的完整名称链，`get_handlers_for_event()` 返回完整派发引用快照。
+
 先看等待之前，当前代码是否还需要发布请求：
 
 | 你要做的事 | 应该使用 | 执行顺序 |

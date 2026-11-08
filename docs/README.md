@@ -28,6 +28,8 @@ pip install apixis
 
 ## 阅读约定
 
+工程验证与最新基准结果见[性能测试记录](./performance/README.md)。
+
 [快速开始](./quickstart.md)中的示例可以保存为 Python 文件直接运行。接口页中的短示例省略了应用入口；含 `await` 的代码应放在异步函数内，并在运行中的 asyncio 事件循环中调用。
 
 共享 event core 应在同一个 asyncio 事件循环中使用。以下划线开头的属性和模块内部对象不属于应用应依赖的接口。

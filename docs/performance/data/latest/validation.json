@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-08",
+  "runtime_source_sha256_excluding_version": "9e9af3916e31f2bddb49b88e000950c084e5beaeb104744a411ac3b60de711ab",
+  "evidence": "Recorded summaries from the latest code-validation run; this documentation cleanup does not rerun benchmarks.",
+  "checks": [
+    {
+      "name": "full-suite",
+      "passed": 1525,
+      "seconds": 15.69,
+      "command": ".venv/bin/python -m pytest -q"
+    },
+    {
+      "name": "thread-stress",
+      "passed": 12,
+      "seconds": 16.74,
+      "results_file": "thread-events-waiter-hotpath-2026-11-08.json"
+    },
+    {
+      "name": "capacity-one-debug-and-contracts",
+      "passed": 74,
+      "seconds": 5.5,
+      "results_file": "thread-events-waiter-hotpath-capacity-one-2026-11-08.json"
+    },
+    {
+      "name": "ruff",
+      "result": "passed"
+    },
+    {
+      "name": "git-diff-check",
+      "result": "passed"
+    }
+  ]
+}

@@ -1,0 +1,472 @@
+{
+  "workload": {
+    "scenarios": [
+      50,
+      100
+    ],
+    "events_per_round": 256,
+    "listeners": 64,
+    "repeats": 1,
+    "rounds_per_scenario": 3,
+    "note": "Each scenario includes one warmup, one timed round and one separately instrumented audit round. cProfile timings include profiling overhead; cumulative times overlap."
+  },
+  "before_source_sha256": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+  "after_source_sha256": "9e9af3916e31f2bddb49b88e000950c084e5beaeb104744a411ac3b60de711ab",
+  "profiles": [
+    {
+      "label": "before",
+      "profiled_seconds": 3.441731309,
+      "function_calls": 17786456,
+      "functions": [
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 524,
+          "function": "__init__",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.11829776800000001,
+          "cumulative_seconds": 1.152867534
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 686,
+          "function": "_register_wait_handler",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.081707524,
+          "cumulative_seconds": 0.77468998
+        },
+        {
+          "module": "src/apixis/core/event/base.py",
+          "line": 255,
+          "function": "execute",
+          "calls": 98304,
+          "primitive_calls": 98304,
+          "self_seconds": 0.042940985,
+          "cumulative_seconds": 0.5486941710000001
+        },
+        {
+          "module": "src/apixis/core/event/base.py",
+          "line": 284,
+          "function": "_execute_func",
+          "calls": 98304,
+          "primitive_calls": 98304,
+          "self_seconds": 0.039738359,
+          "cumulative_seconds": 0.483371625
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 668,
+          "function": "_resolve",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.042011615,
+          "cumulative_seconds": 0.430088332
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 629,
+          "function": "get_result",
+          "calls": 147456,
+          "primitive_calls": 147456,
+          "self_seconds": 0.095108808,
+          "cumulative_seconds": 0.39798740200000005
+        },
+        {
+          "module": "stdlib/uuid.py",
+          "line": 723,
+          "function": "uuid4",
+          "calls": 149088,
+          "primitive_calls": 149088,
+          "self_seconds": 0.053062075,
+          "cumulative_seconds": 0.34198305
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 711,
+          "function": "close",
+          "calls": 147744,
+          "primitive_calls": 147744,
+          "self_seconds": 0.05673414,
+          "cumulative_seconds": 0.30502057600000004
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 412,
+          "function": "unregister_handler",
+          "calls": 73824,
+          "primitive_calls": 73824,
+          "self_seconds": 0.059778001000000004,
+          "cumulative_seconds": 0.219784951
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 274,
+          "function": "register_wait_handler",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.042827162,
+          "cumulative_seconds": 0.208332016
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 818,
+          "function": "_call_soon",
+          "calls": 374802,
+          "primitive_calls": 374802,
+          "self_seconds": 0.096971285,
+          "cumulative_seconds": 0.184158614
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 106,
+          "function": "_is_glob",
+          "calls": 293568,
+          "primitive_calls": 293568,
+          "self_seconds": 0.07429360900000001,
+          "cumulative_seconds": 0.180150536
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 905,
+          "function": "_inner_done_callback",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.034774690000000004,
+          "cumulative_seconds": 0.171518482
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 412,
+          "function": "create_task",
+          "calls": 75267,
+          "primitive_calls": 75267,
+          "self_seconds": 0.024029167,
+          "cumulative_seconds": 0.153326702
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 508,
+          "function": "register",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.032809165,
+          "cumulative_seconds": 0.151572797
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 519,
+          "function": "unregister",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.025525660000000002,
+          "cumulative_seconds": 0.13174567
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 496,
+          "function": "_invalidate",
+          "calls": 145920,
+          "primitive_calls": 145920,
+          "self_seconds": 0.035331953,
+          "cumulative_seconds": 0.12654885600000002
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 865,
+          "function": "shield",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.051862948000000006,
+          "cumulative_seconds": 0.12382543800000001
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 450,
+          "function": "create_task",
+          "calls": 75270,
+          "primitive_calls": 75270,
+          "self_seconds": 0.040451999,
+          "cumulative_seconds": 0.121922923
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 259,
+          "function": "get_handlers_for_event",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.001745606,
+          "cumulative_seconds": 0.110694046
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 535,
+          "function": "get",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.026815025000000003,
+          "cumulative_seconds": 0.103989179
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 731,
+          "function": "gather",
+          "calls": 1545,
+          "primitive_calls": 1545,
+          "self_seconds": 0.033082727,
+          "cumulative_seconds": 0.093643377
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 446,
+          "function": "create_future",
+          "calls": 296448,
+          "primitive_calls": 296448,
+          "self_seconds": 0.057129875000000004,
+          "cumulative_seconds": 0.06946630100000001
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 646,
+          "function": "_start_timeout",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.031212278000000003,
+          "cumulative_seconds": 0.06054359200000001
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 922,
+          "function": "_outer_done_callback",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.009548647,
+          "cumulative_seconds": 0.014015535
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 234,
+          "function": "get_subscription_chain_for_event",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.000909445,
+          "cumulative_seconds": 0.0016654380000000002
+        }
+      ]
+    },
+    {
+      "label": "after",
+      "profiled_seconds": 2.561355378999998,
+      "function_calls": 12618584,
+      "functions": [
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 523,
+          "function": "__init__",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.111471973,
+          "cumulative_seconds": 0.8127885680000001
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 690,
+          "function": "_register_wait_handler",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.063289841,
+          "cumulative_seconds": 0.5021298670000001
+        },
+        {
+          "module": "src/apixis/core/event/base.py",
+          "line": 255,
+          "function": "execute",
+          "calls": 98304,
+          "primitive_calls": 98304,
+          "self_seconds": 0.04194338,
+          "cumulative_seconds": 0.42018946100000004
+        },
+        {
+          "module": "src/apixis/core/event/base.py",
+          "line": 284,
+          "function": "_execute_func",
+          "calls": 98304,
+          "primitive_calls": 98304,
+          "self_seconds": 0.038983076000000005,
+          "cumulative_seconds": 0.357141717
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 672,
+          "function": "_resolve",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.041801957,
+          "cumulative_seconds": 0.304928329
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 630,
+          "function": "get_result",
+          "calls": 147456,
+          "primitive_calls": 147456,
+          "self_seconds": 0.082580075,
+          "cumulative_seconds": 0.25940159
+        },
+        {
+          "module": "stdlib/uuid.py",
+          "line": 723,
+          "function": "uuid4",
+          "calls": 75360,
+          "primitive_calls": 75360,
+          "self_seconds": 0.029480724000000003,
+          "cumulative_seconds": 0.18706624800000002
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 715,
+          "function": "close",
+          "calls": 147744,
+          "primitive_calls": 147744,
+          "self_seconds": 0.048821117000000004,
+          "cumulative_seconds": 0.18239760900000002
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 412,
+          "function": "create_task",
+          "calls": 75267,
+          "primitive_calls": 75267,
+          "self_seconds": 0.023885733000000003,
+          "cumulative_seconds": 0.15390752800000002
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 450,
+          "function": "create_task",
+          "calls": 75270,
+          "primitive_calls": 75270,
+          "self_seconds": 0.040411696000000004,
+          "cumulative_seconds": 0.12261479600000001
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 818,
+          "function": "_call_soon",
+          "calls": 227346,
+          "primitive_calls": 227346,
+          "self_seconds": 0.063706041,
+          "cumulative_seconds": 0.12072576300000001
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 259,
+          "function": "get_handlers_for_event",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.001755487,
+          "cumulative_seconds": 0.11204501400000001
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 412,
+          "function": "unregister_handler",
+          "calls": 73824,
+          "primitive_calls": 73824,
+          "self_seconds": 0.060026088000000005,
+          "cumulative_seconds": 0.111190438
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 539,
+          "function": "get",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.027218878000000002,
+          "cumulative_seconds": 0.10510920900000001
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 274,
+          "function": "register_wait_handler",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.042819427,
+          "cumulative_seconds": 0.10205420700000001
+        },
+        {
+          "module": "stdlib/tasks.py",
+          "line": 731,
+          "function": "gather",
+          "calls": 1545,
+          "primitive_calls": 1545,
+          "self_seconds": 0.034048141000000004,
+          "cumulative_seconds": 0.09381246700000001
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 510,
+          "function": "register",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.031720489000000004,
+          "cumulative_seconds": 0.045931360000000004
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 522,
+          "function": "unregister",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.018050556000000002,
+          "cumulative_seconds": 0.022902525
+        },
+        {
+          "module": "stdlib/base_events.py",
+          "line": 446,
+          "function": "create_future",
+          "calls": 75264,
+          "primitive_calls": 75264,
+          "self_seconds": 0.017081549,
+          "cumulative_seconds": 0.020574421000000002
+        },
+        {
+          "module": "src/apixis/core/event/subscription.py",
+          "line": 649,
+          "function": "_start_timeout",
+          "calls": 73728,
+          "primitive_calls": 73728,
+          "self_seconds": 0.012086734,
+          "cumulative_seconds": 0.016563183000000002
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 496,
+          "function": "_invalidate",
+          "calls": 145920,
+          "primitive_calls": 145920,
+          "self_seconds": 0.009080098,
+          "cumulative_seconds": 0.009344558000000001
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 106,
+          "function": "_is_glob",
+          "calls": 73920,
+          "primitive_calls": 73920,
+          "self_seconds": 0.0064054360000000005,
+          "cumulative_seconds": 0.0064054360000000005
+        },
+        {
+          "module": "src/apixis/core/event/handler_registry.py",
+          "line": 234,
+          "function": "get_subscription_chain_for_event",
+          "calls": 1536,
+          "primitive_calls": 1536,
+          "self_seconds": 0.00094205,
+          "cumulative_seconds": 0.0018029930000000001
+        }
+      ]
+    }
+  ]
+}

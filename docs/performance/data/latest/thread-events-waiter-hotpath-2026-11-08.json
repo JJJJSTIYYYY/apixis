@@ -1,0 +1,201 @@
+{
+  "python": "3.12.12",
+  "platform": "Darwin",
+  "results": [
+    {
+      "workers": 256,
+      "events": 32768,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 2.532186249969527,
+      "heartbeat_ticks": 2102,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 256,
+      "events": 32768,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 2.7000535409897566,
+      "heartbeat_ticks": 2095,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 256,
+      "events": 32768,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_thread_publication_flood[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 2.6288876669714227,
+      "heartbeat_ticks": 2041,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 128,
+      "roundtrips": 8192,
+      "events": 16384,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 1.8625395830022171,
+      "heartbeat_ticks": 1473,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 128,
+      "roundtrips": 8192,
+      "events": 16384,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 1.5953519999748096,
+      "heartbeat_ticks": 1343,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 128,
+      "roundtrips": 8192,
+      "events": 16384,
+      "handler_names": [
+        "respond"
+      ],
+      "scenario": "test_thread_request_reply_stress[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 1.5510243330500089,
+      "heartbeat_ticks": 1324,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 256,
+      "broadcast_recipients": 256,
+      "cancelled_waits": 8192,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 1.01234650000697,
+      "heartbeat_ticks": 105,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 256,
+      "broadcast_recipients": 256,
+      "cancelled_waits": 8192,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 0.8665460839984007,
+      "heartbeat_ticks": 71,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 256,
+      "broadcast_recipients": 256,
+      "cancelled_waits": 8192,
+      "events": 1,
+      "scenario": "test_thread_broadcast_and_cancellation_storm[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 1.1399589579668827,
+      "heartbeat_ticks": 86,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 16,
+      "async_operations_per_worker": 128,
+      "events": 2048,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[1]",
+      "dispatch_capacity": 1,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 0.2704366670222953,
+      "heartbeat_ticks": 212,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 16,
+      "async_operations_per_worker": 128,
+      "events": 2048,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[128]",
+      "dispatch_capacity": 128,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 0.26253741700202227,
+      "heartbeat_ticks": 215,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    },
+    {
+      "workers": 16,
+      "async_operations_per_worker": 128,
+      "events": 2048,
+      "handler_names": [
+        "receive"
+      ],
+      "scenario": "test_async_worker_publication_backpressure[None]",
+      "dispatch_capacity": null,
+      "queue_capacity": 64,
+      "asyncio_debug": false,
+      "seconds": 0.2952930000028573,
+      "heartbeat_ticks": 209,
+      "callback_errors": 0,
+      "leftover_requests": 0,
+      "leftover_waiters": 0
+    }
+  ]
+}

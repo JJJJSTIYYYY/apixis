@@ -1,0 +1,409 @@
+{
+  "environment": {
+    "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "gc_enabled": true,
+    "source_sha256_excluding_version": "2234bd30321aa9622348299bdcb6b8d0a0c83eeadc9524458882a02c55bfe0b1",
+    "driver_sha256": "831201198a79c6a5e63770d553505e1467bfd03bbf32b1e4afbc1c8fee3b04ed",
+    "logging": "ERROR",
+    "loop_lag_probe_interval_ms": 1
+  },
+  "scenarios": {
+    "event/mixed-wait-0": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 0,
+        "waiting_listeners": 0,
+        "normal_subscribers": 64,
+        "received_waiters": 0,
+        "processed_waiters": 0,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.038085624983068556,
+          "operations": 512,
+          "events_per_second": 13443.392362016273,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03770187497138977,
+          "operations": 512,
+          "events_per_second": 13580.226457929039,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.037808499997481704,
+          "operations": 512,
+          "events_per_second": 13541.92840324537,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.038077083008829504,
+          "operations": 512,
+          "events_per_second": 13446.408168432306,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.0372392920544371,
+          "operations": 512,
+          "events_per_second": 13748.918729484672,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03748833300778642,
+          "operations": 512,
+          "events_per_second": 13657.582477557919,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.037660792004317045,
+          "operations": 512,
+          "events_per_second": 13595.040697532584,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.0376900410046801,
+          "operations": 512,
+          "events_per_second": 13584.490394595838,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.0375395409646444,
+          "operations": 512,
+          "events_per_second": 13638.952071422858,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 32768,
+        "wait_results": 0,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-25": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 25,
+        "waiting_listeners": 16,
+        "normal_subscribers": 48,
+        "received_waiters": 8,
+        "processed_waiters": 8,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.1597221670090221,
+          "operations": 512,
+          "events_per_second": 3205.566325499948,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.1614220830379054,
+          "operations": 512,
+          "events_per_second": 3171.808902253921,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16355512494919822,
+          "operations": 512,
+          "events_per_second": 3130.443024387234,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16093987500062212,
+          "operations": 512,
+          "events_per_second": 3181.31227576771,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16339487495133653,
+          "operations": 512,
+          "events_per_second": 3133.513215469504,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16141816601157188,
+          "operations": 512,
+          "events_per_second": 3171.8858704124746,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16134433302795514,
+          "operations": 512,
+          "events_per_second": 3173.3373611039,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16032445896416903,
+          "operations": 512,
+          "events_per_second": 3193.52395328792,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.16038524999748915,
+          "operations": 512,
+          "events_per_second": 3192.3135076823796,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 24576,
+        "wait_results": 8192,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-50": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 50,
+        "waiting_listeners": 32,
+        "normal_subscribers": 32,
+        "received_waiters": 16,
+        "processed_waiters": 16,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.25458700000308454,
+          "operations": 512,
+          "events_per_second": 2011.100331100161,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2543443330214359,
+          "operations": 512,
+          "events_per_second": 2013.0190986281937,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2554957920219749,
+          "operations": 512,
+          "events_per_second": 2003.9468984912419,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2547214579535648,
+          "operations": 512,
+          "events_per_second": 2010.038746297285,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2724379579885863,
+          "operations": 512,
+          "events_per_second": 1879.3269622930081,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.25418133300263435,
+          "operations": 512,
+          "events_per_second": 2014.3099965357944,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2552029580110684,
+          "operations": 512,
+          "events_per_second": 2006.2463381705554,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.25366862496593967,
+          "operations": 512,
+          "events_per_second": 2018.3812644103966,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.253981499990914,
+          "operations": 512,
+          "events_per_second": 2015.8948585559042,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 16384,
+        "wait_results": 16384,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-75": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 75,
+        "waiting_listeners": 48,
+        "normal_subscribers": 16,
+        "received_waiters": 24,
+        "processed_waiters": 24,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.36823825002647936,
+          "operations": 512,
+          "events_per_second": 1390.4041743713017,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.369012416980695,
+          "operations": 512,
+          "events_per_second": 1387.487185903518,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.36646620801184326,
+          "operations": 512,
+          "events_per_second": 1397.127453518043,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.3672417089692317,
+          "operations": 512,
+          "events_per_second": 1394.1771522550464,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.36941133404616266,
+          "operations": 512,
+          "events_per_second": 1385.988876930395,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.36843825003597885,
+          "operations": 512,
+          "events_per_second": 1389.649418728924,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.36873595794895664,
+          "operations": 512,
+          "events_per_second": 1388.5274515887465,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.3665795829729177,
+          "operations": 512,
+          "events_per_second": 1396.69535288283,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.36855258303694427,
+          "operations": 512,
+          "events_per_second": 1389.218319353568,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 8192,
+        "wait_results": 24576,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-100": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 100,
+        "waiting_listeners": 64,
+        "normal_subscribers": 0,
+        "received_waiters": 32,
+        "processed_waiters": 32,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.46032549999654293,
+          "operations": 512,
+          "events_per_second": 1112.25643594336,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.4600150839542039,
+          "operations": 512,
+          "events_per_second": 1113.006981421008,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.46092641697032377,
+          "operations": 512,
+          "events_per_second": 1110.8063698439844,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.45972379203885794,
+          "operations": 512,
+          "events_per_second": 1113.712209083848,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.45891424996079877,
+          "operations": 512,
+          "events_per_second": 1115.676839504844,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.4601770839653909,
+          "operations": 512,
+          "events_per_second": 1112.6151602075574,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.4586210830020718,
+          "operations": 512,
+          "events_per_second": 1116.3900199452607,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.45687545801047236,
+          "operations": 512,
+          "events_per_second": 1120.6555113062434,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.4585243749897927,
+          "operations": 512,
+          "events_per_second": 1116.6254793137175,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 0,
+        "wait_results": 32768,
+        "leftover_waiters": 0
+      }
+    }
+  },
+  "memory": {}
+}
