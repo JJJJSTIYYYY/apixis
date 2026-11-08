@@ -33,10 +33,12 @@ def parse_args():
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--count", type=int, default=512)
     parser.add_argument("--nodes", type=int, default=16)
+    parser.add_argument("--events", type=int, default=16384)
+    parser.add_argument("--scenario", action="append", help="Run only named scenarios; repeat to select several.")
     parser.add_argument("--worker-source", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if min(args.count, args.nodes, args.repeats) <= 0:
-        parser.error("count, nodes and repeats must be positive")
+    if min(args.count, args.nodes, args.repeats, args.events) <= 0:
+        parser.error("count, nodes, events and repeats must be positive")
     return args
 
 
@@ -44,9 +46,15 @@ async def run_worker(args):
     sys.path.insert(0, str(args.worker_source.resolve()))
     from apixis.core import AutoMerge, Command, Node, NodeGraph
     from apixis.core.event import factory
-    from apixis.core.event.base import ApixEventHandler
+    from apixis.core.event.base import ApixEventHandler, EventType
     from apixis.core.event.event_registry import ApixEventRegistry
     from apixis.core.event.handler_registry import ApixHandlerRegistry
+    from apixis.core.event import subscription
+
+    selected = set(args.scenario or ())
+
+    def wanted(name):
+        return not selected or name in selected
 
     assert Path(factory.__file__).resolve().is_relative_to(args.worker_source.resolve())
     source_digest = hashlib.sha256()
@@ -151,6 +159,8 @@ async def run_worker(args):
                 await asyncio.sleep(0.001)
                 lags.append(max(0.0, time.perf_counter() - expected))
 
+        gc_before = sum(row["collections"] for row in gc.get_stats())
+        cpu_started = time.process_time()
         started = time.perf_counter()
         monitor_task = None
         try:
@@ -173,6 +183,8 @@ async def run_worker(args):
                     released = time.perf_counter()
                     gate.set()
                 finished = time.perf_counter()
+                cpu_finished = time.process_time()
+                gc_finished = sum(row["collections"] for row in gc.get_stats())
             monitor_task.cancel()
             await asyncio.gather(monitor_task, return_exceptions=True)
             await drain(core)
@@ -190,6 +202,8 @@ async def run_worker(args):
             total = finished - started
             return {
                 "seconds": total, "build_seconds": built - started,
+                "cpu_seconds": cpu_finished - cpu_started,
+                "gc_collections": gc_finished - gc_before,
                 "prepare_seconds": released - built, "execute_seconds": finished - released,
                 "nodes_per_second": spec["count"] * spec["nodes"] / total,
                 "execute_nodes_per_second": spec["count"] * spec["nodes"] / (finished - released),
@@ -242,13 +256,70 @@ async def run_worker(args):
             samples.append(time.perf_counter() - started)
         return {"seconds": statistics.median(samples), "operations": 1, "retained_names": len(registry.cached_chain)}
 
+    async def event_round(kind, core):
+        core.handler_registry.clear()
+        pipe = core.event_pipe
+        observed = 0
+
+        async def receive(event):
+            nonlocal observed
+            assert event.context == observed
+            observed += 1
+
+        entry = ApixEventHandler(receive, name="benchmark_receive")
+        entry.subscribe = ["benchmark.publish"]
+        entry.priority = 1
+        core.handler_registry.register_handler(entry)
+        publisher = pipe.post_event if kind == "cached-pipe" else subscription.post_event
+        started = time.perf_counter()
+        for index in range(args.events):
+            await publisher(event_type=EventType.INFO, event_name="benchmark.publish", context=index)
+        published = time.perf_counter()
+        await drain(core)
+        finished = time.perf_counter()
+        assert observed == args.events
+        return {"seconds": finished - started, "publish_seconds": published - started,
+                "operations": args.events, "events_per_second": args.events / (finished - started)}
+
+    async def request_reply_round(core):
+        core.handler_registry.clear()
+        pipe = core.event_pipe
+
+        async def respond(event):
+            await pipe.post_event(event_type=EventType.INFO, event_name="benchmark.reply", context=event.context)
+
+        entry = ApixEventHandler(respond, name="benchmark_respond")
+        entry.subscribe = ["benchmark.request"]
+        entry.priority = 1
+        core.handler_registry.register_handler(entry)
+        started = time.perf_counter()
+        for index in range(2048):
+            async with subscription.wait_for_event("benchmark.reply", point="processed") as waiter:
+                await pipe.post_event(event_type=EventType.INFO, event_name="benchmark.request", context=index)
+                result = await waiter.wait()
+                assert result.context == index
+        finished = time.perf_counter()
+        await drain(core)
+        assert list(core.handler_registry.registry) == [entry.name]
+        return {"seconds": finished - started, "operations": 2048,
+                "roundtrips_per_second": 2048 / (finished - started)}
+
+    def getter_round(core):
+        started = time.perf_counter()
+        for _ in range(200000):
+            assert factory.get_event_pipe() is core.event_pipe
+        return {"seconds": time.perf_counter() - started, "operations": 200000}
+
     report = {
         "environment": {"python": sys.version, "platform": platform.platform(), "gc_enabled": gc.isenabled(),
                         "source_sha256_excluding_version": source_digest.hexdigest(),
+                        "driver_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                         "logging": "ERROR", "loop_lag_probe_interval_ms": 1},
         "scenarios": {}, "memory": {},
     }
     for kind in ("cold", "hot", "mutation"):
+        if not wanted(f"registry/{kind}"):
+            continue
         registry_round(kind)
         report["scenarios"][f"registry/{kind}"] = {
             "rounds": [registry_round(kind) for _ in range(args.repeats)],
@@ -265,6 +336,8 @@ async def run_worker(args):
     }
     core = await fresh_core(128)
     for name, spec in specs.items():
+        if not wanted(name):
+            continue
         await graph_round(spec, core)
         rounds = []
         for _ in range(args.repeats):
@@ -272,6 +345,8 @@ async def run_worker(args):
             rounds.append(await graph_round(spec, core))
         report["scenarios"][name] = {"workload": spec, "capacity": 128, "rounds": rounds}
     for capacity in (128, 512, 1024):
+        if not wanted(f"sleep/capacity-{capacity}"):
+            continue
         core = await fresh_core(capacity)
         spec = {"count": 2048, "nodes": 4, "state": "fixed", "sleep": .010}
         await graph_round(spec, core)
@@ -281,21 +356,56 @@ async def run_worker(args):
             rounds.append(await graph_round(spec, core))
         report["scenarios"][f"sleep/capacity-{capacity}"] = {"workload": spec, "capacity": capacity, "rounds": rounds}
     core = await fresh_core(128)
+    event_kinds = ["cached-pipe"]
+    if hasattr(subscription, "post_event"):
+        event_kinds.append("global-post")
+    for kind in event_kinds:
+        if not wanted(f"event/{kind}"):
+            continue
+        await event_round(kind, core)
+        rounds = []
+        for _ in range(args.repeats):
+            gc.collect()
+            rounds.append(await event_round(kind, core))
+        report["scenarios"][f"event/{kind}"] = {
+            "workload": {"events": args.events, "queue_capacity": core.event_pipe.maxsize},
+            "capacity": 128, "rounds": rounds,
+        }
+    if wanted("event/request-reply"):
+        await request_reply_round(core)
+        rounds = []
+        for _ in range(args.repeats):
+            gc.collect()
+            rounds.append(await request_reply_round(core))
+        report["scenarios"]["event/request-reply"] = {
+            "workload": {"roundtrips": 2048}, "capacity": 128, "rounds": rounds,
+        }
+    if wanted("event/getter"):
+        getter_round(core)
+        report["scenarios"]["event/getter"] = {
+            "rounds": [getter_round(core) for _ in range(args.repeats)],
+        }
+    core = await fresh_core(128)
     for name in ("state/large-snapshots", "state/large-no-snapshots"):
+        if selected:
+            break
         gc.collect()
         tracemalloc.start()
         await graph_round(specs[name], core)
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         report["memory"][name] = {"peak_python_MiB": peak / 2**20}
-    gc.collect()
-    registry = ApixHandlerRegistry(ApixEventRegistry())
-    tracemalloc.start()
-    for index in range(30000):
-        registry.get_handlers_chain_for_event(f"transient.reply.{index:032d}")
-    retained, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    report["memory"]["registry/unique-names"] = {"retained_python_MiB": retained / 2**20, "peak_python_MiB": peak / 2**20, "retained_names": len(registry.cached_chain), "queried_names": 30000}
+    if not selected:
+        gc.collect()
+        registry = ApixHandlerRegistry(ApixEventRegistry())
+        tracemalloc.start()
+        for index in range(30000):
+            registry.get_handlers_chain_for_event(f"transient.reply.{index:032d}")
+        retained, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        report["memory"]["registry/unique-names"] = {"retained_python_MiB": retained / 2**20, "peak_python_MiB": peak / 2**20, "retained_names": len(registry.cached_chain), "queried_names": 30000}
+    if selected - report["scenarios"].keys():
+        raise ValueError(f"Unknown or unavailable scenarios: {selected - report['scenarios'].keys()}")
     await stop(core)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -315,13 +425,22 @@ def compare(args):
             sys.executable, str(Path(__file__).resolve()), "--worker-source", str(source),
             "--output", str(path), "--repeats", str(args.repeats),
             "--count", str(args.count), "--nodes", str(args.nodes),
+            "--events", str(args.events),
+            *(argument for scenario in args.scenario or () for argument in ("--scenario", scenario)),
         ], cwd=root, check=True, timeout=240)
         workers.append({"label": label, "file": path.name, "data": json.loads(path.read_text())})
     comparison = {"order": [worker["label"] for worker in workers], "repeats_per_worker": args.repeats, "summary": {}, "memory": {}, "workers": workers}
     for label in ("before", "after"):
         fingerprints = {worker["data"]["environment"]["source_sha256_excluding_version"] for worker in workers if worker["label"] == label}
         assert len(fingerprints) == 1, f"{label} runtime changed during measurement"
+    common = set.intersection(*(set(worker["data"]["scenarios"]) for worker in workers))
+    comparison["unpaired_scenarios"] = sorted(set.union(*(set(worker["data"]["scenarios"]) for worker in workers)) - common)
     for name in workers[0]["data"]["scenarios"]:
+        if name not in common:
+            continue
+        for worker in workers:
+            for field in ("workload", "capacity"):
+                assert worker["data"]["scenarios"][name].get(field) == workers[0]["data"]["scenarios"][name].get(field)
         summary = {}
         for label in ("before", "after"):
             rounds = [row for worker in workers if worker["label"] == label for row in worker["data"]["scenarios"][name]["rounds"]]

@@ -25,6 +25,14 @@ def pytest_runtest_makereport(item, call):
 
 
 def pytest_addoption(parser):
+    threads = parser.getgroup("event threads")
+    threads.addoption("--thread-workers", type=_positive_int, default=None, help="Override stress worker threads.")
+    threads.addoption("--thread-iterations", type=_positive_int, default=None, help="Override operations per stress worker.")
+    threads.addoption("--thread-queue-size", type=_positive_int, default=64, help="Set both thread stress queue capacities.")
+    threads.addoption(
+        "--thread-report", default=None,
+        help="Write cross-thread stress metrics to a JSON file.",
+    )
     group = parser.getgroup("graph performance")
     group.addoption(
         "--run-performance", action="store_true", default=False,

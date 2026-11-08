@@ -1,18 +1,20 @@
 """Construct, start, and stop the shared event core with explicit dependencies.
 
-Getters construct components on first access and schedule shared startup when
-called inside asyncio. Await start_core() when startup completion or errors
+Main-thread getters construct components on first access and schedule shared
+startup inside asyncio. Await start_core() when startup completion or errors
 must be observed directly. Construction itself never starts background consumers.
 """
 
 import asyncio
 from dataclasses import dataclass, field
+from threading import current_thread, main_thread
 
 from apixis.core.config.core_config import HANDLER_CHAIN_CACHE_SIZE
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.handler_registry import ApixHandlerRegistry
+from apixis.core.event.thread_bridge import EventThreadBridge
 from apixis.core.utils import logger
 
 
@@ -26,6 +28,7 @@ class EventCore:
     event_loop: ApixEventLoop
     start_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     start_task: asyncio.Task[None] | None = field(default=None, init=False)
+    thread_bridge: EventThreadBridge | None = field(default=None, init=False)
 
     @property
     def started(self) -> bool:
@@ -42,6 +45,8 @@ _core: EventCore | None = None
 def _get_core() -> EventCore:
     """Build synchronously so asyncio callers cannot observe a partial core."""
     global _core
+    if current_thread() is not main_thread():
+        raise RuntimeError("The event core belongs to the main thread; use the threadsafe event APIs.")
     if _core is None:
         event_registry = ApixEventRegistry()
         event_pipe = ApixEventPipe()
@@ -54,9 +59,10 @@ def _get_core() -> EventCore:
 
 
 async def start_core() -> None:
-    """Construct once but not ensure both services have started before returning.
-    This method only publishes the start signal. The upper-layer interface is
-    unaffected by whether the core's consumers have started.
+    """Signal startup on the main asyncio loop and initialize thread requests.
+
+    A restart that has already signalled started may still have a startup task
+    in progress. Initial successful startup binds the thread bridge.
 
     Concurrent calls share the same startup lock. Failed or cancelled startup
     propagates to the caller; a later call retries using the same components.
@@ -65,11 +71,16 @@ async def start_core() -> None:
 
 
 async def _start_core(core: EventCore) -> None:
-    if core.started:
+    loop = asyncio.get_running_loop()
+    if core.thread_bridge is not None and core.thread_bridge.loop is not loop:
+        raise RuntimeError("The event core is bound to a different asyncio loop.")
+    if core.started and (core.thread_bridge is None or not core.thread_bridge.closed):
         return
     async with core.start_lock:
         await core.event_pipe.start()
         await core.event_loop.start()
+        if core.thread_bridge is None or core.thread_bridge.closed:
+            core.thread_bridge = EventThreadBridge(loop, maxsize=core.event_pipe.maxsize)
 
 
 async def stop_core() -> None:
@@ -83,11 +94,17 @@ async def stop_core() -> None:
     core = _core
     if core is None:
         return
+    if current_thread() is not main_thread():
+        raise RuntimeError("The event core must stop on the main thread.")
+    if core.thread_bridge is not None and core.thread_bridge.loop is not asyncio.get_running_loop():
+        raise RuntimeError("The event core is bound to a different asyncio loop.")
     if core.start_task is not None and not core.start_task.done():
         core.start_task.cancel()
         await asyncio.gather(core.start_task, return_exceptions=True)
     async with core.start_lock:
         try:
+            if core.thread_bridge is not None:
+                await core.thread_bridge.close()
             await core.event_loop.stop()
         finally:
             await core.event_pipe.stop()
@@ -95,16 +112,26 @@ async def stop_core() -> None:
 
 def _ensure_started(core: EventCore) -> None:
     """Schedule one startup attempt without changing synchronous getter APIs."""
-    if core.started or (core.start_task is not None and not core.start_task.done()):
-        return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         # Imports and synchronous registration may construct the core before
         # asyncio begins. The next getter inside asyncio schedules startup.
         return
+    if core.thread_bridge is not None and core.thread_bridge.loop is not loop:
+        raise RuntimeError("The event core is bound to a different asyncio loop.")
+    if core.started or (core.start_task is not None and not core.start_task.done()):
+        return
     core.start_task = loop.create_task(_start_core(core), name="event-core-start")
     core.start_task.add_done_callback(_on_start_done)
+
+
+def get_thread_bridge() -> EventThreadBridge:
+    """Return the bridge already bound by main-thread core startup."""
+    core = _core
+    if core is None or core.thread_bridge is None:
+        raise RuntimeError("Await start_core() on the main thread before using threadsafe event APIs.")
+    return core.thread_bridge
 
 
 def _on_start_done(task: asyncio.Task[None]) -> None:

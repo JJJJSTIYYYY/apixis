@@ -120,6 +120,76 @@ await post_event(
 
 `pipe.join()` 等待队列项目完成交接，不等待 handler 执行结束。需要等待结果事件时，可使用下文的 `await_for()` 或 `wait_for_event()`；也可以由处理器通过应用自己的结果对象或信号通知调用方，完整示例见[快速开始](../../quickstart.md)。
 
+## 跨线程发布与等待
+
+共享事件核心绑定主线程的 asyncio loop。主线程先调用 `await start_core()`，其他线程通过有界 `queue.Queue` 提交发布、等待请求；主线程负责临时监听的注册、注销和事件处理。`subscribe()`、`unsubscribe()` 及普通核心 getter 仅用于主线程。
+
+```python
+import asyncio
+
+from apixis import (
+    EventType, post_event, post_event_threadsafe, start_core,
+    subscribe, wait_for_event_threadsafe,
+)
+
+
+@subscribe("job.request")
+async def respond(event):
+    await post_event(
+        event_type=EventType.INFO,
+        event_name="job.reply",
+        context={"result": event.context["value"] * 2},
+    )
+
+
+def worker():
+    with wait_for_event_threadsafe("job.reply", point="processed", time_out=30) as waiter:
+        post_event_threadsafe(
+            event_type=EventType.INFO,
+            event_name="job.request",
+            context={"value": 21},
+        ).result()
+        return waiter.wait().context["result"]
+
+
+async def main():
+    await start_core()
+    result = await asyncio.to_thread(worker)
+    assert result == 42
+
+
+asyncio.run(main())
+```
+
+并发请求应使用各自唯一的响应事件名，防止匹配其他请求的响应。
+
+| 接口 | 完成含义 |
+| --- | --- |
+| `post_event_threadsafe(*, event_type, event_name, context=None)` | 通信队列满时在工作线程等待空位，返回 `concurrent.futures.Future[None]`；Future 完成表示事件已进入原有事件队列，不代表处理完成。 |
+| `await_for_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回线程安全 Future，主线程安装临时监听后收集结果；取消 Future 会安排主线程清理监听。返回时不保证监听已注册。 |
+| `wait_for_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回同步 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。请求响应使用此接口。 |
+
+等待接口支持字符串或非空 `list` / `set`，匹配、过滤及 `point` 与异步等待接口一致。字符串返回单个事件，集合返回按模式索引的事件字典；暂不提供 `keep_listening`。收到的事件和 payload 仍是共享对象，工作线程需要独立修改时自行复制。`processed` 不等待后台 handler。
+
+`time_out` 从主线程注册开始计时，不包含请求在通信队列中的等待时间。同步上下文的 `wait(time_out=...)` 额外限制本次阻塞时间，超时会取消收集并等待监听清理，不会延长注册时设定的期限。上下文只能进入一次。阻塞等待及上下文进入、退出都在工作线程执行，主线程应继续运行 loop。
+
+通信队列容量与 `APIXIS.EVENT.event_pipe_max_len` 相同，两条队列各自有界。通信队列满时，线程安全接口在工作线程等待空位，无需重试。主线程串行转交跨线程发布，原有事件队列满时不继续堆积发布任务；事件等待独立收集，不阻塞后续请求。
+
+如果工作线程自身运行 asyncio loop，可以直接 `await post_event(...)`、`await await_for(...)`。这两个异步接口会自动桥接到主线程，等待通信队列空位时不阻塞调用方 loop，取消异步任务也会取消尚未完成的提交或收集。跨线程 `await_for` 不支持 `keep_listening=True`。主线程继续使用原有异步接口；同步线程安全接口不能在队列满时阻塞主线程。
+
+Future 的 `.result(timeout=...)` 超时仅停止调用方等待；需要放弃请求时显式 `.cancel()`。已经进入事件队列的事件无法撤回。`stop_core()` 拒绝新跨线程请求，使未完成结果以 `RuntimeError` 结束，并等待临时监听清理；同一 loop 上重新启动后可继续使用。
+
+跨线程发布捕获调用线程的业务 `ContextVar`，内部处理链许可上下文不跨线程传递。许可管理沿用现有实现。如果前台 handler 等待工作线程，而工作线程依赖后续事件被处理，调用方可用现有的 `async with suspend_process():` 包裹 `await asyncio.to_thread(worker)`。
+
+实际线程压力测试覆盖派发容量 `1`、`128` 和 `None`，验证逐生产者顺序、请求响应关联、广播、取消及资源清理：
+
+```bash
+uv run pytest tests/performance/test_thread_events.py --run-performance -q -s \
+    --thread-report test-results/thread-events.json
+```
+
+默认分别使用 256 线程发布 32,768 个事件、128 线程完成 8,192 次请求响应、256 线程广播并取消 8,192 次等待，以及 16 个工作线程的 asyncio loop 并发发布 2,048 个事件。可通过 `--thread-workers`、`--thread-iterations` 和 `--thread-queue-size` 调整规模。
+
 ## `ApixEventPipe` 常用接口
 
 ```python
