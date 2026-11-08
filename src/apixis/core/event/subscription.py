@@ -1,16 +1,40 @@
-"""Subscription conveniences backed by the factory-managed handler registry."""
+"""Event publication and subscription helpers backed by the shared core."""
 
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from copy import copy, deepcopy
 from functools import partial
-from typing import Literal, Self, cast
+from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
-from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, suspend_process
-from apixis.core.event.factory import get_handler_registry
+from apixis.core.event.base import ApixEvent, ApixEventHandler, EventHandlerFunc, EventType, suspend_process
+from apixis.core.event.factory import get_event_pipe, get_handler_registry
 from apixis.core.utils.validation import validate_number
+
+
+async def post_event(
+    *,
+    event_type: EventType,
+    event_name: str,
+    context: Any = None,
+) -> None:
+    """Create and publish an event through the process-global event pipe.
+
+    Publication waits for queue capacity, not handler completion. The shared
+    pipe captures the publisher's context variables and temporarily returns
+    the current managed handler's dispatch permit during publication.
+
+    Args:
+        event_type: Event category used by handlers.
+        event_name: Name used by the registry to select handlers.
+        context: Optional event payload or runtime context.
+    """
+    await get_event_pipe().post_event(
+        event_type=event_type,
+        event_name=event_name,
+        context=context,
+    )
 
 
 def subscribe(
@@ -682,7 +706,7 @@ def get_unmatched_subscriptions(handler_name: str) -> list[str]:
 
 
 __all__ = [
-    "subscribe", "unsubscribe", "get_handler", "get_handler_meta",
+    "post_event", "subscribe", "unsubscribe", "get_handler", "get_handler_meta",
     "is_registered", "get_unmatched_subscriptions",
     "await_for", "wait_for_event", "EventWaiter"
 ]

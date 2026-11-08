@@ -102,23 +102,19 @@ ApixEvent(
 
 ## 发布事件
 
-推荐通过共享 `ApixEventPipe`：
+使用全局 `post_event()` 发布事件：
 
 ```python
-from apixis import EventType, get_event_pipe, start_core
+from apixis import EventType, post_event
 
-await start_core()
-pipe = get_event_pipe()
-
-await pipe.post_event(
+await post_event(
     event_type=EventType.INFO,
     event_name="job.created",
     context={"job_id": 42},
 )
-await pipe.join()
 ```
 
-`post_event()` 会创建 `ApixEvent` 并放入本地队列；本地队列满时等待空位。
+`post_event()` 委托共享 `ApixEventPipe.post_event()` 创建 `ApixEvent` 并放入本地队列；本地队列满时等待空位。共享事件核心会按需启动，也可以通过 `await start_core()` 显式等待启动。需要直接访问管道时，使用 `pipe = get_event_pipe()`。
 
 发布时捕获当前 `ContextVar` 绑定，整条前台 handler chain 在该快照中执行，后台 handler 继承启动时的绑定。发布者之后的 `set/reset` 不影响已发布事件，handler 的绑定修改也不回写发布者；变量值中的可变对象仍按引用共享。直接使用 `put()` / `put_nowait()` 注入手工构造的事件不捕获发布者上下文。
 

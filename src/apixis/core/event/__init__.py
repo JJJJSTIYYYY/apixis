@@ -42,6 +42,7 @@ from apixis.core.event.factory import (
 )
 from apixis.core.event.subscription import (
     get_unmatched_subscriptions,
+    post_event,
     subscribe,
     unsubscribe,
     get_handler,
@@ -83,6 +84,7 @@ __all__ = [
     "InvalidContextError",
     "ApixHandlerRegistry",
     "get_unmatched_subscriptions",
+    "post_event",
     "subscribe",
     "unsubscribe",
     "get_handler",

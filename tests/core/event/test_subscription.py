@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+from apixis import post_event
 from apixis.core.event.base import (
     ApixEvent,
     EventType,
@@ -50,7 +51,6 @@ async def test_suspend_process_without_handler_context_is_a_noop():
 async def test_await_for_received_resolves_before_foreground_processing(
     wait_for_dispatch,
 ):
-    pipe = get_event_pipe()
     loop = get_event_loop()
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -65,7 +65,7 @@ async def test_await_for_received_resolves_before_foreground_processing(
     waiter = asyncio.create_task(await_for("job.*", point="received"))
     await wait_until_registered(registered)
     try:
-        await pipe.post_event(
+        await post_event(
             event_type=EventType.INFO,
             event_name="job.created",
             context={"processed": False},
@@ -123,7 +123,6 @@ async def test_await_for_processed_resolves_for_terminal_event_state(
     upstream_state,
     wait_for_dispatch,
 ):
-    pipe = get_event_pipe()
     loop = get_event_loop()
 
     @subscribe("job.*")
@@ -137,7 +136,7 @@ async def test_await_for_processed_resolves_for_terminal_event_state(
     waiter = asyncio.create_task(await_for("job.*", point="processed"))
     await wait_until_registered(registered)
     try:
-        await pipe.post_event(event_type=EventType.INFO, event_name="job.created")
+        await post_event(event_type=EventType.INFO, event_name="job.created")
         result = await asyncio.wait_for(waiter, 1)
         assert result.accepted is (upstream_state == "accepted")
         assert result.has_error is (upstream_state == "error")
