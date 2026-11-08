@@ -43,7 +43,7 @@ def event_runtime_capacity(request, monkeypatch):
 async def boundary_runtime(cleanup_event_runtime, request, wait_for_dispatch):
     core = cleanup_event_runtime
     capacity, queue_capacity = request.node.callspec.params["event_runtime_capacity"]
-    assert core.event_loop._event_semaphore._bound_value == capacity
+    assert core.event_loop._event_semaphore._bounded == capacity
     assert core.event_loop._event_semaphore._value == capacity
     assert core.event_pipe.maxsize == queue_capacity
     loop = asyncio.get_running_loop()
@@ -115,7 +115,7 @@ async def test_full_queue_and_saturated_parents_can_publish_children(
 ):
     """Blocked external producers and handler posts must all make progress."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     producer_entered = asyncio.Event()
@@ -179,7 +179,7 @@ async def test_captured_handlers_survive_eviction_and_registration_with_a_full_q
 ):
     """Eviction and replacement cannot change a dequeued event's frozen chain."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     core.handler_registry._cache_size = 2
     blockers_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
@@ -259,7 +259,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
 ):
     """Child graph waits and temporary reply listeners share the smallest slots."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     captured = _observe_capture(monkeypatch, core, "boundary.pending")
@@ -334,7 +334,7 @@ async def test_cancellation_while_suspended_or_reacquiring_restores_capacity(
 ):
     """Cancellation cannot double release a lent slot or resume business work."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     suspended = asyncio.Event()
     leave_body = asyncio.Event()
     body_exited = asyncio.Event()
@@ -408,7 +408,7 @@ async def test_suspended_failure_recovers_permits_and_allows_later_traffic(
 ):
     """Exceptions and real timeout cancellation restore a chain after saturation."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     suspended = asyncio.Event()
     leave_body = asyncio.Event()
     body_exited = asyncio.Event()
@@ -489,7 +489,7 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
 ):
     """A surviving dispatch cannot continue after children abandon reacquisition."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -603,7 +603,7 @@ async def test_dispatch_finish_cancels_detached_child_already_reacquiring(
     """Closing a dispatch removes a child's waiter while all slots stay busy."""
     core = boundary_runtime
     semaphore = core.event_loop._event_semaphore
-    capacity = semaphore._bound_value
+    capacity = semaphore._bounded
     entered = asyncio.Event()
     leave_body = asyncio.Event()
     body_exited = asyncio.Event()
@@ -683,7 +683,7 @@ async def test_recoverable_owner_timeout_suspends_the_complete_parallel_wait(
 ):
     """An outer suspension restores capacity before catching a parallel timeout."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -756,7 +756,7 @@ async def test_handler_timeout_reacquires_before_its_error_callback(
 ):
     """Handler-managed timeout restores capacity before error recovery continues."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -857,7 +857,7 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
 ):
     """Both waiter positions recover after timer expiry during a full queue."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     waiting = asyncio.Event()
     expired = asyncio.Event()
     recovered = asyncio.Event()
@@ -927,7 +927,7 @@ async def test_deferred_results_release_and_restore_saturated_parent_permits(
 ):
     """Detached collectors finish with every parent slot and a bounded queue."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bound_value
+    capacity = core.event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity)
     done = asyncio.Queue()
 

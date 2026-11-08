@@ -53,19 +53,23 @@ async def thread_runtime(cleanup_event_runtime, request):
     try:
         yield core, metrics
         async with asyncio.timeout(10):
-            while core.thread_bridge._active or core.thread_bridge._consumer and not core.thread_bridge._consumer.done():
+            while core.thread_bridge._active or core.thread_bridge._consumer_scheduled:
                 await asyncio.sleep(0)
             await core.event_pipe.join()
             while core.event_loop._dispatch_tasks:
                 await asyncio.sleep(0)
         assert set(core.handler_registry.registry) == baseline | metrics.pop("handlers", set())
         assert not core.thread_bridge._active
-        assert core.thread_bridge._requests.empty()
-        assert core.thread_bridge._requests.unfinished_tasks == 0
+        assert not core.thread_bridge._requests
+        assert not core.thread_bridge._consumer_scheduled
         assert not core.event_loop._background_handler_tasks
         assert core.event_loop._pending_dispatch is None
-        expected = core.event_loop._event_semaphore._bound_value
-        assert core.event_loop._event_semaphore._value == (expected if expected is not None else 0)
+        semaphore = core.event_loop._event_semaphore
+        expected = semaphore._bounded
+        if expected is None:
+            assert semaphore._unbounded_value == 0
+        else:
+            assert semaphore._value == expected
         assert not errors, errors
         assert ticks > 0
         metrics.update(
@@ -76,7 +80,7 @@ async def thread_runtime(cleanup_event_runtime, request):
             seconds=perf_counter() - started,
             heartbeat_ticks=ticks,
             callback_errors=len(errors),
-            leftover_requests=core.thread_bridge._requests.qsize(),
+            leftover_requests=len(core.thread_bridge._requests),
             leftover_waiters=len(set(core.handler_registry.registry) - baseline - set(metrics.get("handler_names", []))),
         )
         print(json.dumps(metrics, sort_keys=True))

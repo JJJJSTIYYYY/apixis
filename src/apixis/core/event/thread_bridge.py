@@ -1,11 +1,11 @@
 """Bounded thread-to-loop requests; all event operations run on the owner loop."""
 
 import asyncio
+from collections import deque
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future, InvalidStateError
 from contextvars import Context, copy_context
 from dataclasses import dataclass, field
-from queue import Empty, Queue
 from threading import Condition, current_thread, main_thread
 from typing import Any
 
@@ -22,6 +22,7 @@ class ThreadSubmission[T]:
     result: Future[T] = field(default_factory=Future)
     closed: Future[None] = field(default_factory=Future)
     task: asyncio.Task[None] | None = None
+    waiting_for_admission: bool = False
 
 
 def complete_future(future: Future[Any], *, value: Any = None, error: BaseException | None = None) -> None:
@@ -41,13 +42,17 @@ class EventThreadBridge:
     Publications are awaited serially so a full event pipe cannot create an
     unbounded collection of publishing tasks. Background operations register
     event waiters and collect results independently of subsequent requests.
+    A single condition protects queue capacity and the idle-to-running handoff;
+    producers share one scheduled consumer until it drains the queue.
     """
 
     def __init__(self, loop: asyncio.AbstractEventLoop, *, maxsize: int) -> None:
         self.loop = loop
-        self._requests: Queue[ThreadSubmission[Any]] = Queue(maxsize=maxsize)
+        self._requests: deque[ThreadSubmission[Any]] = deque()
+        self._maxsize = maxsize
         self._admission = Condition()
         self._closed = False
+        self._consumer_scheduled = False
         self._consumer: asyncio.Task[None] | None = None
         self._active: set[ThreadSubmission[Any]] = set()
 
@@ -94,19 +99,26 @@ class EventThreadBridge:
                     return
                 if self._closed or not self.loop.is_running():
                     raise RuntimeError("The event thread bridge is not running; await start_core() first.")
-                if not self._requests.full():
+                if self._maxsize <= 0 or len(self._requests) < self._maxsize:
                     break
                 if current_thread() is main_thread():
                     raise RuntimeError("Use await post_event() or await_for() instead of blocking the main thread.")
-                self._admission.wait()
-            self._requests.put_nowait(request)
-            self.loop.call_soon_threadsafe(self._ensure_consumer, context=Context())
+                request.waiting_for_admission = True
+                try:
+                    self._admission.wait()
+                finally:
+                    request.waiting_for_admission = False
+            self._requests.append(request)
+            if not self._consumer_scheduled:
+                self._consumer_scheduled = True
+                self.loop.call_soon_threadsafe(self._ensure_consumer, context=Context())
 
     def _on_result_done(self, request: ThreadSubmission, future: Future) -> None:
         if not future.cancelled():
             return
         with self._admission:
-            self._admission.notify_all()
+            if request.waiting_for_admission:
+                self._admission.notify_all()
         if not self.loop.is_closed():
             try:
                 self.loop.call_soon_threadsafe(self._cancel, request, context=Context())
@@ -122,17 +134,17 @@ class EventThreadBridge:
             self._release(request)
 
     def _ensure_consumer(self) -> None:
-        if not self.closed and (self._consumer is None or self._consumer.done()):
+        # Only the owner loop changes _closed or runs this callback.
+        if not self._closed:
             self._consumer = self.loop.create_task(self._consume(), context=Context())
 
     async def _consume(self) -> None:
-        while not self.closed:
+        while True:
             with self._admission:
-                try:
-                    request = self._requests.get_nowait()
-                except Empty:
+                if self._closed or not self._requests:
+                    self._consumer_scheduled = False
                     return
-                self._requests.task_done()
+                request = self._requests.popleft()
                 self._admission.notify()
             if request.result.cancelled():
                 if not request.closed.done():
@@ -173,13 +185,10 @@ class EventThreadBridge:
         """Reject new requests and finish pending results before returning."""
         with self._admission:
             self._closed = True
+            self._consumer_scheduled = False
+            requests, self._requests = self._requests, deque()
             self._admission.notify_all()
-        while True:
-            try:
-                request = self._requests.get_nowait()
-            except Empty:
-                break
-            self._requests.task_done()
+        for request in requests:
             if not request.result.done():
                 complete_future(request.result, error=RuntimeError("The event core stopped."))
             if not request.closed.done():

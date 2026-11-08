@@ -93,7 +93,7 @@ def _assert_drained(core, registered):
     assert not core.event_loop._dispatch_tasks
     assert not core.event_loop._background_handler_tasks
     semaphore = core.event_loop._event_semaphore
-    assert semaphore._value == semaphore._bound_value
+    assert semaphore._value == semaphore._bounded
     assert not any(not waiter.done() for waiter in (semaphore._waiters or ()))
     assert set(core.handler_registry.registry) == registered
 
@@ -350,7 +350,7 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         for name, value in {
             "parent_graphs": graph_count, "child_graphs": graph_count,
             "calls_per_graph": calls_per_graph, "invocations": total,
-            "dispatch_capacity": core.event_loop._event_semaphore._bound_value,
+            "dispatch_capacity": core.event_loop._event_semaphore._bounded,
             "queue_capacity": core.event_pipe.maxsize,
             "node_executions": total * 7, "rpc_round_trips": total * 7,
             "seconds": round(perf_counter() - started, 4), **stats,

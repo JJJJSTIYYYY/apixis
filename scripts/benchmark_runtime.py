@@ -6,6 +6,7 @@ source tree, for example one extracted with ``git archive``. No network is used.
 
 import argparse
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import gc
 import hashlib
 import importlib
@@ -16,6 +17,7 @@ from pathlib import Path
 import statistics
 import subprocess
 import sys
+from threading import Barrier, get_ident
 import time
 import tracemalloc
 from typing import Annotated, TypedDict
@@ -34,6 +36,8 @@ def parse_args():
     parser.add_argument("--count", type=int, default=512)
     parser.add_argument("--nodes", type=int, default=16)
     parser.add_argument("--events", type=int, default=16384)
+    parser.add_argument("--thread-workers", type=int, default=32)
+    parser.add_argument("--thread-iterations", type=int, default=64)
     parser.add_argument("--mixed-listeners", type=int, default=64,
                         help="Total listeners per mixed waiting/subscription event; a multiple of 16.")
     parser.add_argument("--mixed-events", type=int, default=512,
@@ -41,8 +45,9 @@ def parse_args():
     parser.add_argument("--scenario", action="append", help="Run only named scenarios; repeat to select several.")
     parser.add_argument("--worker-source", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if min(args.count, args.nodes, args.repeats, args.events, args.mixed_events) <= 0:
-        parser.error("count, nodes, events, mixed-events and repeats must be positive")
+    if min(args.count, args.nodes, args.repeats, args.events, args.mixed_events,
+           args.thread_workers, args.thread_iterations) <= 0:
+        parser.error("counts, repeats and iterations must be positive")
     if args.mixed_listeners <= 0 or args.mixed_listeners % 16:
         parser.error("mixed-listeners must be a positive multiple of 16")
     return args
@@ -409,6 +414,75 @@ async def run_worker(args):
             assert factory.get_event_pipe() is core.event_pipe
         return {"seconds": time.perf_counter() - started, "operations": 200000}
 
+    async def thread_round(core, kind, queue_capacity):
+        from apixis.core.event.thread_bridge import EventThreadBridge
+
+        await core.thread_bridge.close()
+        core.thread_bridge = EventThreadBridge(asyncio.get_running_loop(), maxsize=queue_capacity)
+        core.handler_registry.clear()
+        owner = get_ident()
+        seen = set()
+        callbacks = 0
+
+        @subscription.subscribe("benchmark.thread")
+        async def receive(event):
+            nonlocal callbacks
+            assert get_ident() == owner
+            callbacks += 1
+            assert event.context not in seen
+            seen.add(event.context)
+            if kind == "request-reply":
+                producer, sequence = event.context
+                await core.event_pipe.post_event(
+                    event_type=EventType.TRANSIENT, event_name=f"benchmark.reply.{producer}.{sequence}",
+                    context=event.context,
+                )
+
+        barrier = Barrier(args.thread_workers)
+
+        def worker(producer):
+            barrier.wait(30)
+            if kind == "async-publication":
+                async def publish():
+                    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
+                    await asyncio.gather(*(subscription.post_event(
+                        event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
+                    ) for sequence in range(args.thread_iterations)))
+                asyncio.run(publish())
+            elif kind == "request-reply":
+                for sequence in range(args.thread_iterations):
+                    with subscription.wait_for_event_threadsafe(
+                        f"benchmark.reply.{producer}.{sequence}", point="processed", time_out=30,
+                    ) as waiter:
+                        subscription.post_event_threadsafe(
+                            event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
+                        ).result(30)
+                        assert waiter.wait().context == (producer, sequence)
+            else:
+                futures = [subscription.post_event_threadsafe(
+                    event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
+                ) for sequence in range(args.thread_iterations)]
+                for future in futures:
+                    future.result(30)
+
+        def run_workers():
+            with ThreadPoolExecutor(max_workers=args.thread_workers) as pool:
+                list(pool.map(worker, range(args.thread_workers)))
+
+        started = time.perf_counter()
+        await asyncio.wait_for(asyncio.to_thread(run_workers), 90)
+        await drain(core)
+        async with asyncio.timeout(10):
+            while core.thread_bridge._active or not core.thread_bridge._consumer.done():
+                await asyncio.sleep(0)
+        seconds = time.perf_counter() - started
+        expected = args.thread_workers * args.thread_iterations
+        assert callbacks == len(seen) == expected
+        assert set(core.handler_registry.registry) == {receive.__name__}
+        await core.thread_bridge.close()
+        assert not core.thread_bridge._active
+        return {"seconds": seconds, "operations": expected, "operations_per_second": expected / seconds}
+
     report = {
         "environment": {"python": sys.version, "platform": platform.platform(), "gc_enabled": gc.isenabled(),
                         "source_sha256_excluding_version": source_digest.hexdigest(),
@@ -508,6 +582,25 @@ async def run_worker(args):
             "cache_audit": await mixed_wait_round(core, percent, audit=True),
         }
     core = await fresh_core(128)
+    thread_kinds = ("publication", "request-reply", "async-publication") if hasattr(subscription, "post_event_threadsafe") else ()
+    for kind in thread_kinds:
+        for queue_capacity in (1, 64):
+            name = f"thread/{kind}-queue-{queue_capacity}"
+            if not wanted(name):
+                continue
+            await thread_round(core, kind, queue_capacity)
+            rounds = []
+            for _ in range(args.repeats):
+                gc.collect()
+                rounds.append(await thread_round(core, kind, queue_capacity))
+            report["scenarios"][name] = {
+                "workload": {"workers": args.thread_workers, "iterations": args.thread_iterations,
+                             "queue_capacity": queue_capacity, "event_pipe_capacity": core.event_pipe.maxsize,
+                             "includes": "worker pool creation, submissions, dispatch and cleanup",
+                             "async_admission_threads_per_worker": 2 if kind == "async-publication" else 0},
+                "capacity": 128, "rounds": rounds,
+            }
+    core = await fresh_core(128)
     for name in ("state/large-snapshots", "state/large-no-snapshots"):
         if selected:
             break
@@ -548,6 +641,8 @@ def compare(args):
             "--output", str(path), "--repeats", str(args.repeats),
             "--count", str(args.count), "--nodes", str(args.nodes),
             "--events", str(args.events),
+            "--thread-workers", str(args.thread_workers),
+            "--thread-iterations", str(args.thread_iterations),
             "--mixed-listeners", str(args.mixed_listeners),
             "--mixed-events", str(args.mixed_events),
             *(argument for scenario in args.scenario or () for argument in ("--scenario", scenario)),

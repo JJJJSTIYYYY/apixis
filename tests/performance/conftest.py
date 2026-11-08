@@ -67,7 +67,7 @@ def report_graph_metrics(request, cleanup_event_runtime):
     def record(metrics):
         reports.append({
             "node_id": request.node.nodeid,
-            "event_loop_backpressure": cleanup_event_runtime.event_loop._event_semaphore._bound_value,
+            "event_loop_backpressure": cleanup_event_runtime.event_loop._event_semaphore._bounded,
             **metrics,
         })
 

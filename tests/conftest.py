@@ -34,7 +34,7 @@ async def cleanup_event_runtime(event_runtime_capacity, monkeypatch):
         monkeypatch.setattr(factory, "_core", None)
     core = factory._get_core()
     if event_runtime_capacity is not None:
-        assert core.event_loop._event_semaphore._bound_value == event_runtime_capacity
+        assert core.event_loop._event_semaphore._bounded == event_runtime_capacity
     _clear_registries(core)
     await factory.start_core()
     try:

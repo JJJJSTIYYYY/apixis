@@ -312,7 +312,51 @@ async def test_worker_waits_for_full_bridge_without_retry(runtime, monkeypatch):
     await asyncio.gather(*(asyncio.wrap_future(future) for future in [first, *queued]))
 
 
-async def test_stop_wakes_worker_waiting_for_admission(runtime, monkeypatch):
+@pytest.mark.parametrize("eager", [False, True])
+async def test_consumer_wakeup_coalesces_and_restarts_after_idle(runtime, monkeypatch, eager):
+    loop = asyncio.get_running_loop()
+    schedule = loop.call_soon_threadsafe
+    wakeups = 0
+
+    def count_wakeups(callback, *args, **kwargs):
+        nonlocal wakeups
+        if callback == runtime.thread_bridge._ensure_consumer:
+            wakeups += 1
+        return schedule(callback, *args, **kwargs)
+
+    monkeypatch.setattr(loop, "call_soon_threadsafe", count_wakeups)
+    previous = loop.get_task_factory()
+    if eager:
+        loop.set_task_factory(asyncio.eager_task_factory)
+    entered, release = asyncio.Event(), asyncio.Event()
+    published = []
+
+    async def blocked(event):
+        published.append(event.event_name)
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(runtime.event_pipe, "put", blocked)
+    try:
+        for burst in range(4):
+            entered.clear()
+            release.clear()
+            first = post_event_threadsafe(event_type=EventType.INFO, event_name=f"{burst}.first")
+            await entered.wait()
+            queued = [post_event_threadsafe(event_type=EventType.INFO, event_name=f"{burst}.{i}") for i in range(2)]
+            assert wakeups == burst + 1
+            release.set()
+            await asyncio.gather(*(asyncio.wrap_future(future) for future in [first, *queued]))
+            await until(lambda: runtime.thread_bridge._consumer.done())
+            assert not runtime.thread_bridge._consumer_scheduled
+        assert published == [name for burst in range(4) for name in (f"{burst}.first", f"{burst}.0", f"{burst}.1")]
+    finally:
+        release.set()
+        loop.set_task_factory(previous)
+
+
+@pytest.mark.parametrize("workers", [1, 4])
+async def test_stop_wakes_worker_waiting_for_admission(runtime, monkeypatch, workers):
     entered = asyncio.Event()
 
     async def blocked(event):
@@ -330,11 +374,11 @@ async def test_stop_wakes_worker_waiting_for_admission(runtime, monkeypatch):
         with pytest.raises(RuntimeError, match="not running"):
             post_event_threadsafe(event_type=EventType.INFO, event_name="last")
 
-    task = asyncio.create_task(asyncio.to_thread(worker))
+    tasks = [asyncio.create_task(asyncio.to_thread(worker)) for _ in range(workers)]
     await until(started.is_set)
-    await until(lambda: bool(runtime.thread_bridge._admission._waiters))
+    await until(lambda: len(runtime.thread_bridge._admission._waiters) == workers)
     await stop_core()
-    await asyncio.wait_for(task, 3)
+    await asyncio.wait_for(asyncio.gather(*tasks), 3)
     for future in [first, *queued]:
         with pytest.raises(RuntimeError, match="stopped"):
             future.result()
@@ -344,6 +388,7 @@ async def test_stop_wakes_worker_waiting_for_admission(runtime, monkeypatch):
 async def test_async_worker_admission_keeps_its_loop_responsive(runtime, monkeypatch, cancel):
     entered, release = asyncio.Event(), asyncio.Event()
     worker_waiting, worker_ticked = Event(), Event()
+    cancel_now = Event()
     published = []
 
     async def blocked(event):
@@ -362,6 +407,8 @@ async def test_async_worker_admission_keeps_its_loop_responsive(runtime, monkeyp
         await asyncio.sleep(0.01)
         worker_ticked.set()
         if cancel:
+            while not cancel_now.is_set():
+                await asyncio.sleep(0)
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task
@@ -372,8 +419,10 @@ async def test_async_worker_admission_keeps_its_loop_responsive(runtime, monkeyp
     await until(worker_waiting.is_set)
     await until(worker_ticked.is_set)
     if cancel:
+        await until(lambda: bool(runtime.thread_bridge._admission._waiters))
+        cancel_now.set()
         await asyncio.wait_for(task, 3)
-        assert runtime.thread_bridge._requests.qsize() == 2
+        assert len(runtime.thread_bridge._requests) == 2
     release.set()
     await asyncio.wait_for(task, 3)
     await asyncio.gather(*(asyncio.wrap_future(future) for future in [first, *queued]))
@@ -415,7 +464,7 @@ async def test_stop_unblocks_context_before_registration(runtime, monkeypatch, w
     if waiting_for_admission:
         await until(lambda: bool(runtime.thread_bridge._admission._waiters))
     else:
-        await until(lambda: runtime.thread_bridge._requests.qsize() == 1)
+        await until(lambda: len(runtime.thread_bridge._requests) == 1)
     await stop_core()
     await asyncio.wait_for(task, 3)
     for future in futures:

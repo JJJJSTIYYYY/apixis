@@ -471,6 +471,7 @@ class TestDispatchEvent:
 
         core.assert_awaited_once_with(event)
         assert handler._event_semaphore._value == (EVENT_LOOP_BACKPRESSURE or 0)
+        assert handler._event_semaphore._unbounded_value == 0
 
 
 # ============================

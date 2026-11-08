@@ -9,6 +9,9 @@ from apixis.core.utils.semaphore import ApixisSemaphore
 
 async def test_unbounded_operations_only_count(monkeypatch):
     semaphore = ApixisSemaphore()
+    # Unbounded operation must survive changes to the base counter layout.
+    del semaphore._value
+    del semaphore._bound_value
 
     def unexpected(*args, **kwargs):
         pytest.fail("Unbounded operations must not use the asyncio semaphore.")
@@ -18,23 +21,27 @@ async def test_unbounded_operations_only_count(monkeypatch):
 
     for _ in range(1025):
         assert await semaphore.acquire() is True
-    assert semaphore._value == -1025
+    assert semaphore._unbounded_value == -1025
     assert not semaphore.locked()
     assert semaphore._waiters is None
     for _ in range(1025):
         semaphore.release()
-    assert semaphore._value == 0
+    assert semaphore._unbounded_value == 0
+    async with semaphore:
+        assert semaphore._unbounded_value == -1
+    assert semaphore._unbounded_value == 0
 
 
 @pytest.mark.parametrize("bounded", [None, 1, 2])
 async def test_context_manager_releases_on_exception(bounded):
     semaphore = ApixisSemaphore(bounded)
-    initial = semaphore._value
     with pytest.raises(RuntimeError, match="failed"):
         async with semaphore:
-            assert semaphore._value == initial - 1
+            assert semaphore._unbounded_value == (-1 if bounded is None else 0)
+            assert semaphore._value == (0 if bounded is None else bounded - 1)
             raise RuntimeError("failed")
-    assert semaphore._value == initial
+    assert semaphore._unbounded_value == 0
+    assert semaphore._value == (0 if bounded is None else bounded)
 
 
 async def test_bounded_waiters_cancellation_and_overrelease():

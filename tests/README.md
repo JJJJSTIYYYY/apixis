@@ -48,6 +48,21 @@ git archive 9743814 source | tar -x -C /tmp/apixis-before
 
 基准包含精确事件名的冷/热查询、临时订阅增删、独立/复用图、串行/并行图、大状态快照、关闭快照、三档背压下的异步等待，以及事件发布、请求响应和五种等待/订阅比例。两版使用相同参数并逐个校验结果。运行时记录总耗时、构建/准备/执行分项、从共同启动门计时的批量完成延迟和事件循环延迟；内存另用 tracemalloc 测量，不能当作进程 RSS。历史摘要、性能变化图与最新完整结果见[性能测试记录](../docs/performance/README.md)。
 
+支持线程接口的版本还包含六个 `thread/` 场景：同步发布、请求响应和工作线程内的 asyncio 并发发布，分别使用容量 1 和 64 的桥接队列。默认 32 个线程、每线程 64 次操作，可通过 `--thread-workers` 和 `--thread-iterations` 调整；事件管道容量与桥接队列容量分别记录。计时包含线程池创建、提交、派发和等待剩余任务结束，并校验无丢失、重复或残留监听器。
+
+```bash
+.venv/bin/python scripts/benchmark_runtime.py \
+  --baseline-source /tmp/apixis-before/src \
+  --output test-results/thread-bridge-abba.json --repeats 9 \
+  --thread-workers 32 --thread-iterations 64 \
+  --scenario thread/publication-queue-1 \
+  --scenario thread/publication-queue-64 \
+  --scenario thread/request-reply-queue-1 \
+  --scenario thread/request-reply-queue-64 \
+  --scenario thread/async-publication-queue-1 \
+  --scenario thread/async-publication-queue-64
+```
+
 ## Graph 性能测试
 
 ```bash

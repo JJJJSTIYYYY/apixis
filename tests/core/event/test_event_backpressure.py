@@ -75,8 +75,8 @@ async def test_unbounded_dispatch_counts_and_cleans_up(runtime, wait_for_dispatc
     for _ in range(total):
         await pipe.post_event(event_type=EventType.INFO, event_name="unbounded")
     await asyncio.wait_for(entered.wait(), 2)
-    assert semaphore._bound_value is None
-    assert semaphore._value == -total
+    assert semaphore._bounded is None
+    assert semaphore._unbounded_value == -total
     assert semaphore._waiters is None
     if outcome == "cancel":
         for task in tuple(loop._dispatch_tasks):
@@ -84,7 +84,7 @@ async def test_unbounded_dispatch_counts_and_cleans_up(runtime, wait_for_dispatc
     else:
         release.set()
     await wait_for_dispatch(loop)
-    assert semaphore._value == 0
+    assert semaphore._unbounded_value == 0
     assert not loop._dispatch_tasks
 
 
