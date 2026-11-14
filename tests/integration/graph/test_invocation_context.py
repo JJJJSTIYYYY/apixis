@@ -6,7 +6,7 @@ from contextvars import ContextVar
 import pytest
 
 from apixis.core.event import subscribe
-from apixis.core.event.base import handler_chain_context
+from apixis.core.event.base import handler_chain_token_context
 from apixis.core.event.factory import get_event_loop
 from apixis.core.graph import Command, GraphManager, ParallelNode, get_stream_writer
 from apixis.core.graph.context import (
@@ -136,7 +136,7 @@ async def test_concurrent_invocations_share_context_with_plugins(mode, wait_for_
     @subscribe(graph.dispatch_name, between_handlers=(None, graph.dispatch_name))
     async def before(event):
         observe("before", event.context)
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         assert chain is not None and chain.held
         chains[event.event_id] = chain
         get_stream_writer()("before")
@@ -144,13 +144,13 @@ async def test_concurrent_invocations_share_context_with_plugins(mode, wait_for_
     @subscribe(graph.dispatch_name, between_handlers=(graph.dispatch_name, None))
     async def after(event):
         observe("after", event.context)
-        assert handler_chain_context.get() is chains[event.event_id]
+        assert handler_chain_token_context.get() is chains[event.event_id]
         get_stream_writer()("after")
 
     @subscribe(graph.dispatch_name, background=True)
     async def background(event):
         observe("background", event.context)
-        assert handler_chain_context.get() is None
+        assert handler_chain_token_context.get() is None
         if not event.context.is_active:
             background_finished[event.context.state["request"]].set()
 

@@ -94,7 +94,7 @@ def test_put_nowait_only_buffers_events_and_other_queue_values():
     pipe.task_done()
 
 
-@pytest.mark.parametrize("publication", ["post_event", "put", "put_nowait", "builtin"])
+@pytest.mark.parametrize("publication", ["post_event", "put", "put_nowait"])
 @pytest.mark.parametrize("event_type, name", [
     (EventType.INFO, "runtime.observed"),
     (EventType.TRANSIENT, "runtime.transient"),
@@ -131,8 +131,6 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
             await pipe.put(event)
         elif publication == "put_nowait":
             pipe.put_nowait(event)
-        elif publication == "builtin":
-            await pipe.get_channel().put(event)
         assert registry.get_registered_events() == frozenset()
         record.assert_not_called()
         await loop.start()

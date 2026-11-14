@@ -12,16 +12,16 @@ from apixis.core.event.base import ApixEvent, ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.factory import get_event_loop, get_event_pipe, get_handler_registry
 from apixis.core.event.handler_registry import ApixHandlerRegistry
-from apixis.core.event.subscription import EventWaiter, await_for, wait_for_event
+from apixis.core.event.subscription import EventWaiter, wait_event, expect_event
 
 
 @pytest.mark.parametrize("event_names", ["reply", ["reply"], {"reply"}])
-async def test_await_for_deferred_timeout_preserves_listeners_and_result_shape(
+async def test_wait_event_deferred_timeout_preserves_listeners_and_result_shape(
     event_names, wait_for_dispatch,
 ):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    waiter = await await_for(event_names, time_out=0, keep_listening=True)
+    waiter = await wait_event(event_names, time_out=0, keep_listening=True)
     assert isinstance(waiter, EventWaiter)
     assert len(set(registry.registry) - registered) == 1
     try:
@@ -43,7 +43,7 @@ async def test_await_for_deferred_timeout_preserves_listeners_and_result_shape(
 async def test_explicit_wait_timeout_detaches_on_normal_context_exit(wait_for_dispatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("reply") as waiter:
+    async with expect_event("reply") as waiter:
         assert await waiter.wait(time_out=0, keep_listening=True) is waiter
     assert len(set(registry.registry) - registered) == 1
     try:
@@ -64,7 +64,7 @@ async def test_deferred_multi_event_collection_retains_first_wildcard_match(
 ):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event(["job.*", "saved"], point=point) as waiter:
+    async with expect_event(["job.*", "saved"], point=point) as waiter:
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.first", context="first",
         )
@@ -96,7 +96,7 @@ async def test_deferred_multi_event_collection_retains_first_wildcard_match(
 async def test_hard_timeout_closes_before_context_exit():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("never") as waiter:
+    async with expect_event("never") as waiter:
         assert len(set(registry.registry) - registered) == 1
         with pytest.raises(TimeoutError):
             await waiter.wait(time_out=0)
@@ -106,7 +106,7 @@ async def test_hard_timeout_closes_before_context_exit():
 async def test_wait_call_can_disable_configured_keep_listening():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("never", keep_listening=True) as waiter:
+    async with expect_event("never", keep_listening=True) as waiter:
         with pytest.raises(TimeoutError):
             await waiter.wait(time_out=0, keep_listening=False)
         assert set(registry.registry) == registered
@@ -115,7 +115,7 @@ async def test_wait_call_can_disable_configured_keep_listening():
 async def test_configured_hard_deadline_closes_without_waiting():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("never", time_out=0) as waiter:
+    async with expect_event("never", time_out=0) as waiter:
         # Let the configured deadline expire without invoking wait().
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -130,7 +130,7 @@ async def test_success_closes_listeners_and_retains_result_in_context(
 ):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event(
+    async with expect_event(
         "reply", time_out=60, keep_listening=keep_listening,
     ) as waiter:
         await get_event_pipe().post_event(
@@ -147,7 +147,7 @@ async def test_success_closes_listeners_and_retains_result_in_context(
 async def test_keep_listening_configuration_alone_does_not_detach():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("never", time_out=60, keep_listening=True):
+    async with expect_event("never", time_out=60, keep_listening=True):
         assert len(set(registry.registry) - registered) == 1
     assert set(registry.registry) == registered
 
@@ -156,7 +156,7 @@ async def test_context_error_after_deferred_timeout_closes_listeners():
     registry = get_handler_registry()
     registered = set(registry.registry)
     with pytest.raises(ValueError, match="publication failed"):
-        async with wait_for_event("never", time_out=0, keep_listening=True) as waiter:
+        async with expect_event("never", time_out=0, keep_listening=True) as waiter:
             assert await waiter.wait(time_out=0) is waiter
             raise ValueError("publication failed")
     assert set(registry.registry) == registered
@@ -188,7 +188,7 @@ async def test_cancellation_closes_listeners_even_when_keep_listening(operation)
 async def test_abandoned_deferred_waiter_can_be_closed_idempotently():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    waiter = await await_for(["first", "second"], time_out=0, keep_listening=True)
+    waiter = await wait_event(["first", "second"], time_out=0, keep_listening=True)
     assert len(set(registry.registry) - registered) == 2
     waiter.close()
     waiter.close()
@@ -198,7 +198,7 @@ async def test_abandoned_deferred_waiter_can_be_closed_idempotently():
 async def test_waiter_closes_the_registry_that_registered_its_handlers(monkeypatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    waiter = await await_for("never", time_out=0, keep_listening=True)
+    waiter = await wait_event("never", time_out=0, keep_listening=True)
     installed = set(registry.registry) - registered
     assert len(installed) == 1
     replacement = ApixHandlerRegistry(ApixEventRegistry())
@@ -253,7 +253,7 @@ async def test_numeric_wait_budget_can_resume_waiting_after_deferred_timeout(
 ):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    waiter = await await_for("reply", time_out=0, keep_listening=True)
+    waiter = await wait_event("reply", time_out=0, keep_listening=True)
     waiting = asyncio.create_task(waiter.wait(time_out=60))
     try:
         await asyncio.sleep(0)
@@ -275,7 +275,7 @@ async def test_numeric_wait_budget_can_resume_waiting_after_deferred_timeout(
 async def test_expired_soft_deadline_without_wait_does_not_detach():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event("never", time_out=0, keep_listening=True):
+    async with expect_event("never", time_out=0, keep_listening=True):
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert len(set(registry.registry) - registered) == 1

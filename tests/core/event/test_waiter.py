@@ -1,6 +1,7 @@
 """Contracts for async event waiting and temporary listener lifecycles."""
 
 import asyncio
+import importlib
 
 import pytest
 
@@ -16,11 +17,25 @@ from apixis.core.event.factory import (
 )
 from apixis.core.event.subscription import (
     EventWaiter,
-    await_for,
+    wait_event,
     subscribe,
     unsubscribe,
-    wait_for_event,
+    expect_event,
 )
+
+
+@pytest.mark.parametrize("module_name", [
+    "apixis",
+    "apixis.core",
+    "apixis.core.event",
+    "apixis.core.event.subscription",
+    "apixis.core.event.subscription.waiter",
+])
+def test_waiting_api_exports_and_aliases(module_name):
+    module = importlib.import_module(module_name)
+    assert module.expect_event is module.wait_for_event is expect_event
+    assert module.wait_event is module.await_for is wait_event
+    assert {"expect_event", "wait_event", "wait_for_event", "await_for"} <= set(module.__all__)
 
 
 @pytest.fixture(autouse=True)
@@ -35,14 +50,14 @@ def isolate_handlers():
 
 
 async def wait_until_registered(previous_names: set[str]) -> None:
-    """Wait until await_for has installed its transient handler."""
+    """Wait until wait_event has installed its transient handler."""
     registry = get_handler_registry()
     async with asyncio.timeout(1):
         while set(registry.registry) == previous_names:
             await asyncio.sleep(0)
 
 
-async def test_await_for_received_resolves_before_foreground_processing(
+async def test_wait_event_received_resolves_before_foreground_processing(
     wait_for_dispatch,
 ):
     loop = get_event_loop()
@@ -56,17 +71,17 @@ async def test_await_for_received_resolves_before_foreground_processing(
         event.context["processed"] = True
 
     registered = set(get_handler_registry().registry)
-    waiter = asyncio.create_task(await_for("job.*", point="received"))
+    waiter = asyncio.create_task(wait_event("job.*", point="received"))
     await wait_until_registered(registered)
     try:
         await post_event(
-            event_type=EventType.INFO,
             event_name="job.created",
             context={"processed": False},
         )
         result = await asyncio.wait_for(waiter, 1)
         assert isinstance(result, ApixEvent)
         assert result.event_name == "job.created"
+        assert result.event_type is EventType.DEFAULT
         assert entered.is_set()
         assert result.context == {"processed": False}
         assert set(get_handler_registry().registry) == registered
@@ -76,7 +91,7 @@ async def test_await_for_received_resolves_before_foreground_processing(
         unsubscribe(process.__name__)
 
 
-async def test_await_for_processed_resolves_after_foreground_processing(
+async def test_wait_event_processed_resolves_after_foreground_processing(
     wait_for_dispatch,
 ):
     pipe = get_event_pipe()
@@ -91,7 +106,7 @@ async def test_await_for_processed_resolves_after_foreground_processing(
         event.context["processed"] = True
 
     registered = set(get_handler_registry().registry)
-    waiter = asyncio.create_task(await_for("job.*", point="processed"))
+    waiter = asyncio.create_task(wait_event("job.*", point="processed"))
     await wait_until_registered(registered)
     try:
         await pipe.post_event(
@@ -113,7 +128,7 @@ async def test_await_for_processed_resolves_after_foreground_processing(
 
 
 @pytest.mark.parametrize("upstream_state", ["accepted", "error"])
-async def test_await_for_processed_resolves_for_terminal_event_state(
+async def test_wait_event_processed_resolves_for_terminal_event_state(
     upstream_state,
     wait_for_dispatch,
 ):
@@ -127,7 +142,7 @@ async def test_await_for_processed_resolves_for_terminal_event_state(
             raise ValueError("processing failed")
 
     registered = set(get_handler_registry().registry)
-    waiter = asyncio.create_task(await_for("job.*", point="processed"))
+    waiter = asyncio.create_task(wait_event("job.*", point="processed"))
     await wait_until_registered(registered)
     try:
         await post_event(event_type=EventType.INFO, event_name="job.created")
@@ -139,12 +154,12 @@ async def test_await_for_processed_resolves_for_terminal_event_state(
         unsubscribe(process.__name__)
 
 
-async def test_await_for_ignores_filtered_events(wait_for_dispatch):
+async def test_wait_event_ignores_filtered_events(wait_for_dispatch):
     pipe = get_event_pipe()
     loop = get_event_loop()
     registered = set(get_handler_registry().registry)
     waiter = asyncio.create_task(
-        await_for("job.*", filter=["job.ignore.*"], time_out=1)
+        wait_event("job.*", filter=["job.ignore.*"], time_out=1)
     )
     await wait_until_registered(registered)
     try:
@@ -166,20 +181,20 @@ async def test_await_for_ignores_filtered_events(wait_for_dispatch):
         await wait_for_dispatch(loop)
 
 
-async def test_await_for_timeout_removes_transient_handler():
+async def test_wait_event_timeout_removes_transient_handler():
     registry = get_handler_registry()
     registered = set(registry.registry)
 
     with pytest.raises(TimeoutError):
-        await await_for("job.never", time_out=0.01)
+        await wait_event("job.never", time_out=0.01)
 
     assert set(registry.registry) == registered
 
 
-async def test_await_for_cancellation_removes_transient_handler():
+async def test_wait_event_cancellation_removes_transient_handler():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    waiter = asyncio.create_task(await_for("job.never"))
+    waiter = asyncio.create_task(wait_event("job.never"))
     await wait_until_registered(registered)
 
     waiter.cancel()
@@ -189,13 +204,13 @@ async def test_await_for_cancellation_removes_transient_handler():
     assert set(registry.registry) == registered
 
 
-async def test_wait_for_event_registers_on_entry_and_retains_first_reply(
+async def test_expect_event_registers_on_entry_and_retains_first_reply(
     wait_for_dispatch,
 ):
     """Publish immediately on entry, then retrieve a reply that already arrived."""
     registry = get_handler_registry()
     registered = set(registry.registry)
-    context = wait_for_event("job.*", point="processed", time_out=1)
+    context = expect_event("job.*", point="processed", time_out=1)
     assert set(registry.registry) == registered
 
     async with context as waiter:
@@ -219,7 +234,7 @@ async def test_wait_for_event_registers_on_entry_and_retains_first_reply(
 
 
 @pytest.mark.parametrize("point", ["received", "processed"])
-async def test_wait_for_event_observes_selected_foreground_point(
+async def test_expect_event_observes_selected_foreground_point(
     point, wait_for_dispatch,
 ):
     entered, release = asyncio.Event(), asyncio.Event()
@@ -232,7 +247,7 @@ async def test_wait_for_event_observes_selected_foreground_point(
 
     task = None
     try:
-        async with wait_for_event("job.finished", point=point, time_out=1) as waiter:
+        async with expect_event("job.finished", point=point, time_out=1) as waiter:
             await get_event_pipe().post_event(
                 event_type=EventType.INFO,
                 event_name="job.finished",
@@ -258,7 +273,7 @@ async def test_wait_for_event_observes_selected_foreground_point(
 
 
 @pytest.mark.parametrize("upstream_state", ["accepted", "error", "cancelled"])
-async def test_wait_for_event_processed_observes_terminal_events(
+async def test_expect_event_processed_observes_terminal_events(
     upstream_state, wait_for_dispatch,
 ):
     @subscribe("job.finished")
@@ -270,7 +285,7 @@ async def test_wait_for_event_processed_observes_terminal_events(
         else:
             raise ValueError("processing failed")
 
-    async with wait_for_event("job.finished", point="processed", time_out=1) as waiter:
+    async with expect_event("job.finished", point="processed", time_out=1) as waiter:
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.finished",
         )
@@ -281,8 +296,8 @@ async def test_wait_for_event_processed_observes_terminal_events(
 
 
 @pytest.mark.parametrize("filter", ["job.ignore.*", ["job.ignore.*"]])
-async def test_wait_for_event_filters_events(filter, wait_for_dispatch):
-    async with wait_for_event("job.*", filter=filter, time_out=1) as waiter:
+async def test_expect_event_filters_events(filter, wait_for_dispatch):
+    async with expect_event("job.*", filter=filter, time_out=1) as waiter:
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.ignore.internal",
         )
@@ -293,16 +308,16 @@ async def test_wait_for_event_filters_events(filter, wait_for_dispatch):
         assert (await waiter.wait()).event_name == "job.finished"
 
 
-async def test_wait_for_event_deadline_includes_work_before_wait():
-    async with wait_for_event("job.never", time_out=0.01) as waiter:
+async def test_expect_event_deadline_includes_work_before_wait():
+    async with expect_event("job.never", time_out=0.01) as waiter:
         # The deadline expires the result without interrupting the body.
         await asyncio.sleep(0.02)
         with pytest.raises(TimeoutError):
             await waiter.wait()
 
 
-async def test_wait_for_event_retains_timely_result_after_deadline(wait_for_dispatch):
-    async with wait_for_event("job.finished", time_out=0.1) as waiter:
+async def test_expect_event_retains_timely_result_after_deadline(wait_for_dispatch):
+    async with expect_event("job.finished", time_out=0.1) as waiter:
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.finished",
         )
@@ -311,8 +326,8 @@ async def test_wait_for_event_retains_timely_result_after_deadline(wait_for_disp
         assert (await waiter.wait()).event_name == "job.finished"
 
 
-async def test_wait_for_event_rejects_reply_after_deadline(wait_for_dispatch):
-    async with wait_for_event("job.finished", time_out=0.01) as waiter:
+async def test_expect_event_rejects_reply_after_deadline(wait_for_dispatch):
+    async with expect_event("job.finished", time_out=0.01) as waiter:
         await asyncio.sleep(0.02)
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.finished",
@@ -323,19 +338,19 @@ async def test_wait_for_event_rejects_reply_after_deadline(wait_for_dispatch):
 
 
 @pytest.mark.parametrize("time_out", [0, -1])
-async def test_wait_for_event_nonpositive_timeout_expires_immediately(time_out):
-    async with wait_for_event("job.never", time_out=time_out) as waiter:
+async def test_expect_event_nonpositive_timeout_expires_immediately(time_out):
+    async with expect_event("job.never", time_out=time_out) as waiter:
         with pytest.raises(TimeoutError):
             await waiter.wait(time_out=time_out)
 
 
 @pytest.mark.parametrize("exit_mode", ["unused", "error", "timeout", "cancelled"])
-async def test_wait_for_event_exit_always_removes_subscription(exit_mode):
+async def test_expect_event_exit_always_removes_subscription(exit_mode):
     registry = get_handler_registry()
     registered = set(registry.registry)
 
     async def run():
-        async with wait_for_event("job.never", time_out=0.01) as waiter:
+        async with expect_event("job.never", time_out=0.01) as waiter:
             if exit_mode == "error":
                 raise ValueError("publication failed")
             if exit_mode == "timeout":
@@ -358,13 +373,13 @@ async def test_wait_for_event_exit_always_removes_subscription(exit_mode):
     assert set(registry.registry) == registered
 
 
-async def test_wait_for_event_unobserved_timeout_does_not_report_future_error():
+async def test_expect_event_unobserved_timeout_does_not_report_future_error():
     loop = asyncio.get_running_loop()
     errors = []
     previous_handler = loop.get_exception_handler()
     loop.set_exception_handler(lambda _, context: errors.append(context))
     try:
-        async with wait_for_event("job.never", time_out=0.01):
+        async with expect_event("job.never", time_out=0.01):
             await asyncio.sleep(0.02)
         await asyncio.sleep(0)
         assert errors == []
@@ -372,21 +387,21 @@ async def test_wait_for_event_unobserved_timeout_does_not_report_future_error():
         loop.set_exception_handler(previous_handler)
 
 
-async def test_wait_for_event_does_not_replay_previously_consumed_events(
+async def test_expect_event_does_not_replay_previously_consumed_events(
     wait_for_dispatch,
 ):
     await get_event_pipe().post_event(
         event_type=EventType.INFO, event_name="job.finished",
     )
     await wait_for_dispatch(get_event_loop())
-    async with wait_for_event("job.finished", time_out=0.01) as waiter:
+    async with expect_event("job.finished", time_out=0.01) as waiter:
         with pytest.raises(TimeoutError):
             await waiter.wait(time_out=0.01)
 
 
 @pytest.mark.parametrize("event_runtime_capacity", [1], indirect=True)
 @pytest.mark.parametrize("multiple", [False, True])
-async def test_wait_for_event_request_reply_lends_saturated_handler_permit(
+async def test_expect_event_request_reply_lends_saturated_handler_permit(
     event_runtime_capacity, wait_for_dispatch, multiple,
 ):
     """A handler can register, publish and await a fast reply with one slot."""
@@ -406,7 +421,7 @@ async def test_wait_for_event_request_reply_lends_saturated_handler_permit(
     @subscribe("tool.execute")
     async def execute(event):
         replies = ["tool.reply", "tool.second"] if multiple else ["tool.reply"]
-        async with wait_for_event(
+        async with expect_event(
             replies if multiple else replies[0], point="processed", time_out=1,
         ) as waiter:
             await pipe.post_event(
@@ -429,13 +444,13 @@ async def test_wait_for_event_request_reply_lends_saturated_handler_permit(
 
 @pytest.mark.parametrize("point", ["received", "processed"])
 @pytest.mark.parametrize("wait_early", [False, True])
-async def test_wait_for_event_collects_all_first_matches(
+async def test_expect_event_collects_all_first_matches(
     point, wait_early, wait_for_dispatch,
 ):
     registry = get_handler_registry()
     registered = set(registry.registry)
     names = ["job.first", "job.*"]
-    async with wait_for_event(names, point=point, time_out=1) as waiter:
+    async with expect_event(names, point=point, time_out=1) as waiter:
         assert isinstance(waiter, EventWaiter)
         assert len(set(registry.registry) - registered) == 2
         # Mutating the input after entry does not change the subscriptions.
@@ -474,11 +489,11 @@ async def test_wait_for_event_collects_all_first_matches(
 @pytest.mark.parametrize("event_names", [
     ["job.first", "job.second"], {"job.first", "job.second"},
 ])
-async def test_await_for_collects_all_first_matches(point, event_names, wait_for_dispatch):
+async def test_wait_event_collects_all_first_matches(point, event_names, wait_for_dispatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
     pending = asyncio.create_task(
-        await_for(event_names, point=point, time_out=1)
+        wait_event(event_names, point=point, time_out=1)
     )
     await wait_until_registered(registered)
     try:
@@ -508,10 +523,10 @@ async def test_await_for_collects_all_first_matches(point, event_names, wait_for
 @pytest.mark.parametrize("event_names", [
     ["job.finished"], ["job.finished"] * 2, {"job.finished"},
 ])
-async def test_wait_for_event_collection_always_returns_dictionary(event_names, wait_for_dispatch):
+async def test_expect_event_collection_always_returns_dictionary(event_names, wait_for_dispatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    async with wait_for_event(event_names, time_out=1) as waiter:
+    async with expect_event(event_names, time_out=1) as waiter:
         assert len(set(registry.registry) - registered) == 1
         await get_event_pipe().post_event(
             event_type=EventType.INFO, event_name="job.finished",
@@ -523,8 +538,8 @@ async def test_wait_for_event_collection_always_returns_dictionary(event_names, 
         assert isinstance(events["job.finished"], ApixEvent)
 
 
-async def test_wait_for_event_overlapping_patterns_and_filters(wait_for_dispatch):
-    async with wait_for_event(
+async def test_expect_event_overlapping_patterns_and_filters(wait_for_dispatch):
+    async with expect_event(
         ["job.*", "job.finished"], filter="job.ignore.*", time_out=1,
     ) as waiter:
         await get_event_pipe().post_event(
@@ -540,7 +555,7 @@ async def test_wait_for_event_overlapping_patterns_and_filters(wait_for_dispatch
 
 
 @pytest.mark.parametrize("state", ["accepted", "error", "cancelled"])
-async def test_wait_for_event_collects_terminal_events(state, wait_for_dispatch):
+async def test_expect_event_collects_terminal_events(state, wait_for_dispatch):
     @subscribe("job.*")
     async def process(event):
         if state == "accepted":
@@ -550,7 +565,7 @@ async def test_wait_for_event_collects_terminal_events(state, wait_for_dispatch)
         else:
             raise ValueError("processing failed")
 
-    async with wait_for_event(
+    async with expect_event(
         ["job.first", "job.second"], point="processed", time_out=1,
     ) as waiter:
         for name in ("job.first", "job.second"):
@@ -565,12 +580,12 @@ async def test_wait_for_event_collects_terminal_events(state, wait_for_dispatch)
 
 
 @pytest.mark.parametrize("exit_mode", ["unused", "error", "timeout", "cancelled"])
-async def test_wait_for_event_partial_collection_cleanup(exit_mode, wait_for_dispatch):
+async def test_expect_event_partial_collection_cleanup(exit_mode, wait_for_dispatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
 
     async def run():
-        async with wait_for_event(
+        async with expect_event(
             ["job.first", "job.never"], time_out=0.02,
         ) as waiter:
             await get_event_pipe().post_event(
@@ -600,11 +615,11 @@ async def test_wait_for_event_partial_collection_cleanup(exit_mode, wait_for_dis
 
 
 @pytest.mark.parametrize("exit_mode", ["timeout", "cancelled"])
-async def test_await_for_partial_collection_cleanup(exit_mode, wait_for_dispatch):
+async def test_wait_event_partial_collection_cleanup(exit_mode, wait_for_dispatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
     pending = asyncio.create_task(
-        await_for(["job.first", "job.never"], time_out=0.02)
+        wait_event(["job.first", "job.never"], time_out=0.02)
     )
     await wait_until_registered(registered)
     await get_event_pipe().post_event(
@@ -619,7 +634,7 @@ async def test_await_for_partial_collection_cleanup(exit_mode, wait_for_dispatch
     assert set(registry.registry) == registered
 
 
-async def test_wait_for_event_registers_multiple_handlers_without_yielding(monkeypatch):
+async def test_expect_event_registers_multiple_handlers_without_yielding(monkeypatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
     register = registry.register_wait_handler
@@ -632,7 +647,7 @@ async def test_wait_for_event_registers_multiple_handlers_without_yielding(monke
         )
 
     monkeypatch.setattr(registry, "register_wait_handler", register_and_schedule_observer)
-    async with wait_for_event(["job.first", "job.second"]):
+    async with expect_event(["job.first", "job.second"]):
         assert not observed
         installed = set(registry.registry) - registered
         assert len(installed) == 2
@@ -658,19 +673,19 @@ async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypa
     monkeypatch.setattr(registry, "register_wait_handler", fail_second_registration)
     with pytest.raises(ValueError, match="registration failed"):
         if interface == "context":
-            async with wait_for_event(["job.first", "job.second"]):
+            async with expect_event(["job.first", "job.second"]):
                 pytest.fail("Registration should fail before entering the body")
         else:
-            await await_for(["job.first", "job.second"])
+            await wait_event(["job.first", "job.second"])
     assert calls == 2
     assert set(registry.registry) == registered
 
 
 @pytest.mark.parametrize("event_names", [[], set(), [""], ["job.first", ""], [None]])
-async def test_wait_for_event_rejects_invalid_patterns(event_names):
+async def test_expect_event_rejects_invalid_patterns(event_names):
     registry = get_handler_registry()
     registered = set(registry.registry)
     with pytest.raises(ValueError, match="non-empty string"):
-        async with wait_for_event(event_names):
+        async with expect_event(event_names):
             pytest.fail("Invalid patterns should fail before entering the body")
     assert set(registry.registry) == registered

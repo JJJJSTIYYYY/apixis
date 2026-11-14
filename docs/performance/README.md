@@ -1,8 +1,19 @@
 # 性能测试记录
 
-更新于 2026-11-08。本页合并历史性能报告，保留最近一次完整测试结果；本次整理没有重跑性能测试。
+更新于 2026-11-15。本页说明当前跨线程实现，并保留 2026-11-08 的完整性能测量。历史百分比与 `data/latest/` 中的数据只适用于各自记录的源码版本；本次文档对齐没有重跑 ABBA，不将它们作为当前工作区的最新性能结论。
 
-最新等待路径优化相对上一版缓存拆分实现：三种混用比例耗时降低 **24.7%–34.8%**，纯等待降低 **30.9%**；常规 `wait()` 请求/响应降低 **3.7%**。普通发布和共享图调用基本持平。纯普通订阅混合负载对照为 **+1.35%**，完整保留该结果。
+## 当前跨线程实现
+
+- `ApixEventPipe` 直接使用有界 `asyncio.Queue`；跨线程请求另有同样容量的有界队列，所有线程共享主循环的派发许可。
+- 桥接入队通过异步容量通知推进，不使用默认线程池，也不保留同步阻塞提交路径。
+- `ThreadEventWaiter.wait()` 在主循环重设期限，复用上下文进入时已有的结果收集任务；`get_result()` 沿用现有期限。
+- 清理已完成时直接返回；单个发布任务直接等待，保留请求取消、关闭确认和许可恢复。
+
+2026-11-15 修复验证记录：全量测试 1597 项通过，派发容量和两条队列容量均为 1 的 128 线程 debug 压力测试通过。新增回归覆盖默认／eager 调度、线程池占满、满队列、期限更新和取消。运行方式见[跨线程事件验证](../../tests/README.md#跨线程事件验证)。这些正确性及压力结果没有配对的旧版耗时，不据此计算当前实现的性能提升。
+
+## 2026-11-08 测量概览
+
+当轮等待路径优化相对上一版缓存拆分实现：三种混用比例耗时降低 **24.7%–34.8%**，纯等待降低 **30.9%**；常规 `wait()` 请求/响应降低 **3.7%**。普通发布和共享图调用基本持平。纯普通订阅混合负载对照为 **+1.35%**，完整保留该结果。
 
 ## 历次性能变化
 
@@ -136,7 +147,7 @@
 | 容量 1 + asyncio debug + 契约测试 | 74 passed | 5.50 s |
 | Ruff / `git diff --check` | 通过 | — |
 
-以上为最新代码验证时记录的摘要，完整线程指标已从本地忽略目录归档。全量测试覆盖共享结果取消、软超时、多事件收集，以及许可 / 队列容量 1–3 的嵌套等待、取消和恢复。
+以上为 2026-11-08 源码验证时记录的摘要，完整线程指标已从本地忽略目录归档。该轮全量测试覆盖共享结果取消、软超时、多事件收集，以及许可 / 队列容量 1–3 的嵌套等待、取消和恢复。
 
 标准压力：通信和事件队列容量均为 64，未开启 asyncio debug。每种负载分别验证派发容量 1、128、无限制：
 
@@ -182,30 +193,28 @@
 | 2026-11-08：历史优化基线复测 | 当轮相对 `411c0e2` 的请求/响应累计 +28.01%，与线程功能前后的变化分开记录；该数字不代表最新实现仍有相同幅度回退。|
 | 2026-11-08：缓存审计 | 固定名/空链 100,000 次查询各构建 1 次；当时 512 次请求/响应的回复链重建 512 次。拆分等待缓存后普通回复链降为 1 次。|
 | 2026-11-08：拆分等待缓存 | 三种混用耗时 -10.65% 至 -12.47%；纯等待 -10.10%，纯普通订阅 +0.89%。热引用快照微基准增加约 17 ns/次。|
-| 2026-11-08：等待路径优化（最新） | 在上一版之上，混用 -24.71% 至 -34.80%，纯等待 -30.89%；普通路径对照及回退值见本页完整结果。|
+| 2026-11-08：等待路径优化 | 在上一版之上，混用 -24.71% 至 -34.80%，纯等待 -30.89%；普通路径对照及回退值见本页完整结果。|
 
 历史内存使用 tracemalloc 测量 Python 分配，不等同 RSS；历史图的批次 P95/P99 不能解释为线上请求延迟。不同基线、驱动、工作量和批次不拼接为统一绝对性能序列，也不将跨轮百分比相乘作为实测总收益。
 
-## 复现最新比较
+## 运行新的性能比较
 
-从最新源码副本反向应用已归档补丁恢复上一版；该步骤已校验恢复出的源码指纹与 `2234bd3…` 完全一致，保留当前工作区。
+归档补丁针对 2026-11-08 的 `subscription.py` 布局，当前已按职责拆包，不能从当前源码反向应用该补丁恢复历史基线。复现历史数字需要当轮源码和驱动，并核对归档中的完整源码指纹。
+
+比较当前工作区时，先准备一个完整的基线源码目录。以下假设它位于 `/tmp/apixis-before/src`，目录中包含 `apixis/`；当前版本由驱动从工作区的 `src/` 读取。新结果保存到本地测试目录，历史数据保持不变。
 
 ```bash
-waiter_baseline_dir=$(mktemp -d)
-waiter_patch_path="$PWD/docs/performance/data/latest/2026-11-08-waiter-hotpath.patch"
-cp -R src "$waiter_baseline_dir/src"
-(cd "$waiter_baseline_dir" && patch -R -p1 < "$waiter_patch_path")
 .venv/bin/python scripts/benchmark_runtime.py \
-  --baseline-source "$waiter_baseline_dir/src" \
+  --baseline-source /tmp/apixis-before/src \
   --repeats 9 --mixed-events 512 --mixed-listeners 64 \
   --scenario event/mixed-wait-0 --scenario event/mixed-wait-25 \
   --scenario event/mixed-wait-50 --scenario event/mixed-wait-75 \
-  --scenario event/mixed-wait-100 --output test-results/waiter-hotpath.json
+  --scenario event/mixed-wait-100 --output test-results/current-waiter-hotpath.json
 .venv/bin/python scripts/benchmark_runtime.py \
-  --baseline-source "$waiter_baseline_dir/src" --repeats 9 \
+  --baseline-source /tmp/apixis-before/src --repeats 9 \
   --scenario registry/hot --scenario graph/shared-chain \
   --scenario event/cached-pipe --scenario event/global-post \
-  --scenario event/request-reply --output test-results/waiter-controls.json
+  --scenario event/request-reply --output test-results/current-waiter-controls.json
 ```
 
 压力测试与契约验证：
@@ -215,7 +224,8 @@ cp -R src "$waiter_baseline_dir/src"
   --run-performance --thread-report test-results/waiter-threads.json
 .venv/bin/python -m pytest -q tests/core/event/test_subscription_regressions.py \
   tests/core/event/test_thread_events.py tests/core/event/test_waiter_handler_cache.py \
-  tests/performance/test_thread_events.py --run-performance --asyncio-debug \
+  tests/core/event/test_thread_deadlocks.py \
+  tests/performance/test_thread_events.py --run-performance -o asyncio_debug=true \
   --thread-workers 32 --thread-iterations 16 --thread-queue-size 1 \
   --thread-report test-results/waiter-capacity-one.json
 ```

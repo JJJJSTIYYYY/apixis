@@ -19,16 +19,18 @@ pip install apixis
 | 功能 | 文档 |
 | --- | --- |
 | 发布事件、管理共享事件系统 | [事件 API](./core/event/README.md) |
-| 等待事件，或先订阅回包再发布请求 | [事件 API：await_for 与 wait_for_event](./core/event/README.md#等待事件await_for-与-wait_for_event) |
+| 发布事件并等待前台处理结束 | [post_and_wait](./core/event/README.md#发布并等待处理结束post_and_wait) |
+| 等待事件，或先订阅回包再发布请求 | [事件 API：wait_event 与 expect_event](./core/event/README.md#等待事件wait_event-与-expect_event) |
+| 工作线程发布事件、等待处理结果或业务回包 | [跨线程发布与等待](./core/event/README.md#跨线程发布与等待) |
 | 订阅、排序、替换 handler，处理错误与取消 | [事件处理器](./core/event/handlers.md) |
-| 使用本地事件队列 | [事件通道](./core/event/channels.md) |
+| 使用本地事件队列 | [事件队列](./core/event/channels.md) |
 | 构建图、执行、流式输出、快照恢复和中断 | [图 API](./core/graph/README.md) |
 | 更新状态、选择下一跳和组织并发分支 | [图状态与 Command](./core/graph/state.md) |
 | 捕获框架异常、输出日志 | [异常与日志](./core/utils/README.md) |
 
 ## 阅读约定
 
-工程验证与最新基准结果见[性能测试记录](./performance/README.md)。
+工程验证、当前跨线程实现与历史基准结果见[性能测试记录](./performance/README.md)。
 
 [快速开始](./quickstart.md)中的示例可以保存为 Python 文件直接运行。接口页中的短示例省略了应用入口；含 `await` 的代码应放在异步函数内，并在运行中的 asyncio 事件循环中调用。
 

@@ -21,7 +21,7 @@
 
 APIXIS 提供两个可组合的运行时：
 
-- 一个异步事件系统，支持通配符订阅、有序处理器、背压和本地事件队列；
+- 一个异步事件系统，支持通配符订阅、有序处理器、背压、本地事件队列和跨线程异步发布／等待；
 - 一个有状态图运行时，支持命令驱动的步骤、并行节点、快照、流式处理以及中断/恢复工作流。
 
 > 需要 Python 3.12+。运行时 API 专为 `asyncio` 设计。
@@ -127,7 +127,7 @@ Event-driven graph orchestration for Python asyncio applications.
 
 APIXIS provides two composable runtimes:
 
-- an asynchronous event system with wildcard subscriptions, ordered handlers, backpressure, and a local event queue;
+- an asynchronous event system with wildcard subscriptions, ordered handlers, backpressure, a local event queue, and asynchronous publication and waiting across threads;
 - a stateful graph runtime with Command-driven steps, parallel nodes, snapshots, streaming, and interruption/resume workflows.
 
 > Python 3.12+ is required. Runtime APIs are designed for `asyncio`.

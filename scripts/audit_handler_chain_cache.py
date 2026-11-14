@@ -16,7 +16,7 @@ import platform
 
 from apixis import (
     ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
-    Node, NodeGraph, post_event_threadsafe, start_core, stop_core, wait_for_event,
+    Node, NodeGraph, post_event_threadsafe, start_core, stop_core, expect_event,
 )
 from apixis.core.event import factory
 
@@ -176,13 +176,13 @@ async def runtime_audit(results):
     received.clear()
     core.handler_registry.register_handler(handler("receiver", ["thread.hot"], callback=receive))
 
-    def publish():
+    async def publish():
         for _ in range(256):
-            post_event_threadsafe(event_type=EventType.TRANSIENT, event_name="thread.hot").result(10)
+            await post_event_threadsafe(event_type=EventType.TRANSIENT, event_name="thread.hot")
 
     def workers():
         with ThreadPoolExecutor(max_workers=32) as pool:
-            list(pool.map(lambda _: publish(), range(32)))
+            list(pool.map(lambda _: asyncio.run(publish()), range(32)))
 
     await asyncio.wait_for(asyncio.to_thread(workers), 30)
     await drain(core)
@@ -232,7 +232,7 @@ async def runtime_audit(results):
 
     core.handler_registry.register_handler(handler("respond", ["request.fixed"], callback=respond))
     for _ in range(512):
-        async with wait_for_event("reply.fixed", point="processed") as waiter:
+        async with expect_event("reply.fixed", point="processed") as waiter:
             await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="request.fixed")
             await waiter.wait(time_out=10)
     await drain(core)

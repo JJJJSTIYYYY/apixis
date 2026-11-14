@@ -12,8 +12,8 @@ from time import perf_counter
 import pytest
 
 from apixis import (
-    ApixEventPipe, BuiltinChannel, EventType, await_for_threadsafe,
-    post_event, post_event_threadsafe, subscribe, wait_for_event_threadsafe,
+    ApixEventPipe, EventType, wait_event,
+    post_event, post_event_threadsafe, subscribe, expect_event,
 )
 from apixis.core.event import factory
 
@@ -27,7 +27,7 @@ def event_runtime_capacity(request, monkeypatch):
     monkeypatch.setattr(loop_module, "EVENT_LOOP_BACKPRESSURE", request.param)
     monkeypatch.setattr(factory, "_core", None)
     queue_size = request.config.getoption("--thread-queue-size")
-    monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(builtin=BuiltinChannel(maxsize=queue_size)))
+    monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(maxsize=queue_size))
     return request.param
 
 
@@ -61,6 +61,7 @@ async def thread_runtime(cleanup_event_runtime, request):
         assert set(core.handler_registry.registry) == baseline | metrics.pop("handlers", set())
         assert not core.thread_bridge._active
         assert not core.thread_bridge._requests
+        assert not core.thread_bridge._async_admission
         assert not core.thread_bridge._consumer_scheduled
         assert not core.event_loop._background_handler_tasks
         assert core.event_loop._pending_dispatch is None
@@ -103,9 +104,13 @@ async def thread_runtime(cleanup_event_runtime, request):
 
 
 async def run_workers(count, worker):
+    async def run_one(index):
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
+        return await worker(index)
+
     def run():
         with ThreadPoolExecutor(max_workers=count) as pool:
-            return list(pool.map(worker, range(count)))
+            return list(pool.map(lambda index: asyncio.run(run_one(index)), range(count)))
 
     return await asyncio.wait_for(asyncio.to_thread(run), 120)
 
@@ -128,15 +133,12 @@ async def test_thread_publication_flood(thread_runtime, request):
         last[producer] = sequence
         count += 1
 
-    def worker(producer):
-        start.wait(60)
-        futures = []
+    async def worker(producer):
+        await asyncio.to_thread(start.wait, 60)
         for sequence in range(events):
-            futures.append(post_event_threadsafe(
+            await post_event_threadsafe(
                 event_type=EventType.TRANSIENT, event_name="thread.flood", context=(producer, sequence),
-            ))
-        for future in futures:
-            future.result(60)
+            )
 
     await run_workers(workers, worker)
     async with asyncio.timeout(10):
@@ -164,16 +166,16 @@ async def test_thread_request_reply_stress(thread_runtime, request):
             event_type=EventType.TRANSIENT, event_name=event.context["reply"], context=event.context,
         )
 
-    def worker(producer):
-        start.wait(60)
+    async def worker(producer):
+        await asyncio.to_thread(start.wait, 60)
         for sequence in range(rounds):
             reply = f"thread.reply.{producer}.{sequence}"
-            with wait_for_event_threadsafe(reply, point="processed", time_out=60) as waiter:
-                post_event_threadsafe(
+            async with expect_event(reply, point="processed", time_out=60) as waiter:
+                await post_event_threadsafe(
                     event_type=EventType.TRANSIENT, event_name="thread.request",
                     context={"reply": reply, "producer": producer, "sequence": sequence},
-                ).result(60)
-                event = waiter.wait(time_out=60)
+                )
+                event = await waiter.wait(time_out=60)
                 assert event.event_name == reply
                 assert event.context["producer"] == producer
                 assert event.context["sequence"] == sequence
@@ -190,18 +192,20 @@ async def test_thread_broadcast_and_cancellation_storm(thread_runtime, request):
     cancellations = request.config.getoption("--thread-iterations") or 32
     registered = Barrier(workers)
 
-    def worker(producer):
-        with wait_for_event_threadsafe("thread.broadcast", time_out=60) as waiter:
-            leader = registered.wait(60)
+    async def worker(producer):
+        async with expect_event("thread.broadcast", time_out=60) as waiter:
+            leader = await asyncio.to_thread(registered.wait, 60)
             if leader == 0:
-                post_event_threadsafe(
+                await post_event_threadsafe(
                     event_type=EventType.TRANSIENT, event_name="thread.broadcast", context=42,
-                ).result(60)
-            event = waiter.wait(time_out=60)
+                )
+            event = await waiter.wait(time_out=60)
             assert event.context == 42
         for _ in range(cancellations):
-            future = await_for_threadsafe("never")
-            assert future.cancel()
+            task = asyncio.create_task(wait_event("never"))
+            await asyncio.sleep(0)
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         return event.event_id
 
     results = await run_workers(workers, worker)
@@ -224,18 +228,11 @@ async def test_async_worker_publication_backpressure(thread_runtime, request):
         received.add(event.context)
         count += 1
 
-    def worker(producer):
-        start.wait(60)
-
-        async def publish():
-            # Bound auxiliary admission threads while hundreds of coroutines
-            # wait asynchronously on each worker loop.
-            asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
-            await asyncio.gather(*(post_event(
-                event_type=EventType.TRANSIENT, event_name="thread.async", context=(producer, sequence),
-            ) for sequence in range(operations)))
-
-        asyncio.run(publish())
+    async def worker(producer):
+        await asyncio.to_thread(start.wait, 60)
+        await asyncio.gather(*(post_event(
+            event_type=EventType.TRANSIENT, event_name="thread.async", context=(producer, sequence),
+        ) for sequence in range(operations)))
 
     await run_workers(workers, worker)
     async with asyncio.timeout(10):

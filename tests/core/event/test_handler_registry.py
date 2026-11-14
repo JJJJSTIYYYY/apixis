@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from apixis.core.event.base import (
-    ApixEvent, ApixEventHandler, EventType, handler_chain_context,
+    ApixEvent, ApixEventHandler, EventType, handler_chain_token_context,
 )
 from apixis.core.event.factory import get_event_registry
 from apixis.core.event.event_loop import ApixEventLoop
@@ -838,10 +838,10 @@ async def test_replacing_handler_execution_mode_only_affects_later_events(
     calls = []
 
     async def old(event):
-        calls.append((event.event_name, "old", handler_chain_context.get() is None))
+        calls.append((event.event_name, "old", handler_chain_token_context.get() is None))
 
     async def new(event):
-        calls.append((event.event_name, "new", handler_chain_context.get() is None))
+        calls.append((event.event_name, "new", handler_chain_token_context.get() is None))
 
     ApixEventHandler(old, name="target", background=background).register("event.*", priority=10)
 
@@ -907,7 +907,7 @@ async def test_stop_preserves_started_calls_and_explicit_start_resumes(runtime, 
     # Leave an event queued while the consumer is stopped.
     await loop.stop()
     assert not loop._started
-    pipe.get_channel().put_nowait(
+    pipe.put_nowait(
         ApixEvent("queued", EventType.INFO, "event.two", None, 0)
     )
     unsubscribe("target")
@@ -939,7 +939,7 @@ def test_replacement_can_disable_existing_instance_timeout(timeout):
 async def test_explicit_start_consumes_existing_ready_events(runtime):
     pipe, loop = runtime
     await loop.stop()
-    pipe.get_channel().put_nowait(
+    pipe.put_nowait(
         ApixEvent("first", EventType.INFO, "event.one", None, 0)
     )
     assert not loop._started

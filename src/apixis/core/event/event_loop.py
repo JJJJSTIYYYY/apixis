@@ -11,7 +11,7 @@ from apixis.core.config.core_config import (
 )
 from apixis.core.event.base.event import ApixEvent
 from apixis.core.event.base.handler import ApixEventHandler
-from apixis.core.event.base.process import HandlerChainToken, handler_chain_context
+from apixis.core.event.base.process import HandlerChainToken, handler_chain_token_context
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
@@ -157,7 +157,7 @@ class ApixEventLoop:
                     )
                     if execution_context is None:
                         execution_context = copy_context()
-                    execution_context.run(handler_chain_context.set, chain)
+                    execution_context.run(handler_chain_token_context.set, chain)
                     coroutine = self._dispatch_event(event, handler_chain)
                     try:
                         task = asyncio.create_task(coroutine, context=execution_context)
@@ -205,7 +205,7 @@ class ApixEventLoop:
         handler_chain: list[ApixEventHandler],
     ) -> ApixEvent | None:
         """Dispatch an event and notify foreground handlers on cancellation."""
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         if chain is not None:
             # Initialize inside the coroutine, before user code, including
             # when an application installs an eager task factory.
@@ -306,7 +306,7 @@ class ApixEventLoop:
         # Background handlers do not own foreground event capacity. Clearing
         # the context also prevents their event publishing from releasing or
         # reacquiring a foreground event slot.
-        token = handler_chain_context.set(None)
+        token = handler_chain_token_context.set(None)
 
         try:
             task = asyncio.create_task(coroutine)
@@ -314,7 +314,7 @@ class ApixEventLoop:
             coroutine.close()
             raise
         finally:
-            handler_chain_context.reset(token)
+            handler_chain_token_context.reset(token)
 
         self._background_handler_tasks.add(task)
         task.add_done_callback(self._on_background_handler_done)

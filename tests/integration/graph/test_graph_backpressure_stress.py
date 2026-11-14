@@ -15,11 +15,11 @@ from typing import Annotated, TypedDict
 import pytest
 
 from apixis.core.event import (
-    ApixEvent, ApixEventPipe, BuiltinChannel, EventType, EventWaiter,
-    await_for, subscribe, wait_for_event,
+    ApixEvent, ApixEventPipe, EventType, EventWaiter,
+    wait_event, subscribe, expect_event,
 )
 from apixis.core.event import factory
-from apixis.core.event.base import handler_chain_context
+from apixis.core.event.base import handler_chain_token_context
 from apixis.core.graph import (
     AutoMerge, Command, GraphManager, ParallelNode, get_graph_dispatch_name,
     get_stream_writer,
@@ -46,7 +46,7 @@ def event_runtime_capacity(request, monkeypatch):
     capacity, queue_capacity = request.param
     monkeypatch.setattr(
         factory, "ApixEventPipe",
-        lambda: ApixEventPipe(builtin=BuiltinChannel(maxsize=queue_capacity)),
+        lambda: ApixEventPipe(maxsize=queue_capacity),
     )
     return capacity
 
@@ -160,7 +160,7 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         assert _request.get() == payload["request"]
         assert get_graph_context().state["request"] == payload["request"]
         service_calls[payload["key"], "tool"] += 1
-        async with wait_for_event(payload["backend_reply"], point="processed") as waiter:
+        async with expect_event(payload["backend_reply"], point="processed") as waiter:
             await post("stress.backend.request", payload)
             result = await waiter.wait()
         assert result.context == payload
@@ -180,9 +180,9 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         }
         patterns = [payload["reply"], payload["ack"]] if payload["multi"] else payload["reply"]
         if style == "deferred":
-            # await_for registers synchronously before its zero-budget timeout;
+            # wait_event registers synchronously before its zero-budget timeout;
             # the returned waiter is a deterministic publish-before-wait barrier.
-            waiter = await await_for(patterns, point=point, time_out=0, keep_listening=True)
+            waiter = await wait_event(patterns, point=point, time_out=0, keep_listening=True)
             assert isinstance(waiter, EventWaiter)
             try:
                 await post("stress.tool.request", payload)
@@ -195,7 +195,7 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
                 await post("stress.tool.request", payload)
                 result = await waiter.get_result()
         else:
-            async with wait_for_event(patterns, point=point) as waiter:
+            async with expect_event(patterns, point=point) as waiter:
                 await post("stress.tool.request", payload)
                 result = await waiter.wait()
         events = result.values() if isinstance(result, dict) else [result]
@@ -240,7 +240,7 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         # Hard timeout must remove its listener and return borrowed capacity
         # before the same node can continue with a successful event round-trip.
         with pytest.raises(TimeoutError):
-            await await_for(f"stress.never.{state['request']}", time_out=0)
+            await wait_event(f"stress.never.{state['request']}", time_out=0)
         await rpc("finish", "single", point="processed")
         get_stream_writer()("finish")
         return {"visits": ["finish"], "done": True}
@@ -275,14 +275,14 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         request = event.context.state["request"]
         assert _request.get() == request and get_graph_context() is event.context
         plugins["after"][request] += 1
-        assert handler_chain_context.get().held
+        assert handler_chain_token_context.get().held
 
     @subscribe(pattern, background=True, time_out=None)
     async def background(event):
         request = event.context.state["request"]
         await asyncio.sleep(0)
         assert _request.get() == request and get_graph_context() is event.context
-        assert handler_chain_context.get() is None
+        assert handler_chain_token_context.get() is None
         plugins["background"][request] += 1
 
     registered = set(core.handler_registry.registry)
@@ -378,7 +378,7 @@ async def test_many_waiting_callers_recover_after_cancellation_timeout_and_resta
         assert _request.get() == request
         context = get_graph_context()
         assert context.state["request"] == request
-        async with wait_for_event(f"recovery.reply.{request}", point="processed") as waiter:
+        async with expect_event(f"recovery.reply.{request}", point="processed") as waiter:
             scope = asyncio.timeout(None)
             scopes[request] = scope
             if len(scopes) == total:

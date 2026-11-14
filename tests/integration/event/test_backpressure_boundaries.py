@@ -8,15 +8,14 @@ from apixis.core.event import (
     ApixEvent,
     ApixEventHandler,
     ApixEventPipe,
-    BuiltinChannel,
     EventType,
-    await_for,
+    wait_event,
     subscribe,
     unsubscribe,
-    wait_for_event,
+    expect_event,
 )
 from apixis.core.event import factory
-from apixis.core.event.base import handler_chain_context, suspend_process
+from apixis.core.event.base import handler_chain_token_context, suspend_process
 from apixis.core.graph import GraphManager
 
 
@@ -34,7 +33,7 @@ def event_runtime_capacity(request, monkeypatch):
     monkeypatch.setattr(
         factory,
         "ApixEventPipe",
-        lambda: ApixEventPipe(builtin=BuiltinChannel(maxsize=queue_capacity)),
+        lambda: ApixEventPipe(maxsize=queue_capacity),
     )
     return capacity
 
@@ -276,7 +275,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
 
     async def leaf(state):
         key = state["key"]
-        async with wait_for_event(
+        async with expect_event(
             f"boundary.tool.reply.{key}", point=point, time_out=2,
         ) as waiter:
             await core.event_pipe.post_event(
@@ -349,7 +348,7 @@ async def test_cancellation_while_suspended_or_reacquiring_restores_capacity(
     async def parent(event):
         nonlocal parent_task, chain
         parent_task = asyncio.current_task()
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         async with suspend_process():
             suspended.set()
             try:
@@ -423,7 +422,7 @@ async def test_suspended_failure_recovers_permits_and_allows_later_traffic(
     @subscribe("boundary.failure")
     async def parent(event):
         nonlocal chain, deadline
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         try:
             async with asyncio.timeout(None) as timeout:
                 deadline = timeout
@@ -513,7 +512,7 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
     async def parent(event):
         nonlocal chain, parent_task
         parent_task = asyncio.current_task()
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         if previous_cancel:
             parent_task.cancel()
             try:
@@ -625,7 +624,7 @@ async def test_dispatch_finish_cancels_detached_child_already_reacquiring(
     async def parent(event):
         nonlocal child_task, parent_task, chain
         parent_task = asyncio.current_task()
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         child_task = asyncio.create_task(child())
         await entered.wait()
         await finish_parent.wait()
@@ -704,7 +703,7 @@ async def test_recoverable_owner_timeout_suspends_the_complete_parallel_wait(
     @subscribe("boundary.recoverable.timeout")
     async def parent(event):
         nonlocal deadline, chain
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         try:
             async with suspend_process():
                 async with asyncio.timeout(None) as timeout:
@@ -789,7 +788,7 @@ async def test_handler_timeout_reacquires_before_its_error_callback(
 
     async def parent(event):
         nonlocal chain
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         branches.extend(asyncio.create_task(branch()) for _ in range(3))
         await asyncio.gather(*branches)
 
@@ -870,9 +869,9 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
     @subscribe("boundary.waiter.expiry")
     async def parent(event):
         nonlocal waiter, chain
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         try:
-            async with wait_for_event(
+            async with expect_event(
                 "boundary.reply.never", point=point, time_out=60,
             ) as active_waiter:
                 waiter = active_waiter
@@ -919,7 +918,7 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
         release_holders.set()
 
 
-@pytest.mark.parametrize("interface", ["wait", "await_for"])
+@pytest.mark.parametrize("interface", ["wait", "wait_event"])
 @pytest.mark.parametrize("point", ["received", "processed"])
 @pytest.mark.parametrize("resume", ["wait", "get_result"])
 async def test_deferred_results_release_and_restore_saturated_parent_permits(
@@ -941,17 +940,17 @@ async def test_deferred_results_release_and_restore_saturated_parent_permits(
 
     @subscribe("boundary.deferred.parent")
     async def parent(event):
-        chain = handler_chain_context.get()
+        chain = handler_chain_token_context.get()
         prefix = f"boundary.result.{event.context}"
         names = [f"{prefix}.item.*", f"{prefix}.saved"]
         waiter = None
         try:
             await parents_ready.wait()
             if interface == "wait":
-                async with wait_for_event(names, point=point) as waiter:
+                async with expect_event(names, point=point) as waiter:
                     assert await waiter.wait(time_out=0, keep_listening=True) is waiter
             else:
-                waiter = await await_for(names, point=point, time_out=0, keep_listening=True)
+                waiter = await wait_event(names, point=point, time_out=0, keep_listening=True)
             assert chain.held
             await core.event_pipe.post_event(
                 event_type=EventType.TRANSIENT,

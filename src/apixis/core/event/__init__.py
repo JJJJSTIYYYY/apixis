@@ -1,4 +1,4 @@
-"""Public event types, channels, registries, and subscription helpers."""
+"""Public event types, queues, registries, and subscription helpers."""
 
 from apixis.core.event.base import (
     EventType,
@@ -13,9 +13,6 @@ from apixis.core.event.event_loop import (
 )
 from apixis.core.event.event_pipe import (
     ApixEventPipe,
-)
-from apixis.core.event.pipe_channel import (
-    BuiltinChannel,
 )
 from apixis.core.utils.exception import (
     EventHandlerNotRegisteredError,
@@ -43,7 +40,11 @@ from apixis.core.event.factory import (
 from apixis.core.event.subscription import (
     get_unmatched_subscriptions,
     post_event,
+    post_and_wait,
+    post_and_wait_threadsafe,
     post_event_threadsafe,
+    expect_event_threadsafe,
+    wait_event_threadsafe,
     await_for_threadsafe,
     wait_for_event_threadsafe,
     ThreadEventWaiter,
@@ -52,6 +53,8 @@ from apixis.core.event.subscription import (
     get_handler,
     get_handler_meta,
     is_registered,
+    expect_event,
+    wait_event,
     await_for,
     wait_for_event,
     EventWaiter,
@@ -80,7 +83,6 @@ __all__ = [
     "ApixEventHandler",
     "ApixEventLoop",
     "ApixEventPipe",
-    "BuiltinChannel",
     "EventHandlerNotRegisteredError",
     "EventHandlerAlreadyRegisteredError",
     "GraphNodeError",
@@ -89,7 +91,11 @@ __all__ = [
     "ApixHandlerRegistry",
     "get_unmatched_subscriptions",
     "post_event",
+    "post_and_wait",
+    "post_and_wait_threadsafe",
     "post_event_threadsafe",
+    "expect_event_threadsafe",
+    "wait_event_threadsafe",
     "await_for_threadsafe",
     "wait_for_event_threadsafe",
     "ThreadEventWaiter",
@@ -98,6 +104,8 @@ __all__ = [
     "get_handler",
     "get_handler_meta",
     "is_registered",
+    "expect_event",
+    "wait_event",
     "await_for",
     "wait_for_event",
     "EventWaiter",

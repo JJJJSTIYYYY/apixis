@@ -1,28 +1,25 @@
 """Bounded local event publication for the asyncio event core."""
 
 import asyncio
-from contextvars import copy_context
-import time
 from typing import Any
-from uuid import uuid4
 
-from apixis.core.event.base.event import ApixEvent, EventType
+from apixis.core.config.core_config import EVENT_PIPE_MAX_LEN
+from apixis.core.event.base.event import EventType, create_event
 from apixis.core.event.base.process import suspend_process
-from apixis.core.event.pipe_channel import BuiltinChannel
 from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_int
 
 
 class ApixEventPipe:
-    """Publish local events through one bounded builtin channel.
+    """Publish local events through one bounded asyncio queue.
 
     Publication waits when the queue is full. post_event() temporarily returns
     the current handler's permit so follow-up events can continue to drain.
     """
 
-    def __init__(self, *, builtin: BuiltinChannel | None = None) -> None:
-        self._channel = builtin if builtin is not None else BuiltinChannel()
-        validate_int(self._channel.maxsize, "builtin channel maxsize", minimum=1)
+    def __init__(self, *, maxsize: int = EVENT_PIPE_MAX_LEN) -> None:
+        maxsize = validate_int(maxsize, "maxsize", minimum=1)
+        self._queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=maxsize)
         self._started = False
 
     @property
@@ -32,19 +29,15 @@ class ApixEventPipe:
 
     @property
     def maxsize(self) -> int:
-        return self._channel.maxsize
-
-    def get_channel(self) -> BuiltinChannel:
-        """Return the pipe's local queue channel."""
-        return self._channel
+        return self._queue.maxsize
 
     async def put(self, event: Any) -> None:
-        await self._channel.put(event)
+        await self._queue.put(event)
 
     async def post_event(
         self,
         *,
-        event_type: EventType,
+        event_type: EventType = EventType.DEFAULT,
         event_name: str,
         context: Any = None,
     ) -> None:
@@ -56,46 +49,42 @@ class ApixEventPipe:
         reacquire it before continuing, including after errors or cancellation.
 
         Args:
-            event_type: Event category used by handlers.
+            event_type: Event category used by handlers; defaults to ``EventType.DEFAULT``.
             event_name: Name used by the registry to select handlers.
             context: Optional event payload or runtime context.
         """
-        event = ApixEvent(
-            event_id="event-" + uuid4().hex,
+        event = create_event(
             event_type=event_type,
             event_name=event_name,
             context=context,
-            timestamp=time.time(),
-            accepted=False,
         )
-        event._execution_context = copy_context()
         async with suspend_process():
             await self.put(event)
 
     def put_nowait(self, event: Any) -> None:
         """Push an event without waiting, raising QueueFull if at capacity."""
-        self._channel.put_nowait(event)
+        self._queue.put_nowait(event)
 
     async def get(self) -> Any:
-        return await self._channel.get()
+        return await self._queue.get()
 
     def get_nowait(self) -> Any:
-        return self._channel.get_nowait()
+        return self._queue.get_nowait()
 
     def empty(self) -> bool:
-        return self._channel.empty()
+        return self._queue.empty()
 
     def full(self) -> bool:
-        return self._channel.full()
+        return self._queue.full()
 
     def qsize(self) -> int:
-        return self._channel.qsize()
+        return self._queue.qsize()
 
     def task_done(self) -> None:
-        self._channel.task_done()
+        self._queue.task_done()
 
     async def join(self) -> None:
-        await self._channel.join()
+        await self._queue.join()
 
     async def clear(self) -> int:
         """Remove and acknowledge all currently queued events."""

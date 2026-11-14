@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
 from apixis.core.event.base.event import ApixEvent, ApixEventError, EventHandlerFunc, EventHandlerErrorFunc
-from apixis.core.event.base.process import handler_chain_context, suspend_process
+from apixis.core.event.base.process import handler_chain_token_context, suspend_process
 from apixis.core.utils import logger
 from apixis.core.utils.validation import validate_non_empty_string, validate_timeout
 
@@ -125,7 +125,7 @@ class ApixEventHandler:
     ) -> None:
         """Run one phase and report its own failure without recursive hooks."""
         try:
-            chain = handler_chain_context.get()
+            chain = handler_chain_token_context.get()
             if chain is not None and not chain.held:
                 # A handler timeout may have cancelled its child waiters.
                 # Recover capacity before callbacks or the next core resume.

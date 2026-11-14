@@ -8,7 +8,7 @@ import weakref
 
 import pytest
 
-from apixis.core.event import BuiltinChannel, EventType, subscribe
+from apixis.core.event import EventType, subscribe
 from apixis.core.event.factory import get_event_pipe
 from apixis.core.event.event_pipe import ApixEventPipe
 
@@ -16,23 +16,23 @@ from apixis.core.event.event_pipe import ApixEventPipe
 _publication_context = ContextVar("event_pipe_test_context", default=None)
 
 
-class TestBuiltinChannel:
+class TestApixEventPipeQueue:
     @pytest.mark.asyncio
     async def test_queue_compatible_methods(self):
-        channel = BuiltinChannel(maxsize=2)
+        pipe = ApixEventPipe(maxsize=2)
 
-        await channel.put("first")
-        channel.put_nowait("second")
+        await pipe.put("first")
+        pipe.put_nowait("second")
 
-        assert channel.maxsize == 2
-        assert channel.qsize() == 2
-        assert channel.full() is True
-        assert await channel.get() == "first"
-        assert channel.get_nowait() == "second"
-        channel.task_done()
-        channel.task_done()
-        await asyncio.wait_for(channel.join(), timeout=0.1)
-        assert channel.empty() is True
+        assert pipe.maxsize == 2
+        assert pipe.qsize() == 2
+        assert pipe.full() is True
+        assert await pipe.get() == "first"
+        assert pipe.get_nowait() == "second"
+        pipe.task_done()
+        pipe.task_done()
+        await asyncio.wait_for(pipe.join(), timeout=0.1)
+        assert pipe.empty() is True
 
     @pytest.mark.asyncio
     async def test_global_pipe_is_apix_event_pipe_singleton(self):
@@ -52,10 +52,10 @@ class TestBuiltinChannel:
 
 
 class TestApixEventPipeEvents:
-    def test_unbounded_builtin_is_rejected(self):
-        """Custom local channels must preserve bounded admission."""
-        with pytest.raises(ValueError, match="builtin channel maxsize"):
-            ApixEventPipe(builtin=BuiltinChannel(maxsize=0))
+    def test_unbounded_pipe_is_rejected(self):
+        """Local event pipes must preserve bounded admission."""
+        with pytest.raises(ValueError, match="maxsize"):
+            ApixEventPipe(maxsize=0)
 
     @pytest.mark.asyncio
     async def test_post_event_builds_event_with_current_timestamp(self):
@@ -63,14 +63,13 @@ class TestApixEventPipeEvents:
         before = time.time()
 
         await pipe.post_event(
-            event_type=EventType.WORKFLOW,
             event_name="workflow.started",
             context={"run_id": "run-1"},
         )
         event = await pipe.get()
 
         assert event.event_id.startswith("event-")
-        assert event.event_type is EventType.WORKFLOW
+        assert event.event_type is EventType.DEFAULT
         assert event.event_name == "workflow.started"
         assert event.context == {"run_id": "run-1"}
         assert before <= event.timestamp <= time.time()
@@ -172,12 +171,10 @@ class TestApixEventPipeEvents:
 
 async def test_pipe_lifecycle_preserves_pending_events_and_acknowledgements():
     """Repeated local lifecycle transitions retain queue ownership and order."""
-    channel = BuiltinChannel(maxsize=2)
-    pipe = ApixEventPipe(builtin=channel)
+    pipe = ApixEventPipe(maxsize=2)
     first, second = object(), object()
     pipe.put_nowait(first)
     pipe.put_nowait(second)
-    assert pipe.get_channel() is channel
     assert not pipe.is_running
     await asyncio.gather(*(pipe.start() for _ in range(8)))
     assert pipe.is_running
@@ -206,7 +203,7 @@ async def test_local_context_preserves_arbitrary_python_objects():
 
 
 async def test_nowait_queue_errors_and_join_wait_for_acknowledgement():
-    pipe = ApixEventPipe(builtin=BuiltinChannel(maxsize=1))
+    pipe = ApixEventPipe(maxsize=1)
     pipe.put_nowait("first")
     with pytest.raises(asyncio.QueueFull):
         pipe.put_nowait("second")

@@ -6,7 +6,7 @@ import pytest
 
 from apixis import (
     ApixEventHandler, ApixEventLoop, ApixEventPipe, ApixEventRegistry,
-    ApixHandlerRegistry, BuiltinChannel, Node, subscribe,
+    ApixHandlerRegistry, Node, subscribe,
 )
 from apixis.core.utils.validation import validate_int, validate_number, validate_timeout
 
@@ -39,17 +39,10 @@ def test_integer_bound_and_execution_timeout_semantics():
     assert validate_timeout(0.1) == 0.1
 
 
-@pytest.mark.parametrize("value", [True, 1.5, "2", float("nan"), float("inf"), -1])
-def test_channel_validates_capacity(value):
+@pytest.mark.parametrize("value", [True, 1.5, "2", None, float("nan"), float("inf"), 0, -1])
+def test_event_pipe_validates_capacity(value):
     with pytest.raises(ValueError if type(value) is int else TypeError):
-        BuiltinChannel(maxsize=value)
-
-
-def test_independent_channel_can_be_unbounded_but_pipe_cannot():
-    channel = BuiltinChannel(maxsize=0)
-    assert channel.maxsize == 0
-    with pytest.raises(ValueError):
-        ApixEventPipe(builtin=channel)
+        ApixEventPipe(maxsize=value)
 
 
 @pytest.mark.parametrize("value", [True, 1.5, "2", float("nan"), float("inf"), 0, -1])

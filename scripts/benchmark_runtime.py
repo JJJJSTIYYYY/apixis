@@ -305,7 +305,7 @@ async def run_worker(args):
         core.handler_registry.register_handler(entry)
         started = time.perf_counter()
         for index in range(2048):
-            async with subscription.wait_for_event("benchmark.reply", point="processed") as waiter:
+            async with subscription.expect_event("benchmark.reply", point="processed") as waiter:
                 await pipe.post_event(event_type=EventType.INFO, event_name="benchmark.request", context=index)
                 result = await waiter.wait()
                 assert result.context == index
@@ -440,34 +440,31 @@ async def run_worker(args):
 
         barrier = Barrier(args.thread_workers)
 
-        def worker(producer):
-            barrier.wait(30)
+        async def worker(producer):
+            asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
+            await asyncio.to_thread(barrier.wait, 30)
             if kind == "async-publication":
-                async def publish():
-                    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
-                    await asyncio.gather(*(subscription.post_event(
-                        event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
-                    ) for sequence in range(args.thread_iterations)))
-                asyncio.run(publish())
+                await asyncio.gather(*(subscription.post_event(
+                    event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
+                ) for sequence in range(args.thread_iterations)))
             elif kind == "request-reply":
                 for sequence in range(args.thread_iterations):
-                    with subscription.wait_for_event_threadsafe(
+                    async with subscription.expect_event_threadsafe(
                         f"benchmark.reply.{producer}.{sequence}", point="processed", time_out=30,
                     ) as waiter:
-                        subscription.post_event_threadsafe(
+                        await subscription.post_event_threadsafe(
                             event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
-                        ).result(30)
-                        assert waiter.wait().context == (producer, sequence)
+                        )
+                        assert (await waiter.wait()).context == (producer, sequence)
             else:
-                futures = [subscription.post_event_threadsafe(
-                    event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
-                ) for sequence in range(args.thread_iterations)]
-                for future in futures:
-                    future.result(30)
+                for sequence in range(args.thread_iterations):
+                    await subscription.post_event_threadsafe(
+                        event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
+                    )
 
         def run_workers():
             with ThreadPoolExecutor(max_workers=args.thread_workers) as pool:
-                list(pool.map(worker, range(args.thread_workers)))
+                list(pool.map(lambda index: asyncio.run(worker(index)), range(args.thread_workers)))
 
         started = time.perf_counter()
         await asyncio.wait_for(asyncio.to_thread(run_workers), 90)
@@ -597,7 +594,7 @@ async def run_worker(args):
                 "workload": {"workers": args.thread_workers, "iterations": args.thread_iterations,
                              "queue_capacity": queue_capacity, "event_pipe_capacity": core.event_pipe.maxsize,
                              "includes": "worker pool creation, submissions, dispatch and cleanup",
-                             "async_admission_threads_per_worker": 2 if kind == "async-publication" else 0},
+                             "default_executor_workers_per_worker": 2},
                 "capacity": 128, "rounds": rounds,
             }
     core = await fresh_core(128)

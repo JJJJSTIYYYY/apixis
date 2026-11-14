@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from apixis.core.event import ApixEvent, BuiltinChannel, EventType, subscribe, unsubscribe
+from apixis.core.event import ApixEvent, EventType, subscribe, unsubscribe
 from apixis.core.event import event_loop, event_pipe, factory
 from apixis.core.event.factory import get_handler_registry
 from apixis.core.event.base import suspend_process
@@ -24,7 +24,7 @@ async def runtime(monkeypatch, request):
     monkeypatch.setattr(event_loop, "SHOW_EVENT_DISPATCH", False)
     # Inject one complete core so sync and async getters share the test runtime.
     registry = factory.ApixEventRegistry()
-    pipe = event_pipe.ApixEventPipe(builtin=BuiltinChannel(maxsize=2))
+    pipe = event_pipe.ApixEventPipe(maxsize=2)
     handlers = factory.ApixHandlerRegistry(registry)
     loop = event_loop.ApixEventLoop(handlers, pipe, registry)
     core = factory.EventCore(registry, pipe, handlers, loop)

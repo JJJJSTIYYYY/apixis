@@ -1,10 +1,12 @@
 """Event values and callback type contracts, independent of runtime state."""
 
-from contextvars import Context
+from contextvars import Context, copy_context
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+import time
 from typing import Any, Awaitable, Callable, Literal
+from uuid import uuid4
 
 
 class EventType(str, Enum):
@@ -14,6 +16,7 @@ class EventType(str, Enum):
     INFO = 'info'
     WARNING = 'warning'
     ERROR = 'error'
+    DEFAULT = 'default' # Default events are dispatched and recorded without a specific type.
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,10 +72,26 @@ EventHandlerFunc = Callable[[ApixEvent], Awaitable[None]]
 EventHandlerErrorFunc = Callable[[ApixEvent, Exception], Awaitable[None]]
 
 
+def create_event(
+    *, event_type: EventType, event_name: str, context: Any = None,
+) -> ApixEvent:
+    """Create a local event with a unique ID and the publisher's context."""
+    event = ApixEvent(
+        event_id="event-" + uuid4().hex,
+        event_type=event_type,
+        event_name=event_name,
+        context=context,
+        timestamp=time.time(),
+    )
+    event._execution_context = copy_context()
+    return event
+
+
 __all__ = [
     "EventType",
     "ApixEventError",
     "ApixEvent",
     "EventHandlerFunc",
     "EventHandlerErrorFunc",
+    "create_event",
 ]

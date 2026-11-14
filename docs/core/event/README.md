@@ -4,27 +4,28 @@
 
 ## 源码职责
 
-`base`、`handler_registry`、`subscription` 按职责组织为包，包的 `__init__.py` 只导出接口。原有 `apixis`、`apixis.core.event` 以及这三个模块入口的公开导入保持一致。
+`base`、`handler_registry`、`subscription` 按职责组织为包，包的 `__init__.py` 只导出接口。应用常用接口从 `apixis` 或 `apixis.core.event` 导入。
 
 | 实现位置 | 职责 |
 | --- | --- |
 | [base/event.py](../../../src/apixis/core/event/base/event.py) | 事件类型、事件数据、错误记录与回调类型 |
 | [base/handler.py](../../../src/apixis/core/event/base/handler.py) | handler 执行、错误通知、取消清理与实例注册接口 |
-| [base/process.py](../../../src/apixis/core/event/base/process.py) | handler chain 上下文、许可归属与暂停/恢复 |
+| [base/process.py](../../../src/apixis/core/event/base/process.py) | `HandlerChainToken`、`handler_chain_token_context` 与许可的暂停/恢复 |
 | [handler_registry/registry.py](../../../src/apixis/core/event/handler_registry/registry.py) | 订阅索引、优先级、分组与普通 handler chain 缓存 |
 | [handler_registry/waiter_cache.py](../../../src/apixis/core/event/handler_registry/waiter_cache.py) | received/processed 临时监听索引及独立缓存 |
 | [handler_registry/matching.py](../../../src/apixis/core/event/handler_registry/matching.py) | 普通订阅与临时监听共用的匹配规则 |
 | [subscription/handlers.py](../../../src/apixis/core/event/subscription/handlers.py) | 全局订阅、取消订阅与注册信息查询 |
 | [subscription/publication.py](../../../src/apixis/core/event/subscription/publication.py) | 全局异步发布与线程安全发布入口 |
-| [subscription/waiter.py](../../../src/apixis/core/event/subscription/waiter.py) | 异步等待、超时、结果收集与临时监听生命周期 |
-| [subscription/thread_waiter.py](../../../src/apixis/core/event/subscription/thread_waiter.py) | 工作线程等待、注册就绪确认与清理确认 |
+| [subscription/waiter.py](../../../src/apixis/core/event/subscription/waiter.py) | 主线程与工作线程的等待入口、超时、结果收集、注册就绪与清理确认 |
 | [factory.py](../../../src/apixis/core/event/factory.py) | 共享核心的依赖组装、启动、停止与访问 |
-| [event_pipe.py](../../../src/apixis/core/event/event_pipe.py)、[pipe_channel.py](../../../src/apixis/core/event/pipe_channel.py) | 事件创建、上下文快照与本地有界队列 |
+| [event_pipe.py](../../../src/apixis/core/event/event_pipe.py) | 事件创建、上下文快照与本地有界队列 |
 | [event_loop.py](../../../src/apixis/core/event/event_loop.py) | 消费、捕获处理链、派发与并发容量管理 |
 | [thread_bridge.py](../../../src/apixis/core/event/thread_bridge.py) | 跨线程请求队列、取消和关闭协议 |
 | [event_registry.py](../../../src/apixis/core/event/event_registry.py) | 已观察事件名的记录与查询 |
 
 临时监听缓存只依赖 handler 类型和共享匹配规则，不依赖 registry 实现；工作线程等待复用异步等待器，跨线程通信仍由桥接层负责。调整执行逻辑时进入所属实现文件，公开入口无需增加转发函数。
+
+跨线程请求通过锁保护的有界队列转交主循环；容量不足时由线程安全 Future 通知调用方继续。线程版等待上下文只启动一条结果收集任务，`wait()` 在主循环更新期限后复用该任务的结果，不再创建另一条桥接等待任务。上下文退出确认监听清理，已经完成的清理直接返回。
 
 ## 共享事件系统
 
@@ -73,6 +74,7 @@ from apixis import EventType
 
 可选值：
 
+- `EventType.DEFAULT`
 - `EventType.TRANSIENT`
 - `EventType.WORKFLOW`
 - `EventType.LIFECYCLE`
@@ -81,6 +83,8 @@ from apixis import EventType
 - `EventType.ERROR`
 
 `TRANSIENT`（值为 `"transient"`）表示临时事件：事件正常分发给订阅的处理器，但其名称不会被 `ApixEventRegistry` 记录。
+
+`DEFAULT`（值为 `"default"`）用于未指定类别的普通事件，正常分发并记录事件名。
 
 ## `ApixEvent`
 
@@ -140,45 +144,91 @@ await post_event(
 
 `post_event()` 委托共享 `ApixEventPipe.post_event()` 创建 `ApixEvent` 并放入本地队列；本地队列满时等待空位。共享事件核心会按需启动，也可以通过 `await start_core()` 显式等待启动。需要直接访问管道时，使用 `pipe = get_event_pipe()`。
 
+所有发布接口的 `event_type` 均默认为 `EventType.DEFAULT`：`post_event()`、`ApixEventPipe.post_event()`、`post_event_threadsafe()`、`post_and_wait()` 和 `post_and_wait_threadsafe()`。可省略该参数，也可显式指定其他事件类别：
+
+```python
+await post_event(event_name="job.created", context={"job_id": 42})
+```
+
 发布时捕获当前 `ContextVar` 绑定，整条前台 handler chain 在该快照中执行，后台 handler 继承启动时的绑定。发布者之后的 `set/reset` 不影响已发布事件，handler 的绑定修改也不回写发布者；变量值中的可变对象仍按引用共享。直接使用 `put()` / `put_nowait()` 注入手工构造的事件不捕获发布者上下文。
 
-`pipe.join()` 等待队列项目完成交接，不等待 handler 执行结束。需要等待结果事件时，可使用下文的 `await_for()` 或 `wait_for_event()`；也可以由处理器通过应用自己的结果对象或信号通知调用方，完整示例见[快速开始](../../quickstart.md)。
+`pipe.join()` 等待队列项目完成交接，不等待 handler 执行结束。需要等待结果事件时，可使用下文的 `wait_event()` 或 `expect_event()`；也可以由处理器通过应用自己的结果对象或信号通知调用方，完整示例见[快速开始](../../quickstart.md)。
+
+### 发布并等待处理结束：`post_and_wait`
+
+```python
+from apixis import EventType, post_and_wait
+
+event = await post_and_wait(
+    event_type=EventType.INFO,
+    event_name="job.created",
+    context={"job_id": 42},
+    time_out=30,
+)
+if event.has_error:
+    print(event.error_stack)
+```
+
+`post_and_wait(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None, keep_listening=False)` 先注册完成监听，再发布事件，通过本次事件的 **`event_id`** 精确匹配结果。同名事件并发发布时，各自返回自己的原始 `ApixEvent`，可以读取 handler 对 `context` 的修改及 `accepted`、`error_stack` 等处理状态。没有普通订阅者时同样正常返回。
+
+完成位置与 `point="processed"` 一致：等待该事件的前台处理链结束，后台 handler 以及 handler 发布的后续事件独立继续执行。需要业务回包时，仍通过 `expect_event()` 订阅对应的结果事件。
+
+`time_out` 在主线程开始执行时计时，覆盖入队和处理过程，省略或传入 `None` 表示无限等待。默认超时抛出 `TimeoutError` 并清理完成监听；`keep_listening=True` 时，已入队事件的处理超时会返回仍在监听的 `EventWaiter`，完成时仍返回事件。使用 `await waiter.get_result()` 或再次 `await waiter.wait()` 继续等待，放弃时调用 `waiter.close()`：
+
+```python
+from apixis import EventWaiter, post_and_wait
+
+result = await post_and_wait(event_name="job.created", time_out=1, keep_listening=True)
+if isinstance(result, EventWaiter):
+    result = await result.get_result()
+```
+
+入队超时表示事件尚未发布，无论 `keep_listening` 如何设置都会抛出 `TimeoutError` 并清理监听。取消始终清理监听；已入队的事件继续处理。在 handler 内调用时，发布和等待期间自动借出调度许可。工作线程的 asyncio 调用会自动桥接到主线程，与 `wait_event()` 一样，跨线程不支持 `keep_listening=True`。
 
 ## 跨线程发布与等待
 
-共享事件核心绑定主线程的 asyncio loop。主线程先调用 `await start_core()`，其他线程通过有界 `queue.Queue` 提交发布、等待请求；主线程负责临时监听的注册、注销和事件处理。`subscribe()`、`unsubscribe()` 及普通核心 getter 仅用于主线程。
+普通接口根据当前线程自动选择执行路径：主线程直接调用本地实现，工作线程调用对应的线程安全版。两组接口使用相同的异步调用方式：
+
+| 操作 | 普通接口 | 线程安全接口 |
+| --- | --- | --- |
+| 发布事件 | `await post_event(...)` | `await post_event_threadsafe(...)` |
+| 发布并等待处理结束 | `await post_and_wait(...)` | `await post_and_wait_threadsafe(...)` |
+| 等待事件 | `await wait_event(...)` | `await wait_event_threadsafe(...)` |
+| 先注册，再执行其他操作 | `async with expect_event(...) as waiter` | `async with expect_event_threadsafe(...) as waiter` |
+
+两种上下文都通过 `await waiter.wait(...)` 或 `await waiter.get_result()` 获取结果，期限语义见下文。线程安全接口使用 `await` / `async with`，不返回供调用方使用的 `concurrent.futures.Future`，不提供同步阻塞提交。`wait_for_event_threadsafe` 和 `await_for_threadsafe` 分别是 `expect_event_threadsafe`、`wait_event_threadsafe` 的别名，调用方式相同。
+
+共享事件核心绑定主线程的 asyncio loop。主线程先调用 `await start_core()`，工作线程通过自己的 asyncio loop 使用线程安全接口；主线程负责监听的注册、注销和事件处理。通信队列满时，接口异步等待空位，不阻塞调用方的 loop。`subscribe()`、`unsubscribe()` 及普通核心 getter 仅用于主线程。
+
+桥接入队直接等待容量通知，不占用调用方的默认线程池。主循环前台 handler 也可以使用线程安全接口：发布、等待、线程版上下文进入以及 `get_result()` 在等待期间借出当前调度许可，恢复执行前重新取得许可。工作线程不会操作主循环的许可。
 
 ```python
 import asyncio
 
 from apixis import (
-    EventType, post_event, post_event_threadsafe, start_core,
-    subscribe, wait_for_event_threadsafe,
+    post_event, post_event_threadsafe, start_core,
+    subscribe, expect_event_threadsafe,
 )
 
 
 @subscribe("job.request")
 async def respond(event):
     await post_event(
-        event_type=EventType.INFO,
         event_name="job.reply",
         context={"result": event.context["value"] * 2},
     )
 
 
-def worker():
-    with wait_for_event_threadsafe("job.reply", point="processed", time_out=30) as waiter:
-        post_event_threadsafe(
-            event_type=EventType.INFO,
-            event_name="job.request",
-            context={"value": 21},
-        ).result()
-        return waiter.wait().context["result"]
+async def worker():
+    async with expect_event_threadsafe("job.reply", point="processed") as waiter:
+        await post_event_threadsafe(event_name="job.request", context={"value": 21})
+        event = await waiter.wait(time_out=30)
+        return event.context["result"]
 
 
 async def main():
     await start_core()
-    result = await asyncio.to_thread(worker)
+    result = await asyncio.to_thread(lambda: asyncio.run(worker()))
     assert result == 42
 
 
@@ -189,21 +239,48 @@ asyncio.run(main())
 
 | 接口 | 完成含义 |
 | --- | --- |
-| `post_event_threadsafe(*, event_type, event_name, context=None)` | 通信队列满时在工作线程等待空位，返回 `concurrent.futures.Future[None]`；Future 完成表示事件已进入原有事件队列，不代表处理完成。 |
-| `await_for_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回线程安全 Future，主线程安装临时监听后收集结果；取消 Future 会安排主线程清理监听。返回时不保证监听已注册。 |
-| `wait_for_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回同步 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。请求响应使用此接口。 |
+| `await post_event_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None)` | 事件已进入原有事件队列，不代表处理完成。 |
+| `await post_and_wait_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None)` | 返回本次发布的原始 `ApixEvent`，按 `event_id` 精确等待其前台处理结束。 |
+| `await wait_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回匹配事件；调用协程开始执行后异步提交注册请求。 |
+| `async with expect_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 异步进入 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。 |
 
-等待接口支持字符串或非空 `list` / `set`，匹配、过滤及 `point` 与异步等待接口一致。字符串返回单个事件，集合返回按模式索引的事件字典；暂不提供 `keep_listening`。收到的事件和 payload 仍是共享对象，工作线程需要独立修改时自行复制。`processed` 不等待后台 handler。
+线程等待接口支持字符串或非空 `list` / `set`，匹配、过滤及 `point` 与普通等待接口一致。字符串返回单个事件，集合返回按模式索引的事件字典；暂不提供 `keep_listening`。收到的事件和 payload 仍是共享对象，工作线程需要独立修改时自行复制。`processed` 不等待后台 handler。
 
-`time_out` 从主线程注册开始计时，不包含请求在通信队列中的等待时间。同步上下文的 `wait(time_out=...)` 额外限制本次阻塞时间，超时会取消收集并等待监听清理，不会延长注册时设定的期限。上下文只能进入一次。阻塞等待及上下文进入、退出都在工作线程执行，主线程应继续运行 loop。
+发布单个事件并等待它的处理结果时，可在工作线程的协程中使用：
 
-通信队列容量与 `APIXIS.EVENT.event_pipe_max_len` 相同，两条队列各自有界。通信队列满时，线程安全接口在工作线程等待空位，无需重试。主线程串行转交跨线程发布，原有事件队列满时不继续堆积发布任务；事件等待独立收集，不阻塞后续请求。
+```python
+from apixis import post_and_wait_threadsafe
 
-如果工作线程自身运行 asyncio loop，可以直接 `await post_event(...)`、`await await_for(...)`。这两个异步接口会自动桥接到主线程，等待通信队列空位时不阻塞调用方 loop，取消异步任务也会取消尚未完成的提交或收集。跨线程 `await_for` 不支持 `keep_listening=True`。主线程继续使用原有异步接口；同步线程安全接口不能在队列满时阻塞主线程。
+async def worker():
+    event = await post_and_wait_threadsafe(
+        event_name="job.request", context={"value": 21}, time_out=30,
+    )
+    return event.context
+```
 
-Future 的 `.result(timeout=...)` 超时仅停止调用方等待；需要放弃请求时显式 `.cancel()`。已经进入事件队列的事件无法撤回。`stop_core()` 拒绝新跨线程请求，使未完成结果以 `RuntimeError` 结束，并等待临时监听清理；同一 loop 上重新启动后可继续使用。
+`post_and_wait_threadsafe()` 将现有 `post_and_wait()` 提交到主线程执行，复用其 `expect_event()` 监听、精确匹配及清理逻辑。它的 `time_out` 从主线程开始执行请求时计时，覆盖事件入队和前台处理，不包含通信队列的等待时间。超时会清理监听，已经入队的事件继续处理；不提供 `keep_listening`。
 
-跨线程发布捕获调用线程的业务 `ContextVar`，内部处理链许可上下文不跨线程传递。许可管理沿用现有实现。如果前台 handler 等待工作线程，而工作线程依赖后续事件被处理，调用方可用现有的 `async with suspend_process():` 包裹 `await asyncio.to_thread(worker)`。
+`wait_event_threadsafe()` 和 `expect_event_threadsafe()` 的 `time_out` 从主线程注册开始计时，不包含等待桥接队列容量的时间。上下文进入确认注册完成后，回包即使先于实际等待到达，也会被保留。
+
+普通和线程版等待上下文均遵循以下期限规则：
+
+| 调用 | 对现有期限的影响 |
+| --- | --- |
+| `await waiter.wait(time_out=30)` | 为尚未完成的收集重设 30 秒期限；线程版从主循环执行期限更新时计时 |
+| `await waiter.wait()` / `await waiter.wait(time_out=None)` | 为尚未完成的收集清除期限，改为无限等待 |
+| `await waiter.get_result()` | 沿用注册时或最近一次 `wait()` 设置的期限 |
+
+要让 30 秒预算包含发布请求的时间，使用 `expect_event_threadsafe(..., time_out=30)` 注册，再调用 `get_result()`；仅在发布后调用 `wait(time_out=30)`，预算从这次等待开始。已经超时关闭的收集器不能通过重设期限恢复。
+
+线程版 `wait()` 的期限更新直接交给主循环，不排在桥接队列中阻塞的发布请求之后。线程版上下文只能进入一次；`waiter.close()` 发出取消请求，上下文退出会等待清理完成。
+
+通信队列容量与 `APIXIS.EVENT.event_pipe_max_len` 相同，两条队列各自有界。主线程串行转交跨线程发布，等待事件独立收集，不占用桥接消费者等待结果。所有线程发布的事件共享主循环的派发许可，背压不是按工作线程分别计数。
+
+取消异步任务会取消尚未完成的提交或收集，并等待清理；已经进入事件队列的事件无法撤回。`stop_core()` 拒绝新跨线程请求，使未完成结果以 `RuntimeError` 结束，唤醒等待桥接容量的调用方，并等待临时监听清理；同一 loop 上重新启动后可继续使用。
+
+工作线程中的 `post_event()`、`post_and_wait()`、`wait_event()` 和 `expect_event()` 都会自动桥接到主线程，无需切换接口名称。`expect_event()` 在进入上下文时判断当前线程，工作线程得到 `ThreadEventWaiter`，进入完成后监听已在主线程注册，退出等待清理确认。跨线程不支持 `keep_listening=True`；主线程继续保留延迟收集能力。
+
+跨线程发布捕获调用线程的业务 `ContextVar`，内部处理链许可上下文不跨线程传递。前台 handler 中直接使用普通异步发布和等待接口，可沿用现有的调度许可管理。
 
 实际线程压力测试覆盖派发容量 `1`、`128` 和 `None`，验证逐生产者顺序、请求响应关联、广播、取消及资源清理：
 
@@ -213,6 +290,8 @@ uv run pytest tests/performance/test_thread_events.py --run-performance -q -s \
 ```
 
 默认分别使用 256 线程发布 32,768 个事件、128 线程完成 8,192 次请求响应、256 线程广播并取消 8,192 次等待，以及 16 个工作线程的 asyncio loop 并发发布 2,048 个事件。可通过 `--thread-workers`、`--thread-iterations` 和 `--thread-queue-size` 调整规模。
+
+容量为 1 的死锁回归和 debug 压力测试命令见[测试说明](../../../tests/README.md#跨线程事件验证)。
 
 ## `ApixEventPipe` 常用接口
 
@@ -227,7 +306,7 @@ await pipe.join()
 await pipe.clear()
 ```
 
-所有事件均通过 `BuiltinChannel` 的本地队列处理，详见[事件通道](./channels.md)。
+所有事件均通过 `ApixEventPipe` 内部的本地有界队列处理，详见[事件队列](./channels.md)。
 
 ## 订阅
 
@@ -242,7 +321,9 @@ async def observe_job(event):
 
 支持 glob 风格模式。详细排序、错误语义与取消语义见 [Event handlers](./handlers.md)。
 
-## 等待事件：`await_for` 与 `wait_for_event`
+## 等待事件：`wait_event` 与 `expect_event`
+
+`wait_for_event` 是 `expect_event` 的别名，`await_for` 是 `wait_event` 的别名；旧名称保留相同的签名与行为。
 
 等待监听器使用独立的精确事件索引与有界缓存，增删监听器不会使普通订阅的 handler_chain 缓存失效。事件出队时仅生成一份 handler 引用快照，按 `received` 监听器、普通订阅、`processed` 监听器的顺序执行；同一等待位置按注册顺序执行，不受普通订阅的数值优先级影响。
 
@@ -252,19 +333,21 @@ async def observe_job(event):
 
 | 你要做的事 | 应该使用 | 执行顺序 |
 | --- | --- | --- |
-| 立即等待其他任务接下来产生的事件 | `await await_for(...)` | 注册 → 等待 → 返回事件 |
-| 先订阅回包，再由当前代码发布请求 | `async with wait_for_event(...) as waiter` | 注册 → 发布请求 → `await waiter.wait()` |
+| 立即等待其他任务接下来产生的事件 | `await wait_event(...)` | 注册 → 等待 → 返回事件 |
+| 先订阅回包，再由当前代码发布请求 | `async with expect_event(...) as waiter` | 注册 → 发布请求 → `await waiter.wait()` |
 
 **两个接口都能等待一个或多个事件。区别在于是否需要在“注册”和“等待”之间执行自己的代码。**
+
+等待器可通过 `waiter.set_target_event_exactly(event_id)` 限定目标事件 ID。应在发布目标事件前设置，此后只收集该 ID 的匹配事件；`post_and_wait()` 使用此接口关联本次发布与处理结果。
 
 ### 正反例：发布请求并等待回包
 
 假设 `job.start` 的处理器会向 `context["reply"]` 指定的事件名发布结果。以下代码在 async 函数中执行，`reply` 是本次请求独有的回包名。
 
-**正例：使用 `wait_for_event`，先订阅，再发布。**
+**正例：使用 `expect_event`，先订阅，再发布。**
 
 ```python
-async with wait_for_event(reply) as waiter:
+async with expect_event(reply) as waiter:
     await pipe.post_event(
         event_type=EventType.WORKFLOW,
         event_name="job.start",
@@ -275,7 +358,7 @@ async with wait_for_event(reply) as waiter:
 
 进入上下文时订阅已注册；即使回包在 `.wait()` 前到达，也会保留结果。
 
-**反例：先发布，再使用 `await_for` 订阅。**
+**反例：先发布，再使用 `wait_event` 订阅。**
 
 ```python
 await pipe.post_event(
@@ -283,10 +366,10 @@ await pipe.post_event(
     event_name="job.start",
     context={"reply": reply},
 )
-event = await await_for(reply, time_out=40)
+event = await wait_event(reply, time_out=40)
 ```
 
-回包可能在 `await_for` 注册前就已出队，导致错过结果并超时。两个接口都不回放注册前已出队的事件；需要自己发起请求时，应使用上面的正例。
+回包可能在 `wait_event` 注册前就已出队，导致错过结果并超时。两个接口都不回放注册前已出队的事件；需要自己发起请求时，应使用上面的正例。
 
 ### 同时等待多个事件
 
@@ -294,10 +377,10 @@ event = await await_for(reply, time_out=40)
 
 ```python
 # 事件由其他任务独立产生：直接等到两个事件都收到。
-events = await await_for(["job.validated", "job.saved"], time_out=40)
+events = await wait_event(["job.validated", "job.saved"], time_out=40)
 
 # 当前代码需要发起任务：先注册两个订阅，再发布请求。
-async with wait_for_event(
+async with expect_event(
     ["job.validated", "job.saved"], point="processed",
 ) as waiter:
     await get_event_pipe().post_event(
@@ -309,7 +392,7 @@ async with wait_for_event(
     saved = events["job.saved"]
 ```
 
-传入字符串时，`await_for()` 和 `.wait()` 返回单个 `ApixEvent`；传入列表或集合时，收齐所有模式的事件后返回以**订阅模式**为键的字典，即使集合中只有一个模式也是如此。模式不能为空，重复模式合并，字典不保证键顺序。每个模式只保留首个匹配，后续事件不覆盖；重叠模式可以由同一个事件满足。在上下文内重复调用 `.wait()` 返回同一个事件或字典。
+传入字符串时，`wait_event()` 和 `.wait()` 返回单个 `ApixEvent`；传入列表或集合时，收齐所有模式的事件后返回以**订阅模式**为键的字典，即使集合中只有一个模式也是如此。模式不能为空，重复模式合并，字典不保证键顺序。每个模式只保留首个匹配，后续事件不覆盖；重叠模式可以由同一个事件满足。在上下文内重复调用 `.wait()` 返回同一个事件或字典。
 
 ### 共同参数与超时
 
@@ -323,30 +406,30 @@ keep_listening: bool = False
 
 `event_name` 支持大小写敏感的 glob 模式；`filter` 排除匹配的事件名。`point="received"` 在普通前台 handler 之前取得事件；`point="processed"` 在普通前台 handler 完成后取得事件，不等待后台 handler。事件被 accept、发生前台错误或事件分发被取消时，适用的通知回调同样可以返回该事件；调用方可检查 `accepted`、`has_error` 和 `error_stack`。返回的是原始、可变的事件对象，不是内容快照，后续 handler 仍可能修改它。
 
-`time_out=None` 表示没有截止时间，非正值表示立即超时。`await_for(time_out=...)` 限制这次等待；`wait_for_event(time_out=...)` 从注册完成开始计时，包括调用 `.wait()` 前的工作。每次 `.wait(time_out=...)` 都会替换当前截止时间，从本次调用计时；省略或传入 `None` 则取消尚未到期的截止时间，无限等待。已经超时关闭的监听不会恢复。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
+`time_out=None` 表示没有截止时间，非正值表示立即超时。`wait_event(time_out=...)` 限制这次等待；`expect_event(time_out=...)` 从注册完成开始计时，包括调用 `.wait()` 前的工作。每次 `.wait(time_out=...)` 都会替换当前截止时间，从本次调用计时；省略或传入 `None` 则取消尚未到期的截止时间，无限等待。已经超时关闭的监听不会恢复。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
 
-**截止时间不会中断 `wait_for_event` 的上下文主体**：默认超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
+**截止时间不会中断 `expect_event` 的上下文主体**：默认超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
 
-默认行为保持不变：超时抛出 `TimeoutError`，取消或退出上下文会清理尚未完成的等待；普通上下文退出后再调用 `.wait()` 会报错。监听由 `EventWaiter` 管理，收齐结果或普通超时后立即注销，不必等到上下文退出。收齐的结果在上下文内仍可重复读取。
+默认行为保持不变：超时抛出 `TimeoutError`，取消或退出上下文会清理尚未完成的等待。监听由主循环的 `EventWaiter` 管理，收齐结果或普通超时后立即注销，不必等到上下文退出。收齐的结果在上下文内仍可重复读取。主线程直接返回 `EventWaiter`，其上下文退出后再调用 `.wait()` 会报错；工作线程返回 `ThreadEventWaiter`，等待及清理语义见[跨线程发布与等待](#跨线程发布与等待)。
 
 多模式等待在收齐所有结果后统一注销全部监听；部分结果到达时保留监听与路由缓存。每个模式只保留首次结果，同一事件可以同时满足重叠模式。无效的 `point`、模式和超时参数在注册前拒绝；超时必须是有限数字，布尔值不属于数字。
 
-在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`wait_for_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
+在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`expect_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
 
 ### 超时后继续收集结果
 
-默认超时会结束监听；设置 `keep_listening=True` 后，超时返回 `EventWaiter`，后续通过 `await waiter.get_result()` 等待完整结果：
+默认超时会结束监听。主线程支持设置 `keep_listening=True`，超时返回 `EventWaiter`，后续通过 `await waiter.get_result()` 等待完整结果；跨线程不支持此选项：
 
 ```python
-from apixis import EventWaiter, await_for
+from apixis import EventWaiter, wait_event
 
-result = await await_for("job.finished", time_out=1, keep_listening=True)
+result = await wait_event("job.finished", time_out=1, keep_listening=True)
 if isinstance(result, EventWaiter):
     # 首次等待已超时，监听仍在；这里可以先处理其他工作。
     result = await result.get_result()
 ```
 
-请求／回包场景仍用原来的 `async with wait_for_event(...)`；将等待改为 `await waiter.wait(time_out=1, keep_listening=True)` 即可。每次 `.wait()` 都只使用本次传入的等待时长：数字表示从本次调用计时，省略或传入 `None` 均无限等待，首次调用也相同。`keep_listening` 省略时沿用等待器配置。同一等待器的并发等待共享这个预算与策略。已有结果会直接返回，只有尚未收齐且超时才返回等待器；已经按默认策略超时关闭的等待器不能恢复，应在超时前启用该选项。
+请求／回包场景仍用原来的 `async with expect_event(...)`；将等待改为 `await waiter.wait(time_out=1, keep_listening=True)` 即可。每次 `.wait()` 都只使用本次传入的等待时长：数字表示从本次调用计时，省略或传入 `None` 均无限等待，首次调用也相同。`keep_listening` 省略时沿用等待器配置。同一等待器的并发等待共享这个预算与策略。已有结果会直接返回，只有尚未收齐且超时才返回等待器；已经按默认策略超时关闭的等待器不能恢复，应在超时前启用该选项。
 
 超时拿到等待器后，也可以再次 `await waiter.wait()` 无限等待直到收齐，或通过 `await waiter.wait(time_out=5)` 指定新的等待时长；期间已收到的事件会保留，监听不会重复注册。若再次超时且继续监听，仍返回同一个等待器。
 
@@ -397,12 +480,13 @@ registry.clear()
 
 假设每个前台 handler 都要 `await` 一次 HTTP 请求、或者一次数据库查询。如果事件持续到达且分发不受限制，大量请求会同时占用连接和下游服务资源。派发背压限制同时持有调度许可的前台事件处理链数量；普通的 HTTP、数据库调用或 `asyncio.sleep()` 不会自动归还许可，因此这些等待期间仍计入容量。
 
-队列容量和派发容量分别约束两个阶段：
+跨线程请求队列、事件队列和派发许可分别约束三个阶段：
 
 | 配置 | 限制范围 | 容量用完时 |
 | --- | --- | --- |
 | `APIXIS.EVENT.event_pipe_max_len` | 仍在本地队列中的事件数 | 异步发布等待空位 |
-| `APIXIS.EVENT.event_loop_backpressure` | 同时持有许可的前台处理链数 | 新分发或挂起后的恢复等待许可 |
+| `APIXIS.EVENT.event_pipe_max_len` | 等待主循环转交的跨线程请求数 | 工作线程的协程等待容量通知 |
+| `APIXIS.EVENT.event_loop_backpressure` | 所有线程共享的、同时持有许可的前台处理链数 | 新分发或挂起后的恢复等待许可 |
 
 `event_loop_backpressure` 默认为 `null`（Python `None`），此时只维护许可计数，不限制分发并发；设为正整数时启用派发背压。事件队列仍受 `event_pipe_max_len` 限制。配置的有效范围见[配置文档](../config/README.md#队列与并发)。
 
@@ -424,8 +508,9 @@ handler 等待的工作有时也需要事件循环继续分发。如果等待方
 `suspend_process()` 是内部许可管理机制，未从 `apixis`、`apixis.core` 或 `apixis.core.event` 导出。业务代码通过公开接口获得相应的挂起与恢复行为：
 
 - 发布后续事件使用 `pipe.post_event()`，它会在发布期间借出当前许可；直接 `pipe.put()` 不提供这层协调。
-- 等待事件使用 `await_for()`、`wait_for_event()` 或 `EventWaiter.wait()` / `get_result()`，它们在实际等待结果时借出许可。`wait_for_event` 的上下文进入只注册监听，不借出许可。
-- 请求／回包流程使用 `wait_for_event()`，按“注册监听 → 发布请求 → 等待结果”的顺序执行，避免漏掉提前到达的回包。
+- 等待事件使用 `wait_event()`、`expect_event()` 或 `EventWaiter.wait()` / `get_result()`，它们在实际等待结果时借出许可。`expect_event` 的上下文进入只注册监听，不借出许可。
+- 请求／回包流程使用 `expect_event()`，按“注册监听 → 发布请求 → 等待结果”的顺序执行，避免漏掉提前到达的回包。
+- 前台 handler 中使用线程安全接口时，同样协调派发许可；`expect_event_threadsafe()` 的进入需要异步确认注册，因此进入期间也借出许可。工作线程不直接操作主循环许可。
 - 图中的嵌套 `invoke()` 和 `interrupt()` 已协调相应的等待，见[图 API](../graph/README.md)。
 
 如果自行等待应用的 `Future`、`Event` 等信号，且其完成依赖另一个事件 handler，框架无法自动识别这项依赖。应改用上述事件等待接口，或将后续逻辑放到结果事件的订阅处理器中，避免持有许可等待依赖方。
@@ -440,6 +525,6 @@ from apixis import stop_core
 await stop_core()
 ```
 
-`stop_core()` 统一管理共享组件。独立创建的组件仍可分别调用 `event_loop.stop()` 和 `pipe.stop()`，详见[事件通道](./channels.md)。停止后在 asyncio 中调用 getter 会触发自动重启。
+`stop_core()` 统一管理共享组件。独立创建的组件仍可分别调用 `event_loop.stop()` 和 `pipe.stop()`，详见[事件队列](./channels.md)。停止后在 asyncio 中调用 getter 会触发自动重启。
 
-[处理器](./handlers.md) · [事件通道](./channels.md) · [文档首页](../../README.md)
+[处理器](./handlers.md) · [事件队列](./channels.md) · [文档首页](../../README.md)

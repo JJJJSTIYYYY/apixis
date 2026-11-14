@@ -10,12 +10,12 @@ uv sync --extra dev --locked
 
 | 目录 | 范围 |
 | --- | --- |
-| `core/event` | 事件、handler、订阅、通道、背压与生命周期的组件契约 |
+| `core/event` | 事件、handler、订阅、队列、跨线程等待、背压与生命周期的组件契约 |
 | `core/graph` | 节点、Command、context、快照、流与图执行的组件契约 |
 | `core/config`、`core/utils` | 配置与日志 |
 | `integration/event` | 大规模通配符匹配与完整事件分发的正确性 |
 | `integration/graph` | 插件、中断、取消、并发、运行期所有权与图分解 |
-| `performance` | 大量多节点图同时调度，含建图耗时的性能测试 |
+| `performance` | 含建图耗时的图调度基准，以及真实工作线程的事件压力测试 |
 
 `tests/conftest.py` 集中管理共享 asyncio runtime 的隔离与清理，以及等待前台分发完成的 helper；根目录 `conftest.py` 统一提供测试筛选与性能参数。仅在这些测试基础设施和已有白盒组件测试中检查内部状态；新增性能 workload 通过 `apixis.core` 的公开接口构建、执行和检查图。
 
@@ -30,7 +30,29 @@ uv run --no-sync pytest tests/integration/graph
 
 默认不收集性能测试，原有规模正确性测试仍参与默认测试。CI 在默认测试后额外运行十三组性能 workload 的小规模版本，验证测试本身能执行和清理，不设与硬件绑定的速度阈值。
 
-背压边界回归位于 `integration/event/test_backpressure_boundaries.py`，使用实际前台容量 `1/2` 与队列容量 `1/2` 的交叉组合，检查满队列、嵌套并行图、请求响应、取消、重启以及许可归还。测试有异步 deadline；排查死锁时应另加进程级 watchdog，避免取消清理本身阻塞测试退出。
+背压边界回归位于 `integration/event/test_backpressure_boundaries.py`，使用实际前台容量 `1/2/3` 与队列容量 `1/2/3` 的九种交叉组合，检查满队列、嵌套并行图、请求响应、取消、重启以及许可归还。测试有异步 deadline；排查死锁时应另加进程级 watchdog，避免取消清理本身阻塞测试退出。
+
+## 跨线程事件验证
+
+`core/event/test_thread_events.py` 覆盖注册就绪、超时重设、取消、容量等待和停止／重启；`core/event/test_thread_deadlocks.py` 固定派发容量和两条队列容量为 `1`，在默认和 eager task factory 下检查 handler 内的线程版等待、满队列注册、默认线程池被占满，以及取消时的许可恢复和容量通知转交。
+
+```bash
+uv run --no-sync pytest tests/core/event/test_thread_events.py \
+  tests/core/event/test_thread_deadlocks.py -q -o asyncio_debug=true
+```
+
+真实线程压力测试位于 `performance/test_thread_events.py`，包含逐生产者顺序发布、请求／回复、广播与取消风暴、工作线程 loop 内并发发布四种负载。每种负载分别使用派发容量 `1`、`128`、`None`，共十二组。队列默认容量为 `64`；`--thread-queue-size` 同时设置事件队列与桥接队列容量。
+
+只验证派发容量和两条队列容量均为 `1`，使用 128 个工作线程、每线程 128 次操作：
+
+```bash
+uv run --no-sync pytest tests/performance/test_thread_events.py \
+  --run-performance -k '[1]' --thread-workers 128 --thread-iterations 128 \
+  --thread-queue-size 1 -o asyncio_debug=true -q -s \
+  --thread-report test-results/thread-capacity-one.json
+```
+
+去掉 `-k '[1]'` 可验证全部三档派发容量。结束时检查处理结果、许可恢复、临时监听、桥接请求、异步容量等待和 loop callback 错误；这些测试验证推进和清理，不设置吞吐量阈值。线程压力指标写入 `--thread-report` 指定的 JSON，与下文的 Graph 报告分开。
 
 ## 跨版本性能对比
 
@@ -48,7 +70,9 @@ git archive 9743814 source | tar -x -C /tmp/apixis-before
 
 基准包含精确事件名的冷/热查询、临时订阅增删、独立/复用图、串行/并行图、大状态快照、关闭快照、三档背压下的异步等待，以及事件发布、请求响应和五种等待/订阅比例。两版使用相同参数并逐个校验结果。运行时记录总耗时、构建/准备/执行分项、从共同启动门计时的批量完成延迟和事件循环延迟；内存另用 tracemalloc 测量，不能当作进程 RSS。历史摘要、性能变化图与最新完整结果见[性能测试记录](../docs/performance/README.md)。
 
-支持线程接口的版本还包含六个 `thread/` 场景：同步发布、请求响应和工作线程内的 asyncio 并发发布，分别使用容量 1 和 64 的桥接队列。默认 32 个线程、每线程 64 次操作，可通过 `--thread-workers` 和 `--thread-iterations` 调整；事件管道容量与桥接队列容量分别记录。计时包含线程池创建、提交、派发和等待剩余任务结束，并校验无丢失、重复或残留监听器。
+支持线程接口的版本还包含六个 `thread/` 场景：逐次异步发布、请求响应和工作线程内的 asyncio 并发发布，分别使用容量 1 和 64 的桥接队列。默认 32 个线程、每线程 64 次操作，可通过 `--thread-workers` 和 `--thread-iterations` 调整；事件管道容量与桥接队列容量分别记录。计时包含线程池创建、提交、派发和等待剩余任务结束，并校验无丢失、重复或残留监听器。worker 的默认 executor 大小作为环境参数记录，桥接入队本身不使用该 executor。
+
+跨线程比较的基线应支持相同的 `await` / `async with` 接口；历史同步线程接口的版本需要使用与其匹配的驱动，不能直接用当前线程 workload 比较。
 
 ```bash
 .venv/bin/python scripts/benchmark_runtime.py \

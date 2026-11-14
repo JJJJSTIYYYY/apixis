@@ -26,8 +26,8 @@ class HandlerChainToken:
     resuming_task: asyncio.Task | None = field(default=None, repr=False)
 
 
-handler_chain_context: ContextVar[HandlerChainToken | None] = ContextVar(
-    "apixis_handler_chain", default=None,
+handler_chain_token_context: ContextVar[HandlerChainToken | None] = ContextVar(
+    "apixis_handler_chain_token", default=None,
 )
 
 
@@ -54,14 +54,14 @@ async def suspend_process():
             await do_something()
         ```
     """
-    chain = handler_chain_context.get()
+    chain = handler_chain_token_context.get()
 
     if chain is None or chain.closed:
         yield
         return
 
     owner = chain.owner
-    token = handler_chain_context.set(None)
+    token = handler_chain_token_context.set(None)
     try:
         chain.suspended += 1
         if chain.held:
@@ -108,11 +108,11 @@ async def suspend_process():
                 if cancelled is not None:
                     raise cancelled
     finally:
-        handler_chain_context.reset(token)
+        handler_chain_token_context.reset(token)
 
 
 __all__ = [
     "HandlerChainToken",
-    "handler_chain_context",
+    "handler_chain_token_context",
     "suspend_process",
 ]

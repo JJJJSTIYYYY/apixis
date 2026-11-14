@@ -1,15 +1,16 @@
 """Bounded thread-to-loop requests; all event operations run on the owner loop."""
 
 import asyncio
-from collections import deque
+from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future, InvalidStateError
+from contextlib import AbstractAsyncContextManager, nullcontext
 from contextvars import Context, copy_context
 from dataclasses import dataclass, field
-from threading import Condition, current_thread, main_thread
+from threading import Lock
 from typing import Any
 
-from apixis.core.event.base.process import handler_chain_context
+from apixis.core.event.base.process import handler_chain_token_context, suspend_process
 
 
 @dataclass(eq=False)
@@ -22,7 +23,6 @@ class ThreadSubmission[T]:
     result: Future[T] = field(default_factory=Future)
     closed: Future[None] = field(default_factory=Future)
     task: asyncio.Task[None] | None = None
-    waiting_for_admission: bool = False
 
 
 def complete_future(future: Future[Any], *, value: Any = None, error: BaseException | None = None) -> None:
@@ -42,15 +42,17 @@ class EventThreadBridge:
     Publications are awaited serially so a full event pipe cannot create an
     unbounded collection of publishing tasks. Background operations register
     event waiters and collect results independently of subsequent requests.
-    A single condition protects queue capacity and the idle-to-running handoff;
-    producers share one scheduled consumer until it drains the queue.
+    A single lock protects queue capacity and the idle-to-running handoff;
+    producers share one scheduled consumer until it drains the queue. Async
+    admission uses cross-thread Futures rather than a caller's executor.
     """
 
     def __init__(self, loop: asyncio.AbstractEventLoop, *, maxsize: int) -> None:
         self.loop = loop
         self._requests: deque[ThreadSubmission[Any]] = deque()
         self._maxsize = maxsize
-        self._admission = Condition()
+        self._admission = Lock()
+        self._async_admission: OrderedDict[Future[None], None] = OrderedDict()
         self._closed = False
         self._consumer_scheduled = False
         self._consumer: asyncio.Task[None] | None = None
@@ -61,64 +63,85 @@ class EventThreadBridge:
         with self._admission:
             return self._closed
 
-    def submit[T](
-        self, operation: Callable[[], Awaitable[T]], *, background: bool = False,
-    ) -> ThreadSubmission[T]:
-        """Wait in the calling worker thread until request capacity is available."""
-        request = self._make_request(operation, background=background)
-        self._enqueue(request)
-        return request
-
     async def asubmit[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool = False,
     ) -> ThreadSubmission[T]:
         """Wait for admission without blocking the calling asyncio loop."""
         request = self._make_request(operation, background=background)
-        admitting = asyncio.create_task(asyncio.to_thread(self._enqueue, request))
         try:
-            await asyncio.shield(admitting)
+            while True:
+                with self._admission:
+                    if self._try_enqueue(request):
+                        return request
+                    available: Future[None] = Future()
+                    self._async_admission[available] = None
+                try:
+                    await asyncio.wrap_future(available)
+                except BaseException:
+                    with self._admission:
+                        self._async_admission.pop(available, None)
+                        if len(self._requests) < self._maxsize:
+                            # A cancelled producer may already have received
+                            # the only wakeup for this free slot.
+                            self._notify_admission()
+                    raise
         except asyncio.CancelledError:
             request.result.cancel()
-            await asyncio.shield(admitting)
+            await asyncio.shield(asyncio.wrap_future(request.closed))
             raise
-        return request
+
+    def suspend_caller(self) -> AbstractAsyncContextManager[None]:
+        """Lend managed caller capacity only on the bridge's owner loop."""
+        return suspend_process() if asyncio.get_running_loop() is self.loop else nullcontext()
+
+    async def call[T](
+        self, operation: Callable[[], Awaitable[T]], *, background: bool = False,
+    ) -> T:
+        """Await an owner-loop operation and finish cleanup when cancelled."""
+        async with self.suspend_caller():
+            request = await self.asubmit(operation, background=background)
+            try:
+                return await asyncio.wrap_future(request.result)
+            except asyncio.CancelledError:
+                request.result.cancel()
+                await asyncio.shield(asyncio.wrap_future(request.closed))
+                raise
 
     def _make_request[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool,
     ) -> ThreadSubmission[T]:
         context = copy_context()
-        context.run(handler_chain_context.set, None)
+        context.run(handler_chain_token_context.set, None)
         request = ThreadSubmission(operation, context, background)
         request.result.add_done_callback(lambda future: self._on_result_done(request, future))
         return request
 
-    def _enqueue(self, request: ThreadSubmission) -> None:
-        with self._admission:
-            while True:
-                if request.result.cancelled():
-                    return
-                if self._closed or not self.loop.is_running():
-                    raise RuntimeError("The event thread bridge is not running; await start_core() first.")
-                if self._maxsize <= 0 or len(self._requests) < self._maxsize:
-                    break
-                if current_thread() is main_thread():
-                    raise RuntimeError("Use await post_event() or await_for() instead of blocking the main thread.")
-                request.waiting_for_admission = True
-                try:
-                    self._admission.wait()
-                finally:
-                    request.waiting_for_admission = False
-            self._requests.append(request)
-            if not self._consumer_scheduled:
-                self._consumer_scheduled = True
-                self.loop.call_soon_threadsafe(self._ensure_consumer, context=Context())
+    def _try_enqueue(self, request: ThreadSubmission) -> bool:
+        """Check capacity and schedule the consumer under the admission lock."""
+        if self._closed or not self.loop.is_running():
+            raise RuntimeError("The event thread bridge is not running; await start_core() first.")
+        if self._maxsize > 0 and len(self._requests) >= self._maxsize:
+            return False
+        self._requests.append(request)
+        if not self._consumer_scheduled:
+            self._consumer_scheduled = True
+            self.loop.call_soon_threadsafe(self._ensure_consumer, context=Context())
+        return True
+
+    def _notify_admission(self) -> None:
+        """Wake an async producer after capacity becomes available."""
+        while self._async_admission:
+            available, _ = self._async_admission.popitem(last=False)
+            try:
+                available.set_result(None)
+            except InvalidStateError:
+                # Cancellation can race capacity delivery from another loop.
+                continue
+            break
 
     def _on_result_done(self, request: ThreadSubmission, future: Future) -> None:
         if not future.cancelled():
             return
-        with self._admission:
-            if request.waiting_for_admission:
-                self._admission.notify_all()
         if not self.loop.is_closed():
             try:
                 self.loop.call_soon_threadsafe(self._cancel, request, context=Context())
@@ -145,7 +168,7 @@ class EventThreadBridge:
                     self._consumer_scheduled = False
                     return
                 request = self._requests.popleft()
-                self._admission.notify()
+                self._notify_admission()
             if request.result.cancelled():
                 if not request.closed.done():
                     self._release(request)
@@ -157,7 +180,11 @@ class EventThreadBridge:
                 # Let registration run before handling another queued request.
                 await asyncio.sleep(0)
             else:
-                await asyncio.gather(request.task, return_exceptions=True)
+                try:
+                    await request.task
+                except asyncio.CancelledError:
+                    if asyncio.current_task().cancelling():
+                        raise
 
     async def _execute(self, request: ThreadSubmission) -> None:
         try:
@@ -187,7 +214,9 @@ class EventThreadBridge:
             self._closed = True
             self._consumer_scheduled = False
             requests, self._requests = self._requests, deque()
-            self._admission.notify_all()
+            waiters, self._async_admission = self._async_admission, OrderedDict()
+        for available in waiters:
+            complete_future(available, error=RuntimeError("The event thread bridge is not running; await start_core() first."))
         for request in requests:
             if not request.result.done():
                 complete_future(request.result, error=RuntimeError("The event core stopped."))
