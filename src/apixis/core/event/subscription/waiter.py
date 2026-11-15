@@ -6,10 +6,11 @@ from concurrent.futures import Future
 from contextlib import asynccontextmanager
 from contextvars import Context
 from functools import partial
+from inspect import iscoroutinefunction
 from threading import current_thread, main_thread
 from typing import Literal, Self, cast
 
-from apixis.core.event.base.event import ApixEvent
+from apixis.core.event.base.event import ApixEvent, EventPredicate
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.base.process import suspend_process
 from apixis.core.event.factory import get_handler_registry, get_thread_bridge
@@ -24,7 +25,7 @@ class EventWaiter:
     by pattern. Registration is synchronous. Listeners close automatically on
     completion, ordinary timeout or cancellation. A deferred timeout transfers
     ownership to the caller until collection finishes or ``close()`` is called.
-    ``set_target_event_exactly()`` restricts collection to a specific event ID.
+    An optional synchronous ``predicate`` filters events by their contents.
     """
 
     def __init__(
@@ -33,6 +34,7 @@ class EventWaiter:
         *,
         point: Literal['received', 'processed'] = 'received',
         filter: list[str] | str | None = None,
+        predicate: EventPredicate | None = None,
         time_out: float | None = None,
         keep_listening: bool = False,
     ) -> None:
@@ -51,8 +53,13 @@ class EventWaiter:
                 raise TypeError("filter must be a string or list of patterns.")
             if any(not isinstance(name, str) or not name for name in filters):
                 raise ValueError("filter must contain non-empty string patterns.")
+        if predicate is not None:
+            if not callable(predicate):
+                raise TypeError("predicate must be callable or None.")
+            if iscoroutinefunction(predicate) or iscoroutinefunction(predicate.__call__):
+                raise TypeError("predicate must be synchronous.")
         self._single_event = isinstance(event_names, str)
-        self._target_event_id: str | None = None
+        self._predicate = predicate
         event_names = set(patterns)
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
         self._remaining = len(self._events)
@@ -73,10 +80,6 @@ class EventWaiter:
         except BaseException:
             self.close()
             raise
-
-    def set_target_event_exactly(self, event_id: str) -> None:
-        """Restrict subsequent matches to this ID; set before publishing the event."""
-        self._target_event_id = event_id
 
     async def __aenter__(self) -> Self:
         if self._context_exited:
@@ -186,8 +189,6 @@ class EventWaiter:
             self.close()
 
     async def _resolve(self, event_name: str, event: ApixEvent, *args, **kwargs) -> None:
-        if self._target_event_id is not None and event.event_id != self._target_event_id:
-            return
         if self._future.done() or self._events[event_name] is not None:
             return
         if (
@@ -196,6 +197,14 @@ class EventWaiter:
         ):
             self._expire()
             if self._closed:
+                return
+        if self._predicate is not None:
+            try:
+                if not self._predicate(event):
+                    return
+            except Exception as error:
+                self._future.set_exception(error)
+                self.close()
                 return
         self._events[event_name] = event
         self._remaining -= 1
@@ -263,10 +272,11 @@ class ThreadEventWaiter:
         self, event_name: str | list[str] | set[str], *,
         point: Literal['received', 'processed'] = 'received',
         filter: list[str] | str | None = None,
+        predicate: EventPredicate | None = None,
         time_out: float | None = None,
     ) -> None:
         self._make_waiter = partial(
-            EventWaiter, event_name, point=point, filter=filter, time_out=time_out,
+            EventWaiter, event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
         )
         self._submission: ThreadSubmission[ApixEvent | dict[str, ApixEvent]] | None = None
         self._bridge: EventThreadBridge | None = None
@@ -358,6 +368,7 @@ async def expect_event(
     *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
+    predicate: EventPredicate | None = None,
     time_out: float | None = None,
     keep_listening: bool = False,
 ) -> AsyncIterator[EventWaiter | ThreadEventWaiter]:
@@ -385,6 +396,10 @@ async def expect_event(
             ``'processed'`` resolves after them. Background handlers are not
             awaited. Both return the original mutable ``ApixEvent``.
         filter: Glob pattern or list of patterns to exclude.
+        predicate: Optional synchronous ``EventPredicate`` evaluated on the owner
+            loop after name filtering, at the selected point. False ignores the
+            event; an exception fails this collection and removes its listeners.
+            Overlapping patterns may evaluate it more than once per event.
         time_out: Seconds from registration until every requested pattern has
             matched at the selected point. ``None`` means no deadline;
             non-positive values expire immediately. The deadline includes time
@@ -421,12 +436,12 @@ async def expect_event(
         if keep_listening:
             raise ValueError("Cross-thread expect_event does not support keep_listening.")
         async with expect_event_threadsafe(
-            event_name, point=point, filter=filter, time_out=time_out,
+            event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
         ) as waiter:
             yield waiter
         return
     async with EventWaiter(
-        event_name, point=point, filter=filter,
+        event_name, point=point, filter=filter, predicate=predicate,
         time_out=time_out, keep_listening=keep_listening,
     ) as waiter:
         yield waiter
@@ -437,6 +452,7 @@ async def wait_event(
     *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
+    predicate: EventPredicate | None = None,
     time_out: float | None = None,
     keep_listening: bool = False,
 ) -> ApixEvent | dict[str, ApixEvent] | EventWaiter:
@@ -465,6 +481,10 @@ async def wait_event(
             ``'processed'`` resolves after them, without awaiting background
             handlers. The returned ``ApixEvent`` is mutable, not a snapshot.
         filter: Glob pattern or list of patterns to exclude.
+        predicate: Optional synchronous ``EventPredicate`` evaluated on the owner
+            loop after name filtering, at the selected point. False ignores the
+            event; an exception fails this collection and removes its listeners.
+            Overlapping patterns may evaluate it more than once per event.
         time_out: Maximum seconds spent waiting after registration, or ``None``
             for no limit. Time before this coroutine starts is not included.
             Expiry raises ``TimeoutError`` unless ``keep_listening`` is true.
@@ -488,10 +508,10 @@ async def wait_event(
         if keep_listening:
             raise ValueError("Cross-thread wait_event does not support keep_listening.")
         return await wait_event_threadsafe(
-            event_name, point=point, filter=filter, time_out=time_out,
+            event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
         )
     async with expect_event(
-        event_name, point=point, filter=filter,
+        event_name, point=point, filter=filter, predicate=predicate,
         time_out=time_out, keep_listening=keep_listening,
     ) as waiter:
         return await waiter.wait(time_out=time_out)
@@ -500,10 +520,10 @@ async def wait_event(
 async def collect_events(
     event_name: str | list[str] | set[str], *,
     point: Literal['received', 'processed'], filter: list[str] | str | None,
-    time_out: float | None,
+    time_out: float | None, predicate: EventPredicate | None = None,
 ) -> ApixEvent | dict[str, ApixEvent]:
     """Collect on the owner loop using the deadline set at registration."""
-    async with EventWaiter(event_name, point=point, filter=filter, time_out=time_out) as waiter:
+    async with EventWaiter(event_name, point=point, filter=filter, predicate=predicate, time_out=time_out) as waiter:
         return await waiter.get_result()
 
 
@@ -512,6 +532,7 @@ async def wait_event_threadsafe(
     *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
+    predicate: EventPredicate | None = None,
     time_out: float | None = None,
 ) -> ApixEvent | dict[str, ApixEvent]:
     """Await event collection on the owner loop from any caller loop.
@@ -520,9 +541,10 @@ async def wait_event_threadsafe(
     ``async with expect_event_threadsafe(...)`` to confirm registration before
     publishing. Admission waits asynchronously. Cancellation waits for listener
     cleanup on the owner loop. Results are the original mutable events.
+    A predicate also runs on the owner loop; its exceptions reach the caller.
     """
     return await get_thread_bridge().call(partial(
-        collect_events, event_name, point=point, filter=filter, time_out=time_out,
+        collect_events, event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
     ), background=True)
 
 
@@ -530,14 +552,16 @@ def expect_event_threadsafe(
     event_name: str | list[str] | set[str], *,
     point: Literal['received', 'processed'] = 'received',
     filter: list[str] | str | None = None,
+    predicate: EventPredicate | None = None,
     time_out: float | None = None,
 ) -> ThreadEventWaiter:
     """Build an async waiting context; entry confirms owner-loop registration.
 
     Publish inside ``async with``, then ``await waiter.wait()``. Replies that
     arrive before waiting are retained. Context exit awaits listener cleanup.
+    The optional synchronous predicate executes on the owner loop.
     """
-    return ThreadEventWaiter(event_name, point=point, filter=filter, time_out=time_out)
+    return ThreadEventWaiter(event_name, point=point, filter=filter, predicate=predicate, time_out=time_out)
 
 
 # Preserve the original public names as aliases.

@@ -104,6 +104,11 @@ class ApixHandlerRegistry:
             )
         return list(dict.fromkeys(supplied))
 
+    @property
+    def waiter_count(self) -> int:
+        """Return registered wait listeners; each pattern owns one listener."""
+        return len(self._waiter_cache.positions)
+
     def _find_handler_position(self, handler_name: str) -> tuple[float, int] | None:
         """Return the active bucket and index for a handler name."""
         order = self._handler_order.get(handler_name)

@@ -113,3 +113,28 @@ async def test_stream_channels_do_not_share_messages():
     assert await anext(right) == "right"
     left.close()
     right.close()
+
+
+@pytest.mark.parametrize("buffered", [False, True])
+async def test_exhausted_channel_keeps_stopping_without_waiting(buffered):
+    channel = StreamChannel()
+    if buffered:
+        channel.writer(None)
+        channel.writer("last")
+    channel.close()
+    assert [chunk async for chunk in channel] == ([None, "last"] if buffered else [])
+    for _ in range(3):
+        with pytest.raises(StopAsyncIteration):
+            await asyncio.wait_for(anext(channel), 1)
+    assert [chunk async for chunk in channel] == []
+
+
+async def test_close_wakes_reader_and_remains_exhausted_afterwards():
+    channel = StreamChannel()
+    waiting = asyncio.create_task(anext(channel))
+    await asyncio.sleep(0)
+    channel.close()
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(waiting, 1)
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(anext(channel), 1)

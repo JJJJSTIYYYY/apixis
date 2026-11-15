@@ -112,6 +112,8 @@ writer.write({"progress": 0.5})
 
 向图外实时发送数据。
 
+流关闭后先消费已排队的 chunk，随后结束迭代；结束后的再次读取继续抛出 `StopAsyncIteration`。
+
 `stream()` 在开始迭代时继承调用方上下文，图上下文绑定在独立的执行 task 内，消费 chunk 的代码保留自己的上下文。调用进入终态后，仍在执行的插件通过 `get_stream_writer()` 取得的 writer 不再发送 chunk。
 
 ## `GraphContext`

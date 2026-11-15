@@ -32,6 +32,8 @@ uv run --no-sync pytest tests/integration/graph
 
 背压边界回归位于 `integration/event/test_backpressure_boundaries.py`，使用实际前台容量 `1/2/3` 与队列容量 `1/2/3` 的九种交叉组合，检查满队列、嵌套并行图、请求响应、取消、重启以及许可归还。测试有异步 deadline；排查死锁时应另加进程级 watchdog，避免取消清理本身阻塞测试退出。
 
+谓词匹配回归位于 `core/event/test_waiter_predicate.py`，覆盖同名并发回包、重叠模式、延迟收集、异常清理及工作线程谓词在主循环执行。`core/event/test_runtime_status.py` 检查不可变状态快照、查询无启动副作用、许可与挂起任务的区别，以及暂停和桥接队列满时的状态。流结束后重复读取的回归位于 `core/graph/stream/test_stream_writer.py`。
+
 ## 跨线程事件验证
 
 `core/event/test_thread_events.py` 覆盖注册就绪、超时重设、取消、容量等待和停止／重启；`core/event/test_thread_deadlocks.py` 固定派发容量和两条队列容量为 `1`，在默认和 eager task factory 下检查 handler 内的线程版等待、满队列注册、默认线程池被占满，以及取消时的许可恢复和容量通知转交。

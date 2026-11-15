@@ -15,6 +15,7 @@ from apixis.core.event.base.process import HandlerChainToken, handler_chain_toke
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.event.base.status import EventLoopStatus
 from apixis.core.utils import logger
 from apixis.core.utils.semaphore import ApixisSemaphore
 
@@ -44,6 +45,17 @@ class ApixEventLoop:
         self._pending_dispatch: tuple[ApixEvent, list[ApixEventHandler]] | None = None
 
         self._started = False
+
+    def get_status(self) -> EventLoopStatus:
+        """Read tracked work on the owner thread without starting consumption."""
+        return EventLoopStatus(
+            running=self._started,
+            dispatch_capacity=self._event_semaphore.capacity,
+            dispatch_permits_in_use=self._event_semaphore.in_use,
+            dispatch_tasks=len(self._dispatch_tasks),
+            pending_dispatch=self._pending_dispatch is not None,
+            background_tasks=len(self._background_handler_tasks),
+        )
 
     async def start(self) -> None:
         """Start the single local consumer in the running loop, once."""

@@ -21,6 +21,16 @@ class ApixisSemaphore(asyncio.BoundedSemaphore):
         self._bounded = bounded
         self._unbounded_value = 0
 
+    @property
+    def capacity(self) -> int | None:
+        """Return the configured bound, or None for unlimited dispatch."""
+        return self._bounded
+
+    @property
+    def in_use(self) -> int:
+        """Return acquired permits, including reservations for waking waiters."""
+        return -self._unbounded_value if self._bounded is None else self._bounded - self._value
+
     async def acquire(self) -> bool:
         if self._bounded is None:
             self._unbounded_value -= 1

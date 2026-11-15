@@ -66,6 +66,9 @@ class ApixEvent:
         return datetime.fromtimestamp(self.timestamp)
 
 
+EventPredicate = Callable[[ApixEvent], bool]
+
+
 EventHandlerFunc = Callable[[ApixEvent], Awaitable[None]]
 
 
@@ -91,6 +94,7 @@ __all__ = [
     "EventType",
     "ApixEventError",
     "ApixEvent",
+    "EventPredicate",
     "EventHandlerFunc",
     "EventHandlerErrorFunc",
     "create_event",

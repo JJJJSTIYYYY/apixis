@@ -15,6 +15,7 @@ from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.thread_bridge import EventThreadBridge
+from apixis.core.event.base.status import EventRuntimeStatus
 from apixis.core.utils import logger
 
 
@@ -40,6 +41,28 @@ class EventCore:
 
 
 _core: EventCore | None = None
+
+
+def get_event_runtime_status() -> EventRuntimeStatus:
+    """Read an immutable main-thread snapshot without creating or starting core.
+
+    This synchronous query never schedules work, waits for processing or
+    exposes task/event objects. Uninitialized components remain None.
+    """
+    if current_thread() is not main_thread():
+        raise RuntimeError("Event runtime status must be queried on the main thread.")
+    core = _core
+    if core is None:
+        return EventRuntimeStatus()
+    return EventRuntimeStatus(
+        initialized=True,
+        running=core.started,
+        event_queue_size=core.event_pipe.qsize(),
+        event_queue_capacity=core.event_pipe.maxsize,
+        wait_listeners=core.handler_registry.waiter_count,
+        event_loop=core.event_loop.get_status(),
+        thread_bridge=None if core.thread_bridge is None else core.thread_bridge.get_status(),
+    )
 
 
 def _get_core() -> EventCore:
@@ -199,6 +222,7 @@ async def aget_event_loop() -> ApixEventLoop:
 
 
 __all__ = [
+    "get_event_runtime_status",
     "start_core", "stop_core", "get_event_registry", "get_event_pipe", "get_handler_registry",
     "aget_event_registry", "aget_event_pipe", "aget_handler_registry",
     "get_event_loop", "aget_event_loop",

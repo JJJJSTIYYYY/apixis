@@ -82,12 +82,13 @@ async def post_and_wait(
         )
     pipe = get_event_pipe()
     event = create_event(event_type=event_type, event_name=event_name, context=context)
+    event_id = event.event_id
     loop = asyncio.get_running_loop()
     deadline = None if time_out is None else loop.time() + time_out
     async with expect_event(
         escape(event_name), point="processed", keep_listening=keep_listening,
+        predicate=lambda event: event.event_id == event_id,
     ) as waiter:
-        waiter.set_target_event_exactly(event.event_id)
         async with suspend_process():
             async with asyncio.timeout_at(deadline):
                 await pipe.put(event)

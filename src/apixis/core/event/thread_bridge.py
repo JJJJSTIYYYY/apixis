@@ -11,6 +11,7 @@ from threading import Lock
 from typing import Any
 
 from apixis.core.event.base.process import handler_chain_token_context, suspend_process
+from apixis.core.event.base.status import EventThreadBridgeStatus
 
 
 @dataclass(eq=False)
@@ -62,6 +63,17 @@ class EventThreadBridge:
     def closed(self) -> bool:
         with self._admission:
             return self._closed
+
+    def get_status(self) -> EventThreadBridgeStatus:
+        """Snapshot on the owner thread; lock admission state shared by workers."""
+        with self._admission:
+            return EventThreadBridgeStatus(
+                running=not self._closed and self.loop.is_running(),
+                queue_size=len(self._requests),
+                queue_capacity=self._maxsize,
+                admission_waiters=len(self._async_admission),
+                active_requests=len(self._active),
+            )
 
     async def asubmit[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool = False,

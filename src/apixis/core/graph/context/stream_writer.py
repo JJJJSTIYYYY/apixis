@@ -49,6 +49,8 @@ class StreamChannel(AsyncIterator[Any]):
         return self
 
     async def __anext__(self) -> Any:
+        if self._closed and self._queue.empty():
+            raise StopAsyncIteration
         chunk = await self._queue.get()
         if chunk is _STREAM_END:
             raise StopAsyncIteration

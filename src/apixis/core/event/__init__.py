@@ -1,9 +1,13 @@
 """Public event types, queues, registries, and subscription helpers."""
 
 from apixis.core.event.base import (
+    EventLoopStatus,
+    EventRuntimeStatus,
+    EventThreadBridgeStatus,
     EventType,
     ApixEvent,
     ApixEventError,
+    EventPredicate,
     EventHandlerFunc,
     EventHandlerErrorFunc,
     ApixEventHandler,
@@ -25,6 +29,7 @@ from apixis.core.event.handler_registry import (
     ApixHandlerRegistry,
 )
 from apixis.core.event.factory import (
+    get_event_runtime_status,
     start_core,
     stop_core,
     get_event_registry,
@@ -64,6 +69,10 @@ from apixis.core.event.event_registry import (
 )
 
 __all__ = [
+    "get_event_runtime_status",
+    "EventRuntimeStatus",
+    "EventLoopStatus",
+    "EventThreadBridgeStatus",
     "start_core",
     "stop_core",
     "get_event_registry",
@@ -78,6 +87,7 @@ __all__ = [
     "EventType",
     "ApixEvent",
     "ApixEventError",
+    "EventPredicate",
     "EventHandlerFunc",
     "EventHandlerErrorFunc",
     "ApixEventHandler",

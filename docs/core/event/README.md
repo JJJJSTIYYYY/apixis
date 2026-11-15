@@ -17,7 +17,8 @@
 | [subscription/handlers.py](../../../src/apixis/core/event/subscription/handlers.py) | 全局订阅、取消订阅与注册信息查询 |
 | [subscription/publication.py](../../../src/apixis/core/event/subscription/publication.py) | 全局异步发布与线程安全发布入口 |
 | [subscription/waiter.py](../../../src/apixis/core/event/subscription/waiter.py) | 主线程与工作线程的等待入口、超时、结果收集、注册就绪与清理确认 |
-| [factory.py](../../../src/apixis/core/event/factory.py) | 共享核心的依赖组装、启动、停止与访问 |
+| [factory.py](../../../src/apixis/core/event/factory.py) | 共享核心的依赖组装、启动、停止、访问与状态查询 |
+| [base/status.py](../../../src/apixis/core/event/base/status.py) | 不可变的核心、派发与跨线程桥接状态快照 |
 | [event_pipe.py](../../../src/apixis/core/event/event_pipe.py) | 事件创建、上下文快照与本地有界队列 |
 | [event_loop.py](../../../src/apixis/core/event/event_loop.py) | 消费、捕获处理链、派发与并发容量管理 |
 | [thread_bridge.py](../../../src/apixis/core/event/thread_bridge.py) | 跨线程请求队列、取消和关闭协议 |
@@ -65,6 +66,33 @@ await start_core()
 - `await aget_event_loop()`
 
 异步 getter 以 `await` 方式唤起并返回同一组共享组件，不等待已发布事件处理完成。
+
+### 运行状态查询
+
+`get_event_runtime_status() -> EventRuntimeStatus` 在主线程同步返回只读快照，不创建核心、不触发启动，也不等待任务完成。工作线程调用会报错。快照只包含状态值，不暴露任务、事件或可变集合；可用 `dataclasses.asdict()` 转成字典。
+
+```python
+from dataclasses import asdict
+from apixis import get_event_runtime_status
+
+status = get_event_runtime_status()
+print(asdict(status))
+if status.event_loop is not None:
+    print(status.event_queue_size, status.event_loop.dispatch_permits_in_use)
+```
+
+| 位置 | 字段与含义 |
+| --- | --- |
+| 顶层 | `initialized`：核心是否已构建；`running`：本地 pipe 与消费者是否已启动。 |
+| 顶层 | `event_queue_size` / `event_queue_capacity`：尚未交接的队列积压及容量；`wait_listeners`：临时监听数，多模式等待按模式计数。 |
+| `event_loop` | `running`：消费者是否已启动；`dispatch_capacity`：派发容量，`None` 为无限制；`dispatch_permits_in_use`：当前已占用或已为唤醒方预留的许可。 |
+| `event_loop` | `dispatch_tasks`：仍在跟踪的前台任务；`pending_dispatch`：是否有已出队但尚未派发的事件；`background_tasks`：仍在跟踪的后台任务。 |
+| `thread_bridge` | `running`：桥接是否开放且所属 loop 正在运行；`queue_size` / `queue_capacity`：待执行请求及队列容量。 |
+| `thread_bridge` | `admission_waiters`：等待桥接队列空位的提交；`active_requests`：已开始执行、尚未完成清理回调的请求。 |
+
+未构建核心时，`initialized=False`、计数为零，`event_queue_capacity`、`event_loop`、`thread_bridge` 为 `None`。已构建但尚未启动桥接时，只有 `thread_bridge` 仍为 `None`。`EventLoopStatus`、`EventThreadBridgeStatus` 和 `EventRuntimeStatus` 均可从 `apixis` 导入。
+
+任务计数包含挂起等待以及已结束但清理回调尚未运行的任务，不等于正在执行的 handler 数。等待结果的处理链借出许可后，`dispatch_tasks` 仍可大于 `dispatch_permits_in_use`。暂停核心不会清空已有任务和队列，快照会如实保留这些数量。查询不缓存状态、不遍历任务集合，也不在事件热路径增加统计回调。
 
 ## `EventType`
 
@@ -235,16 +263,16 @@ async def main():
 asyncio.run(main())
 ```
 
-并发请求应使用各自唯一的响应事件名，防止匹配其他请求的响应。
+并发请求可使用各自唯一的响应事件名，或通过 `predicate` 按业务请求 ID 区分同名回包。
 
 | 接口 | 完成含义 |
 | --- | --- |
 | `await post_event_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None)` | 事件已进入原有事件队列，不代表处理完成。 |
 | `await post_and_wait_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None)` | 返回本次发布的原始 `ApixEvent`，按 `event_id` 精确等待其前台处理结束。 |
-| `await wait_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 返回匹配事件；调用协程开始执行后异步提交注册请求。 |
-| `async with expect_event_threadsafe(event_name, *, point="received", filter=None, time_out=None)` | 异步进入 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。 |
+| `await wait_event_threadsafe(event_name, *, point="received", filter=None, predicate=None, time_out=None)` | 返回匹配事件；调用协程开始执行后异步提交注册请求。 |
+| `async with expect_event_threadsafe(event_name, *, point="received", filter=None, predicate=None, time_out=None)` | 异步进入 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。 |
 
-线程等待接口支持字符串或非空 `list` / `set`，匹配、过滤及 `point` 与普通等待接口一致。字符串返回单个事件，集合返回按模式索引的事件字典；暂不提供 `keep_listening`。收到的事件和 payload 仍是共享对象，工作线程需要独立修改时自行复制。`processed` 不等待后台 handler。
+线程等待接口支持字符串或非空 `list` / `set`，匹配、过滤、`predicate` 及 `point` 与普通等待接口一致；谓词始终在主循环执行，普通异常传播给等待方并清理监听。字符串返回单个事件，集合返回按模式索引的事件字典；暂不提供 `keep_listening`。收到的事件和 payload 仍是共享对象，工作线程需要独立修改时自行复制。`processed` 不等待后台 handler。
 
 发布单个事件并等待它的处理结果时，可在工作线程的协程中使用：
 
@@ -338,7 +366,7 @@ async def observe_job(event):
 
 **两个接口都能等待一个或多个事件。区别在于是否需要在“注册”和“等待”之间执行自己的代码。**
 
-等待器可通过 `waiter.set_target_event_exactly(event_id)` 限定目标事件 ID。应在发布目标事件前设置，此后只收集该 ID 的匹配事件；`post_and_wait()` 使用此接口关联本次发布与处理结果。
+等待器可通过注册时的 `predicate` 按事件内容进一步筛选。`post_and_wait()` 使用 `predicate=lambda event: event.event_id == event_id` 关联本次发布与处理结果。
 
 ### 正反例：发布请求并等待回包
 
@@ -394,12 +422,32 @@ async with expect_event(
 
 传入字符串时，`wait_event()` 和 `.wait()` 返回单个 `ApixEvent`；传入列表或集合时，收齐所有模式的事件后返回以**订阅模式**为键的字典，即使集合中只有一个模式也是如此。模式不能为空，重复模式合并，字典不保证键顺序。每个模式只保留首个匹配，后续事件不覆盖；重叠模式可以由同一个事件满足。在上下文内重复调用 `.wait()` 返回同一个事件或字典。
 
+### 按业务条件匹配
+
+`EventWaiter`、`expect_event()`、`wait_event()` 及对应线程等待接口接受 `predicate: EventPredicate | None = None`；`EventPredicate` 的类型为 `Callable[[ApixEvent], bool]`。`None` 不增加内容筛选，谓词返回假值时忽略当前事件，保留监听与已有的部分结果。
+
+```python
+request_id = "request-42"
+async with expect_event(
+    "job.reply",
+    point="processed",
+    predicate=lambda event: event.context["request_id"] == request_id,
+) as waiter:
+    await post_event(event_name="job.request", context={"request_id": request_id})
+    reply = await waiter.wait(time_out=30)
+```
+
+事件名与 `filter` 先完成筛选，谓词随后在所选 `point` 执行，所以 `processed` 的谓词可以读取前台 handler 更新后的内容。主线程与工作线程传入的谓词都在主循环同步执行，必须快速返回，不支持异步函数。重叠模式可能对同一事件多次调用谓词，建议使用无副作用的判断。
+
+谓词抛出的普通异常会结束对应等待并注销全部监听，等待方收到原异常；事件本身和其他监听继续处理，不写入该事件的 `error_stack`。谓词不改变原有截止时间、延迟收集及取消规则。等待器仍为一次收集，不支持完成后重新注册复用。
+
 ### 共同参数与超时
 
 ```text
 event_name: str | list[str] | set[str]
 point: Literal["received", "processed"] = "received"
 filter: list[str] | str | None = None
+predicate: EventPredicate | None = None
 time_out: float | None = None
 keep_listening: bool = False
 ```

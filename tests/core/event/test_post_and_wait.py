@@ -284,3 +284,47 @@ async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime
     finally:
         release.set()
         await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("keep_listening", [False, True])
+async def test_result_completed_before_publication_returns_is_preserved(
+    cleanup_event_runtime, wait_for_dispatch, monkeypatch, keep_listening,
+):
+    core = cleanup_event_runtime
+    put = core.event_pipe.put
+    published = []
+
+    async def publish_and_complete(event):
+        published.append(event)
+        await put(event)
+        await wait_for_dispatch(core.event_loop)
+
+    monkeypatch.setattr(core.event_pipe, "put", publish_and_complete)
+    result = await post_and_wait(event_name="early.result", time_out=1, keep_listening=keep_listening)
+    assert result is published[0]
+    assert not core.handler_registry.registry
+
+
+@pytest.mark.parametrize("keep_listening", [False, True])
+async def test_cancelling_queue_admission_removes_listener_and_does_not_publish(
+    cleanup_event_runtime, monkeypatch, keep_listening,
+):
+    core = cleanup_event_runtime
+    pipe = ApixEventPipe(maxsize=1)
+    await pipe.post_event(event_name="occupied")
+    monkeypatch.setattr(publication, "get_event_pipe", lambda: pipe)
+    pending = asyncio.create_task(post_and_wait(event_name="blocked", keep_listening=keep_listening))
+    try:
+        await asyncio.sleep(0)
+        assert core.handler_registry.waiter_count == 1
+        assert not pending.done()
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+        assert not core.handler_registry.registry
+        assert pipe.qsize() == 1
+        assert pipe.get_nowait().event_name == "occupied"
+        pipe.task_done()
+    finally:
+        pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
