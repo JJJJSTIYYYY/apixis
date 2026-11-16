@@ -2,7 +2,7 @@
 
 import asyncio
 import traceback
-from typing import Any, Awaitable, Callable, Literal, Self
+from typing import Any, Awaitable, Callable, Coroutine, Literal, Self
 from uuid import uuid4
 
 from apixis.core.event.base.event import ApixEvent, ApixEventError, EventHandlerFunc, EventHandlerErrorFunc
@@ -255,7 +255,7 @@ class ApixEventHandler:
         between_handlers: tuple[str | None, str | None] | None = None,
         filter_event: list[str] | None = None,
         group: str | None = None,
-    ) -> Self:
+    ) -> Self | Coroutine[Any, Any, Self]:
         """Register this instance globally with the same options as subscribe().
 
         Equivalent to ``subscribe(*event_names, **options)(self)``. At least
@@ -277,9 +277,11 @@ class ApixEventHandler:
 
         Returns:
             This instance after successful registration or replacement.
+            On worker threads, a coroutine yielding this instance; use
+            ``await handler.register(...)`` after main-thread core startup.
         """
         # Import at call time because handler_registry imports this class.
-        from apixis.core.event.subscription.handlers import subscribe
+        from apixis.core.event.subscription.subscriber import subscribe
 
         return subscribe(
             *event_names,
@@ -293,7 +295,9 @@ class ApixEventHandler:
             background=self.background,
         )(self)
 
-    def unregister(self, *, same_group: bool = False, missing_ok: bool = True) -> None:
+    def unregister(
+        self, *, same_group: bool = False, missing_ok: bool = True,
+    ) -> None | Coroutine[Any, Any, None]:
         """Immediately remove the global registration under this handler's name.
 
         Equivalent to ``unsubscribe(self.name, missing_ok=missing_ok)``. Remove
@@ -305,14 +309,15 @@ class ApixEventHandler:
 
         With ``same_group=True``, remove every registration in ``self.group``
         using the group index instead. Missing groups follow ``missing_ok``.
+        On worker threads, use ``await handler.unregister(...)`` to confirm
+        owner-loop removal after main-thread core startup.
         """
         # Import at call time because handler_registry imports this class.
-        from apixis.core.event.subscription.handlers import unsubscribe
+        from apixis.core.event.subscription.subscriber import unsubscribe
 
         if same_group:
-            unsubscribe(group=self.group, missing_ok=missing_ok)
-        else:
-            unsubscribe(self.name, missing_ok=missing_ok)
+            return unsubscribe(group=self.group, missing_ok=missing_ok)
+        return unsubscribe(self.name, missing_ok=missing_ok)
 
 
 __all__ = [

@@ -1,10 +1,14 @@
 """Global handler subscription, removal, and registration inspection."""
 
+from collections.abc import Callable, Coroutine
 from copy import copy, deepcopy
+from functools import partial
+from threading import current_thread, main_thread
+from typing import Any
 
 from apixis.core.event.base.event import EventHandlerFunc
 from apixis.core.event.base.handler import ApixEventHandler
-from apixis.core.event.factory import get_handler_registry
+from apixis.core.event.factory import get_handler_registry, get_thread_bridge
 from apixis.core.utils.validation import validate_number
 
 
@@ -24,6 +28,13 @@ def subscribe(
     Handler names are unique across the process-global registry. The decorated
     function or ApixEventHandler instance is returned unchanged. Validation
     happens in register_handler when the returned decorator is applied.
+
+    On the main thread, ``subscribe(...)(handler)`` registers synchronously.
+    On a worker thread, use ``await subscribe(...)(handler)``; the decorator
+    returns a coroutine that waits for registration on the main loop without
+    blocking the worker loop. Thread selection happens when the decorator is
+    applied. Call ``await start_core()`` on the main thread first.
+    Use ``subscribe_threadsafe`` for an always-async registration interface.
 
     Event subscription and filtering use case-sensitive
     :func:`fnmatch.fnmatchcase` semantics. The handler chain is resolved lazily
@@ -219,6 +230,9 @@ def subscribe(
     Returns:
         A decorator that returns the supplied function or handler instance
         unchanged after successful registration or replacement.
+        On worker threads, the decorator returns a coroutine yielding that
+        same object after registration completes. Do not use it as ``@subscribe``
+        on a worker thread; explicitly await the decorator application instead.
 
     Raises:
         ValueError:
@@ -241,9 +255,12 @@ def subscribe(
     """
     if priority is not None:
         priority = validate_number(priority, "priority")
+
     def decorator[HandlerT: EventHandlerFunc | ApixEventHandler](
         func: HandlerT,
-    ) -> HandlerT:
+    ) -> HandlerT | Coroutine[Any, Any, HandlerT]:
+        if current_thread() is not main_thread():
+            return get_thread_bridge().call_sync(partial(decorator, func))
         handler_name = func.__name__
         # Stage instance metadata separately so a failed replacement cannot
         # mutate an object that is still registered or being executed.
@@ -276,19 +293,112 @@ def subscribe(
     return decorator
 
 
+def subscribe_threadsafe[HandlerT: EventHandlerFunc | ApixEventHandler](
+    *event_names: str,
+    exist_ok: bool = True,
+    priority: float | None = None,
+    between_handlers: tuple[str | None, str | None] | None = None,
+    filter_event: list[str] | None = None,
+    stop_when_error: bool | None = None,
+    time_out: float | None = None,
+    background: bool | None = None,
+    group: str | None = None,
+) -> Callable[[HandlerT], Coroutine[Any, Any, HandlerT]]:
+    """Create an async registration decorator usable from any caller loop.
+
+    Use ``registered = await subscribe_threadsafe("job.*")(handler)``.
+    All arguments have the same meaning as :func:`subscribe`, including
+    ordering, filtering, instance execution options and group replacement.
+    Do not apply this factory with ``@``: its decorator returns a coroutine.
+
+    Call ``await start_core()`` on the main thread before awaiting registration.
+    Admission waits asynchronously for bridge capacity. Completion confirms
+    registration on the owner loop and returns the original function or
+    ApixEventHandler instance. Callbacks continue to execute on the owner loop.
+    Validation and registration errors propagate to the awaiting caller.
+
+    Cancellation before execution skips registration. Once registered, a
+    handler remains registered even if the caller is cancelled; remove it
+    explicitly with ``unsubscribe_threadsafe``. Stopped or uninitialized
+    cores raise ``RuntimeError``, as with other threadsafe event APIs.
+    """
+    register = subscribe(
+        *event_names, exist_ok=exist_ok, priority=priority,
+        between_handlers=between_handlers, filter_event=filter_event,
+        stop_when_error=stop_when_error, time_out=time_out,
+        background=background, group=group,
+    )
+
+    async def decorator(func: HandlerT) -> HandlerT:
+        return await get_thread_bridge().call_sync(partial(register, func))
+
+    return decorator
+
+
+def asubscribe[HandlerT: EventHandlerFunc | ApixEventHandler](
+    *event_names: str,
+    exist_ok: bool = True,
+    priority: float | None = None,
+    between_handlers: tuple[str | None, str | None] | None = None,
+    filter_event: list[str] | None = None,
+    stop_when_error: bool | None = None,
+    time_out: float | None = None,
+    background: bool | None = None,
+    group: str | None = None,
+) -> Callable[[HandlerT], Coroutine[Any, Any, HandlerT]]:
+    """Create an always-async registration decorator for main and worker loops.
+
+    Use ``registered = await asubscribe("job.*")(handler)``. All arguments
+    have the same meaning as :func:`subscribe`. This factory is applied
+    explicitly rather than with ``@`` because its decorator returns a coroutine.
+
+    When the coroutine runs, main-thread callers register directly through
+    ``subscribe``; worker callers await ``subscribe_threadsafe``. Completion
+    confirms registration and returns the original function or handler instance.
+    Callbacks run on the main loop regardless of the registering thread.
+
+    Main-thread registration can precede core startup. Worker callers require
+    ``await start_core()`` on the main thread first; bridge admission waits
+    asynchronously. Argument and registration errors propagate to the caller.
+    Pending worker requests can be cancelled; completed registrations are not
+    rolled back. Use ``await unasubscribe(...)`` to remove them explicitly.
+    """
+    async def decorator(func: HandlerT) -> HandlerT:
+        on_main_thread = current_thread() is main_thread()
+        register = subscribe if on_main_thread else subscribe_threadsafe
+        result = register(
+            *event_names, exist_ok=exist_ok, priority=priority,
+            between_handlers=between_handlers, filter_event=filter_event,
+            stop_when_error=stop_when_error, time_out=time_out,
+            background=background, group=group,
+        )(func)
+        if on_main_thread:
+            return result
+        return await result
+
+    return decorator
+
+
 def unsubscribe(
     handler_name: str | None = None,
     *,
     group: str | None = None,
     missing_ok: bool = True,
-) -> None:
+) -> None | Coroutine[Any, Any, None]:
     """Remove one handler by name or all handlers in an exact group.
 
     Supply exactly one of ``handler_name`` and ``group``. Group removal uses
     the group index without scanning the handler registry. Unknown names or
     groups are ignored unless ``missing_ok=False``.
     Already dequeued events retain their captured handler references.
+
+    Main-thread calls remove registrations synchronously. On a worker thread,
+    use ``await unsubscribe(...)`` to wait for removal on the main loop without
+    blocking the worker loop. Call ``await start_core()`` on the main thread
+    first. Use ``unsubscribe_threadsafe`` for an always-async interface.
     """
+    if current_thread() is not main_thread():
+        return unsubscribe_threadsafe(handler_name, group=group, missing_ok=missing_ok)
     if (handler_name is None) == (group is None):
         raise ValueError("Supply exactly one of handler_name and group.")
     registry = get_handler_registry()
@@ -296,6 +406,54 @@ def unsubscribe(
         registry.unregister_group(group, missing_ok=missing_ok)
     elif handler_name is not None:
         registry.unregister_handler(handler_name, missing_ok=missing_ok)
+
+
+async def unsubscribe_threadsafe(
+    handler_name: str | None = None,
+    *,
+    group: str | None = None,
+    missing_ok: bool = True,
+) -> None:
+    """Await global handler removal on the owner loop from any caller loop.
+
+    Supply exactly one of ``handler_name`` and ``group``, as with
+    :func:`unsubscribe`. ``missing_ok=False`` raises
+    ``EventHandlerNotRegisteredError`` for an unknown name or group. Invalid
+    selectors raise ``ValueError``. Errors propagate to the awaiting caller.
+
+    Call ``await start_core()`` on the main thread first. Bridge admission
+    waits asynchronously; completion confirms removal. Already dequeued events
+    retain their captured handler references and can still run them.
+    Cancellation before execution skips removal; completed removal is not
+    rolled back. Stopped or uninitialized cores raise ``RuntimeError``.
+    """
+    await get_thread_bridge().call_sync(partial(
+        unsubscribe, handler_name, group=group, missing_ok=missing_ok,
+    ))
+
+
+async def unasubscribe(
+    handler_name: str | None = None,
+    *,
+    group: str | None = None,
+    missing_ok: bool = True,
+) -> None:
+    """Await handler removal with one interface for main and worker loops.
+
+    Supply exactly one of ``handler_name`` and ``group``, as with
+    :func:`unsubscribe`. Main-thread callers remove directly through
+    ``unsubscribe``; worker callers await ``unsubscribe_threadsafe`` after
+    main-thread core startup. Bridge capacity waits do not block the worker loop.
+
+    Completion confirms removal. Invalid selectors and strict missing-name or
+    missing-group errors propagate to the caller. Cancellation can skip pending
+    worker requests; completed removal is not rolled back. Already dequeued
+    events retain their captured handlers.
+    """
+    if current_thread() is main_thread():
+        unsubscribe(handler_name, group=group, missing_ok=missing_ok)
+        return
+    await unsubscribe_threadsafe(handler_name, group=group, missing_ok=missing_ok)
 
 
 def get_handler(
@@ -339,7 +497,11 @@ def get_unmatched_subscriptions(handler_name: str) -> list[str]:
 
 __all__ = [
     "subscribe",
+    "subscribe_threadsafe",
+    "asubscribe",
     "unsubscribe",
+    "unsubscribe_threadsafe",
+    "unasubscribe",
     "get_handler",
     "get_handler_meta",
     "is_registered",

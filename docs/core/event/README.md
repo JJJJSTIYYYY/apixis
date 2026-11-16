@@ -14,7 +14,7 @@
 | [handler_registry/registry.py](../../../src/apixis/core/event/handler_registry/registry.py) | 订阅索引、优先级、分组与普通 handler chain 缓存 |
 | [handler_registry/waiter_cache.py](../../../src/apixis/core/event/handler_registry/waiter_cache.py) | received/processed 临时监听索引及独立缓存 |
 | [handler_registry/matching.py](../../../src/apixis/core/event/handler_registry/matching.py) | 普通订阅与临时监听共用的匹配规则 |
-| [subscription/handlers.py](../../../src/apixis/core/event/subscription/handlers.py) | 全局订阅、取消订阅与注册信息查询 |
+| [subscription/subscriber.py](../../../src/apixis/core/event/subscription/subscriber.py) | 全局订阅、取消订阅、线程安全注册与注册信息查询 |
 | [subscription/publication.py](../../../src/apixis/core/event/subscription/publication.py) | 全局异步发布与线程安全发布入口 |
 | [subscription/waiter.py](../../../src/apixis/core/event/subscription/waiter.py) | 主线程与工作线程的等待入口、超时、结果收集、注册就绪与清理确认 |
 | [factory.py](../../../src/apixis/core/event/factory.py) | 共享核心的依赖组装、启动、停止、访问与状态查询 |
@@ -215,7 +215,7 @@ if isinstance(result, EventWaiter):
 
 ## 跨线程发布与等待
 
-普通接口根据当前线程自动选择执行路径：主线程直接调用本地实现，工作线程调用对应的线程安全版。两组接口使用相同的异步调用方式：
+普通接口根据当前线程自动选择执行路径：主线程直接调用本地实现，工作线程异步桥接到主循环。发布和等待接口的调用方式如下：
 
 | 操作 | 普通接口 | 线程安全接口 |
 | --- | --- | --- |
@@ -226,7 +226,46 @@ if isinstance(result, EventWaiter):
 
 两种上下文都通过 `await waiter.wait(...)` 或 `await waiter.get_result()` 获取结果，期限语义见下文。线程安全接口使用 `await` / `async with`，不返回供调用方使用的 `concurrent.futures.Future`，不提供同步阻塞提交。`wait_for_event_threadsafe` 和 `await_for_threadsafe` 分别是 `expect_event_threadsafe`、`wait_event_threadsafe` 的别名，调用方式相同。
 
-共享事件核心绑定主线程的 asyncio loop。主线程先调用 `await start_core()`，工作线程通过自己的 asyncio loop 使用线程安全接口；主线程负责监听的注册、注销和事件处理。通信队列满时，接口异步等待空位，不阻塞调用方的 loop。`subscribe()`、`unsubscribe()` 及普通核心 getter 仅用于主线程。
+共享事件核心绑定主线程的 asyncio loop。主线程先调用 `await start_core()`，工作线程通过自己的 asyncio loop 使用线程安全接口；注册、注销和事件处理实际都在主循环执行。通信队列满时，接口异步等待空位，不阻塞调用方的 loop。普通核心 getter 和注册信息查询仍仅用于主线程。
+
+订阅和取消订阅保留主线程同步用法，工作线程必须等待返回的协程。显式线程安全接口在任何调用线程都使用 `await`：
+
+| 操作 | 主线程普通接口 | 工作线程普通接口 | 显式线程安全接口 | 统一异步接口 |
+| --- | --- | --- | --- | --- |
+| 注册 handler | `subscribe(...)(handler)` | `await subscribe(...)(handler)` | `await subscribe_threadsafe(...)(handler)` | `await asubscribe(...)(handler)` |
+| 按名称移除 | `unsubscribe(name)` | `await unsubscribe(name)` | `await unsubscribe_threadsafe(name)` | `await unasubscribe(name)` |
+| 按组移除 | `unsubscribe(group="workers")` | `await unsubscribe(group="workers")` | `await unsubscribe_threadsafe(group="workers")` | `await unasubscribe(group="workers")` |
+
+`asubscribe()` 和 `unasubscribe()` 在主线程和工作线程都使用 `await`。主线程直接复用 `subscribe()` / `unsubscribe()`，工作线程复用对应的 `*_threadsafe()` 接口；注册选项、返回对象、错误和取消语义与底层接口一致。线程在等待协程执行时确定，主线程无需等待桥接队列；工作线程仍要求主线程先完成 `await start_core()`。
+
+```python
+from apixis import asubscribe, unasubscribe
+
+# 在主线程或工作线程的协程中采用相同写法。
+await asubscribe("work.*", group="workers")(handler)
+await unasubscribe(group="workers", missing_ok=False)
+```
+
+`asubscribe()` 返回异步注册装饰器，需显式等待装饰器应用，不能直接写成 `@asubscribe(...)`。
+
+`subscribe_threadsafe()` 接受 `subscribe()` 的全部选项；等待完成表示注册已生效，并返回原函数或 `ApixEventHandler` 实例。`unsubscribe_threadsafe()` 等待移除完成。校验错误、重复名称和严格移除时的缺失错误会传播给调用方。普通 `subscribe()` 在应用装饰器时选择线程；工作线程不要使用 `@subscribe`，线程安全版也不要用作 `@` 装饰器，应显式等待注册：
+
+```python
+from apixis import subscribe_threadsafe, unsubscribe_threadsafe, post_and_wait
+
+
+async def worker():
+    async def observe(event):
+        print(event.context)  # 在主循环执行
+
+    await subscribe_threadsafe("work.*", group="workers")(observe)
+    try:
+        await post_and_wait(event_name="work.started", context=42)
+    finally:
+        await unsubscribe_threadsafe(group="workers")
+```
+
+工作线程中的实例方法相应使用 `await handler.register(...)` 和 `await handler.unregister(...)`。取消尚未执行的桥接请求会跳过注册或移除；已经生效的修改不会回滚，已注册 handler 需显式移除。移除也不会改变已出队事件捕获的处理链。
 
 桥接入队直接等待容量通知，不占用调用方的默认线程池。主循环前台 handler 也可以使用线程安全接口：发布、等待、线程版上下文进入以及 `get_result()` 在等待期间借出当前调度许可，恢复执行前重新取得许可。工作线程不会操作主循环的许可。
 
@@ -269,6 +308,10 @@ asyncio.run(main())
 | --- | --- |
 | `await post_event_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None)` | 事件已进入原有事件队列，不代表处理完成。 |
 | `await post_and_wait_threadsafe(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None)` | 返回本次发布的原始 `ApixEvent`，按 `event_id` 精确等待其前台处理结束。 |
+| `await subscribe_threadsafe(*event_names, **options)(handler)` | 注册已生效，返回原函数或 handler 实例。 |
+| `await unsubscribe_threadsafe(handler_name=None, *, group=None, missing_ok=True)` | 按名称或分组移除完成。 |
+| `await asubscribe(*event_names, **options)(handler)` | 当前线程自动选择同步注册或线程安全注册，返回原函数或 handler 实例。 |
+| `await unasubscribe(handler_name=None, *, group=None, missing_ok=True)` | 当前线程自动选择同步或线程安全移除，等待修改生效。 |
 | `await wait_event_threadsafe(event_name, *, point="received", filter=None, predicate=None, time_out=None)` | 返回匹配事件；调用协程开始执行后异步提交注册请求。 |
 | `async with expect_event_threadsafe(event_name, *, point="received", filter=None, predicate=None, time_out=None)` | 异步进入 `ThreadEventWaiter` 上下文；进入完成确认监听已注册，退出等待主线程完成清理。 |
 
@@ -306,7 +349,7 @@ async def worker():
 
 取消异步任务会取消尚未完成的提交或收集，并等待清理；已经进入事件队列的事件无法撤回。`stop_core()` 拒绝新跨线程请求，使未完成结果以 `RuntimeError` 结束，唤醒等待桥接容量的调用方，并等待临时监听清理；同一 loop 上重新启动后可继续使用。
 
-工作线程中的 `post_event()`、`post_and_wait()`、`wait_event()` 和 `expect_event()` 都会自动桥接到主线程，无需切换接口名称。`expect_event()` 在进入上下文时判断当前线程，工作线程得到 `ThreadEventWaiter`，进入完成后监听已在主线程注册，退出等待清理确认。跨线程不支持 `keep_listening=True`；主线程继续保留延迟收集能力。
+工作线程中的 `post_event()`、`post_and_wait()`、`wait_event()`、`expect_event()`、`subscribe()` 和 `unsubscribe()` 都会自动桥接到主线程，无需切换接口名称。`expect_event()` 在进入上下文时判断当前线程，工作线程得到 `ThreadEventWaiter`，进入完成后监听已在主线程注册，退出等待清理确认。跨线程等待不支持 `keep_listening=True`；主线程继续保留延迟收集能力。
 
 跨线程发布捕获调用线程的业务 `ContextVar`，内部处理链许可上下文不跨线程传递。前台 handler 中直接使用普通异步发布和等待接口，可沿用现有的调度许可管理。
 

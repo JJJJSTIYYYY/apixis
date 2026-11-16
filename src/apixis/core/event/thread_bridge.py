@@ -119,6 +119,18 @@ class EventThreadBridge:
                 await asyncio.shield(asyncio.wrap_future(request.closed))
                 raise
 
+    async def call_sync[T](self, operation: Callable[[], T]) -> T:
+        """Run a synchronous operation atomically on the owner loop.
+
+        Use the same bounded admission, cancellation and caller-permit handling
+        as ``call``. Cancellation before execution skips the operation; completed
+        changes are not rolled back when the caller is cancelled.
+        """
+        async def execute() -> T:
+            return operation()
+
+        return await self.call(execute)
+
     def _make_request[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool,
     ) -> ThreadSubmission[T]:

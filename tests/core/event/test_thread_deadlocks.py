@@ -10,6 +10,8 @@ import pytest
 from apixis import (
     ApixEventPipe, expect_event_threadsafe, post_and_wait,
     post_and_wait_threadsafe, post_event, post_event_threadsafe, subscribe,
+    subscribe_threadsafe, unsubscribe_threadsafe,
+    asubscribe, unasubscribe,
 )
 from apixis.core.event import factory
 from apixis.core.event.base import handler_chain_token_context
@@ -106,6 +108,49 @@ async def test_managed_context_entry_drains_full_queues(runtime):
         assert set(runtime.handler_registry.registry) == {"parent"}
     finally:
         allow_entry.set()
+        worker_task.cancel()
+        await asyncio.gather(worker_task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("register, remove", [
+    (subscribe_threadsafe, unsubscribe_threadsafe), (asubscribe, unasubscribe),
+])
+async def test_managed_subscription_changes_drain_full_queues(runtime, register, remove):
+    entered, allow_registration = asyncio.Event(), asyncio.Event()
+
+    async def temporary(event):
+        pass
+
+    @subscribe("managed.parent")
+    async def parent(event):
+        entered.set()
+        await allow_registration.wait()
+        assert await register("unused.reply")(temporary) is temporary
+        assert handler_chain_token_context.get().held
+        await remove("temporary", missing_ok=False)
+        assert handler_chain_token_context.get().held
+        event.context["updated"] = True
+
+    parent_task = asyncio.create_task(post_and_wait(event_name="managed.parent", context={}))
+    await asyncio.wait_for(entered.wait(), 3)
+
+    async def worker():
+        for name in ("pending", "queued", "blocked"):
+            await post_event_threadsafe(event_name=name)
+
+    worker_task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
+    try:
+        await until(lambda: runtime.event_pipe.full() and runtime.event_pipe._queue._putters
+                    and runtime.event_loop._pending_dispatch is not None)
+        allow_registration.set()
+        result, _ = await asyncio.wait_for(asyncio.gather(parent_task, worker_task), 3)
+        assert not result.has_error
+        assert result.context == {"updated": True}
+        await until(lambda: not runtime.event_loop._dispatch_tasks)
+        assert runtime.event_loop._event_semaphore._value == 1
+        assert set(runtime.handler_registry.registry) == {"parent"}
+    finally:
+        allow_registration.set()
         worker_task.cancel()
         await asyncio.gather(worker_task, return_exceptions=True)
 
