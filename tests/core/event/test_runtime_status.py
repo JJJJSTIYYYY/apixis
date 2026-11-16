@@ -20,7 +20,7 @@ def event_runtime_capacity(request, monkeypatch):
     capacity = getattr(request, "param", None)
     loop_module = importlib.import_module("apixis.core.event.event_loop")
     monkeypatch.setattr(loop_module, "EVENT_LOOP_BACKPRESSURE", capacity)
-    monkeypatch.setattr(factory, "_core", None)
+    monkeypatch.setattr(factory._local, "core", None)
     monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(maxsize=1))
     return capacity
 
@@ -41,13 +41,13 @@ def test_status_exports(module_name):
 
 
 async def test_uninitialized_query_does_not_construct_or_start_core(monkeypatch):
-    monkeypatch.setattr(factory, "_core", None)
+    monkeypatch.setattr(factory._local, "core", None)
     assert get_event_runtime_status() == EventRuntimeStatus()
-    assert factory._core is None
+    assert factory._local.core is None
 
 
 async def test_initialized_query_does_not_schedule_startup(monkeypatch):
-    monkeypatch.setattr(factory, "_core", None)
+    monkeypatch.setattr(factory._local, "core", None)
     core = factory._get_core()
     snapshot = get_event_runtime_status()
     assert snapshot.initialized
@@ -81,9 +81,8 @@ async def test_snapshots_are_immutable_and_do_not_change_with_runtime(cleanup_ev
     assert get_event_runtime_status().wait_listeners == 0
 
 
-async def test_worker_query_is_rejected_without_bridge_submission(cleanup_event_runtime):
-    with pytest.raises(RuntimeError, match="main thread"):
-        await asyncio.to_thread(get_event_runtime_status)
+async def test_worker_query_is_local_without_bridge_submission(cleanup_event_runtime):
+    assert await asyncio.to_thread(get_event_runtime_status) == EventRuntimeStatus()
     assert get_event_runtime_status().thread_bridge.active_requests == 0
 
 
@@ -178,10 +177,10 @@ async def test_bridge_reports_active_queued_and_admission_waiting_requests(
         await asyncio.Event().wait()
 
     monkeypatch.setattr(core.event_pipe, "put", blocked)
-    first = await core.thread_bridge.asubmit(partial(post_event, event_name="blocked"))
+    first = await core.endpoint.asubmit(partial(post_event, event_name="blocked"))
     await asyncio.wait_for(entered.wait(), 1)
-    second = await core.thread_bridge.asubmit(partial(post_event, event_name="queued"))
-    waiting = asyncio.create_task(core.thread_bridge.asubmit(partial(post_event, event_name="waiting")))
+    second = await core.endpoint.asubmit(partial(post_event, event_name="queued"))
+    waiting = asyncio.create_task(core.endpoint.asubmit(partial(post_event, event_name="waiting")))
     try:
         await until(lambda: get_event_runtime_status().thread_bridge.admission_waiters == 1)
         snapshot = get_event_runtime_status()

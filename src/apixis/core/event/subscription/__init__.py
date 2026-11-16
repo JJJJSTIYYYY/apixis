@@ -2,7 +2,6 @@
 
 from apixis.core.event.subscription.subscriber import (
     subscribe, subscribe_threadsafe, unsubscribe, unsubscribe_threadsafe,
-    asubscribe, unasubscribe,
     get_handler, get_handler_meta,
     is_registered, get_unmatched_subscriptions,
 )
@@ -22,10 +21,8 @@ __all__ = [
     "post_and_wait_threadsafe",
     "subscribe",
     "subscribe_threadsafe",
-    "asubscribe",
     "unsubscribe",
     "unsubscribe_threadsafe",
-    "unasubscribe",
     "get_handler",
     "get_handler_meta",
     "post_event_threadsafe",

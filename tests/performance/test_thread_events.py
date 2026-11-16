@@ -12,8 +12,8 @@ from time import perf_counter
 import pytest
 
 from apixis import (
-    ApixEventPipe, EventType, wait_event,
-    post_event, post_event_threadsafe, subscribe, expect_event,
+    ApixEventPipe, EventType,
+    post_event_threadsafe, subscribe, expect_event_threadsafe, wait_event_threadsafe,
 )
 from apixis.core.event import factory
 
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.parametrize("event_runtime_capacity", [1, 128, None], i
 def event_runtime_capacity(request, monkeypatch):
     loop_module = importlib.import_module("apixis.core.event.event_loop")
     monkeypatch.setattr(loop_module, "EVENT_LOOP_BACKPRESSURE", request.param)
-    monkeypatch.setattr(factory, "_core", None)
+    monkeypatch.setattr(factory._local, "core", None)
     queue_size = request.config.getoption("--thread-queue-size")
     monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(maxsize=queue_size))
     return request.param
@@ -53,16 +53,16 @@ async def thread_runtime(cleanup_event_runtime, request):
     try:
         yield core, metrics
         async with asyncio.timeout(10):
-            while core.thread_bridge._active or core.thread_bridge._consumer_scheduled:
+            while core.endpoint._active or core.endpoint._consumer_scheduled:
                 await asyncio.sleep(0)
             await core.event_pipe.join()
             while core.event_loop._dispatch_tasks:
                 await asyncio.sleep(0)
         assert set(core.handler_registry.registry) == baseline | metrics.pop("handlers", set())
-        assert not core.thread_bridge._active
-        assert not core.thread_bridge._requests
-        assert not core.thread_bridge._async_admission
-        assert not core.thread_bridge._consumer_scheduled
+        assert not core.endpoint._active
+        assert not core.endpoint._requests
+        assert not core.endpoint._async_admission
+        assert not core.endpoint._consumer_scheduled
         assert not core.event_loop._background_handler_tasks
         assert core.event_loop._pending_dispatch is None
         semaphore = core.event_loop._event_semaphore
@@ -81,7 +81,7 @@ async def thread_runtime(cleanup_event_runtime, request):
             seconds=perf_counter() - started,
             heartbeat_ticks=ticks,
             callback_errors=len(errors),
-            leftover_requests=len(core.thread_bridge._requests),
+            leftover_requests=len(core.endpoint._requests),
             leftover_waiters=len(set(core.handler_registry.registry) - baseline - set(metrics.get("handler_names", []))),
         )
         print(json.dumps(metrics, sort_keys=True))
@@ -99,7 +99,7 @@ async def thread_runtime(cleanup_event_runtime, request):
     finally:
         pulse.cancel()
         await asyncio.gather(pulse, return_exceptions=True)
-        await core.thread_bridge.close()
+        await core.endpoint.close()
         loop.set_exception_handler(previous)
 
 
@@ -170,7 +170,7 @@ async def test_thread_request_reply_stress(thread_runtime, request):
         await asyncio.to_thread(start.wait, 60)
         for sequence in range(rounds):
             reply = f"thread.reply.{producer}.{sequence}"
-            async with expect_event(reply, point="processed", time_out=60) as waiter:
+            async with expect_event_threadsafe(reply, point="processed", time_out=60) as waiter:
                 await post_event_threadsafe(
                     event_type=EventType.TRANSIENT, event_name="thread.request",
                     context={"reply": reply, "producer": producer, "sequence": sequence},
@@ -193,7 +193,7 @@ async def test_thread_broadcast_and_cancellation_storm(thread_runtime, request):
     registered = Barrier(workers)
 
     async def worker(producer):
-        async with expect_event("thread.broadcast", time_out=60) as waiter:
+        async with expect_event_threadsafe("thread.broadcast", time_out=60) as waiter:
             leader = await asyncio.to_thread(registered.wait, 60)
             if leader == 0:
                 await post_event_threadsafe(
@@ -202,7 +202,7 @@ async def test_thread_broadcast_and_cancellation_storm(thread_runtime, request):
             event = await waiter.wait(time_out=60)
             assert event.context == 42
         for _ in range(cancellations):
-            task = asyncio.create_task(wait_event("never"))
+            task = asyncio.create_task(wait_event_threadsafe("never"))
             await asyncio.sleep(0)
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
@@ -230,7 +230,7 @@ async def test_async_worker_publication_backpressure(thread_runtime, request):
 
     async def worker(producer):
         await asyncio.to_thread(start.wait, 60)
-        await asyncio.gather(*(post_event(
+        await asyncio.gather(*(post_event_threadsafe(
             event_type=EventType.TRANSIENT, event_name="thread.async", context=(producer, sequence),
         ) for sequence in range(operations)))
 

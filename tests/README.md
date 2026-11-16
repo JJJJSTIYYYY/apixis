@@ -17,7 +17,7 @@ uv sync --extra dev --locked
 | `integration/graph` | 插件、中断、取消、并发、运行期所有权与图分解 |
 | `performance` | 含建图耗时的图调度基准，以及真实工作线程的事件压力测试 |
 
-`tests/conftest.py` 集中管理共享 asyncio runtime 的隔离与清理，以及等待前台分发完成的 helper；根目录 `conftest.py` 统一提供测试筛选与性能参数。仅在这些测试基础设施和已有白盒组件测试中检查内部状态；新增性能 workload 通过 `apixis.core` 的公开接口构建、执行和检查图。
+`tests/conftest.py` 集中管理每个线程 asyncio runtime 的隔离与清理，以及等待前台分发完成的 helper；根目录 `conftest.py` 统一提供测试筛选与性能参数。仅在这些测试基础设施和已有白盒组件测试中检查内部状态；新增性能 workload 通过 `apixis.core` 的公开接口构建、执行和检查图。
 
 ## 正确性测试
 
@@ -32,9 +32,11 @@ uv run --no-sync pytest tests/integration/graph
 
 背压边界回归位于 `integration/event/test_backpressure_boundaries.py`，使用实际前台容量 `1/2/3` 与队列容量 `1/2/3` 的九种交叉组合，检查满队列、嵌套并行图、请求响应、取消、重启以及许可归还。测试有异步 deadline；排查死锁时应另加进程级 watchdog，避免取消清理本身阻塞测试退出。
 
-谓词匹配回归位于 `core/event/test_waiter_predicate.py`，覆盖同名并发回包、重叠模式、延迟收集、异常清理及工作线程谓词在主循环执行。`core/event/test_runtime_status.py` 检查不可变状态快照、查询无启动副作用、许可与挂起任务的区别，以及暂停和桥接队列满时的状态。流结束后重复读取的回归位于 `core/graph/stream/test_stream_writer.py`。
+谓词匹配回归位于 `core/event/test_waiter_predicate.py`，覆盖同名并发回包、重叠模式、延迟收集、异常清理及谓词在选定 core 的 loop 执行。`core/event/test_runtime_status.py` 检查不可变状态快照、查询无启动副作用、许可与挂起任务的区别，以及暂停和桥接队列满时的状态。流结束后重复读取的回归位于 `core/graph/stream/test_stream_writer.py`。
 
 ## 跨线程事件验证
+
+`core/event/test_multicore.py` 验证命名 core 隔离、getter 不串 loop、多目标结果、超时与取消清理、A→B→A 在容量 1 下归还各自许可。`integration/graph/test_thread_graphs.py` 在主线程和两个工作线程编译同名图并分别调用，验证命名空间替换和清理不串线程。普通接口仅用于本地 core；跨线程 workload 使用显式 `*_threadsafe(thread_ids=...)`。
 
 `core/event/test_thread_events.py` 覆盖注册就绪、超时重设、取消、容量等待和停止／重启；`core/event/test_thread_deadlocks.py` 固定派发容量和两条队列容量为 `1`，在默认和 eager task factory 下检查 handler 内的线程版等待、满队列注册、默认线程池被占满，以及取消时的许可恢复和容量通知转交。
 

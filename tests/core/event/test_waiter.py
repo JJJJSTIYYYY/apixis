@@ -229,7 +229,39 @@ async def test_expect_event_registers_on_entry_and_retains_first_reply(
         assert await waiter.wait() is event
 
     assert set(registry.registry) == registered
-    with pytest.raises(RuntimeError, match="exited"):
+    assert await waiter.wait() is event
+    assert await waiter.get_result() is event
+
+
+@pytest.mark.parametrize("patterns", ["job.finished", ["job.*", "job.finished"]])
+@pytest.mark.parametrize("read_before_exit", [False, True])
+async def test_completed_waiter_retains_results_after_context_exit(
+    patterns, read_before_exit, wait_for_dispatch,
+):
+    registry = get_handler_registry()
+    before = set(registry.registry)
+    async with expect_event(patterns) as waiter:
+        await post_event(event_name="job.finished", context=42)
+        await wait_for_dispatch(get_event_loop())
+        if read_before_exit:
+            await waiter.wait()
+
+    result = await waiter.wait(time_out=0, keep_listening=True)
+    assert await waiter.wait() is result
+    assert await waiter.get_result() is result
+    if isinstance(patterns, str):
+        assert result.context == 42
+    else:
+        assert set(result) == set(patterns)
+        assert all(event.context == 42 for event in result.values())
+    assert set(registry.registry) == before
+
+
+async def test_exited_incomplete_waiter_keeps_no_partial_result(wait_for_dispatch):
+    async with expect_event(["job.first", "job.second"]) as waiter:
+        await post_event(event_name="job.first")
+        await wait_for_dispatch(get_event_loop())
+    with pytest.raises(RuntimeError, match="closed"):
         await waiter.wait()
 
 

@@ -29,6 +29,7 @@ from apixis.core.event.handler_registry import (
     ApixHandlerRegistry,
 )
 from apixis.core.event.factory import (
+    create_core,
     get_event_runtime_status,
     start_core,
     stop_core,
@@ -42,6 +43,7 @@ from apixis.core.event.factory import (
     aget_event_loop,
     EventCore,
 )
+from apixis.core.event.thread_bridge import ThreadBridge, ThreadIds, get_thread_bridge
 from apixis.core.event.subscription import (
     get_unmatched_subscriptions,
     post_event,
@@ -55,10 +57,8 @@ from apixis.core.event.subscription import (
     ThreadEventWaiter,
     subscribe,
     subscribe_threadsafe,
-    asubscribe,
     unsubscribe,
     unsubscribe_threadsafe,
-    unasubscribe,
     get_handler,
     get_handler_meta,
     is_registered,
@@ -73,6 +73,10 @@ from apixis.core.event.event_registry import (
 )
 
 __all__ = [
+    "create_core",
+    "ThreadBridge",
+    "ThreadIds",
+    "get_thread_bridge",
     "get_event_runtime_status",
     "EventRuntimeStatus",
     "EventLoopStatus",
@@ -115,10 +119,8 @@ __all__ = [
     "ThreadEventWaiter",
     "subscribe",
     "subscribe_threadsafe",
-    "asubscribe",
     "unsubscribe",
     "unsubscribe_threadsafe",
-    "unasubscribe",
     "get_handler",
     "get_handler_meta",
     "is_registered",

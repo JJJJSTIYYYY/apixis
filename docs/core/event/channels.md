@@ -28,13 +28,13 @@ await pipe.post_event(
 | `join()` | 等待队列项目完成确认 |
 | `clear()` | 丢弃并确认当前仍在队列中的项目，返回清理数量 |
 
-共享 event core 会自动消费队列。应用通常通过订阅处理事件；直接调用 `get()` 会与框架竞争同一队列。
+当前线程的 event core 会自动消费队列。应用通常通过订阅处理事件；直接调用 `get()` 会与框架竞争同一队列。
 
-队列方法在同一个 asyncio loop 内使用。工作线程通过全局 `post_event()` 或 `post_event_threadsafe()` 向共享 core 发布事件，不直接读写其 pipe。
+队列方法在同一个 asyncio loop 内使用。每个线程的普通 `post_event()` 访问自身 core 的 pipe。跨线程使用 `post_event_threadsafe(..., thread_ids=...)` 显式路由，不直接读写其他线程的 pipe。
 
-共享 core 在事件分发后调用 `task_done()`，因此 `join()` 不表示 handler 已执行完成。自行消费独立队列时，由调用方负责确认每个取出的项目。
+当前线程 core 在事件分发后调用 `task_done()`，因此 `join()` 不表示 handler 已执行完成。自行消费独立队列时，由调用方负责确认每个取出的项目。
 
-使用共享事件系统时，在 handler 内创建和发布事件使用 `post_event()`，需要等待本次前台处理完成时使用 `post_and_wait()`。
+使用线程内事件系统时，在 handler 内创建和发布事件使用 `post_event()`，需要等待本次前台处理完成时使用 `post_and_wait()`。
 
 ## 独立队列
 
@@ -58,6 +58,6 @@ print(pipe.is_running)
 await pipe.stop()
 ```
 
-`start()` 和 `stop()` 只设置 pipe 的启动状态，重复调用安全，不会清空队列，也不会禁用队列读写。pipe 本身不创建消费者；共享 core 的消费者由事件循环管理。需要暂停事件消费时使用 `event_loop.stop()`，恢复时使用 `start_core()`。
+`start()` 和 `stop()` 只设置 pipe 的启动状态，重复调用安全，不会清空队列，也不会禁用队列读写。pipe 本身不创建消费者；当前线程 core 的消费者由事件循环管理。需要暂停事件消费时使用 `event_loop.stop()`，恢复时使用 `start_core()`。
 
 [事件 API](./README.md) · [配置](../config/README.md) · [文档首页](../../README.md)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apixis.core.graph.base import GRAPH_DISPATCH, GLOBALNS, GRAPH_INTERRUPTED, _namespace_graphs, namespace_set
+from apixis.core.graph.base import GRAPH_DISPATCH, GLOBALNS, GRAPH_INTERRUPTED, get_namespace_graphs, namespace_set
 
 if TYPE_CHECKING:
     from apixis.core.graph.node_graph import NodeGraph
@@ -20,7 +20,7 @@ def validate_namespace(namespace: str) -> None:
 
 def get_graph_namespace(graph_id: str) -> str:
     """Resolve a live graph ID from the existing namespace registry."""
-    for namespace, graph in _namespace_graphs.items():
+    for namespace, graph in get_namespace_graphs().items():
         if graph.graph_id == graph_id:
             return namespace
     raise RuntimeError("The context's graph is no longer registered.")
@@ -37,12 +37,12 @@ def acquire_namespace(
     caller's responsibility; later failures do not restore the retired graph.
     """
     validate_namespace(graph.namespace)
-    owner = _namespace_graphs.get(graph.namespace)
+    owner = get_namespace_graphs().get(graph.namespace)
     if owner is not None and owner is not graph:
         if not replace_existed:
             raise ValueError(f"Graph namespace `{graph.namespace}` is already in use.")
         release_namespace(owner)
-    _namespace_graphs[graph.namespace] = graph
+    get_namespace_graphs()[graph.namespace] = graph
     return graph
 
 
@@ -59,8 +59,8 @@ def release_namespace(
     if decompose_immediately:
         graph.decompose(force=True)
     namespace = graph.namespace
-    if _namespace_graphs.get(namespace) is graph:
-        _namespace_graphs.pop(namespace)
+    if get_namespace_graphs().get(namespace) is graph:
+        get_namespace_graphs().pop(namespace)
 
 
 def get_graph_dispatch_name(

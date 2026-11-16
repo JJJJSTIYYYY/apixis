@@ -179,29 +179,22 @@ handler.unregister()
 
 这些实例方法与 `subscribe()` / `unsubscribe()` 使用同一套 registry 语义。
 
-主线程的订阅和移除保持同步。工作线程使用 `await subscribe(...)(handler)`、`await unsubscribe(...)`，实例方法使用 `await handler.register(...)`、`await handler.unregister(...)`。主线程先完成 `await start_core()`；修改在主循环执行，等待返回确认生效。
+任意已初始化线程中，`subscribe()` / `unsubscribe()` 和实例 `register()` / `unregister()` 都是同步本地操作。工作线程先 `create_core("worker")`，随后可使用普通 `@subscribe` 装饰器。处理器名称仅在当前 core 的 registry 内唯一。
 
-需要在主线程和工作线程使用同一种异步写法时，使用 `asubscribe()` 和 `unasubscribe()`：
-
-```python
-from apixis import asubscribe, unasubscribe
-
-await asubscribe("work.*", group="workers")(observe_work)
-await unasubscribe(group="workers", missing_ok=False)
-```
-
-主线程直接复用同步注册和移除，工作线程复用线程安全接口，参数和完成语义保持一致。`asubscribe()` 需显式等待装饰器应用，不能直接用作 `@asubscribe(...)`。
-
-显式的 `subscribe_threadsafe()` 和 `unsubscribe_threadsafe()` 在任何调用线程都使用 `await`，注册参数与普通接口相同：
+本地订阅和移除直接使用同步接口；显式跨线程接口支持 `thread_ids`，省略时选择主线程 core：
 
 ```python
 from apixis import subscribe_threadsafe, unsubscribe_threadsafe
 
-await subscribe_threadsafe("work.*", group="workers")(observe_work)
-await unsubscribe_threadsafe(group="workers", missing_ok=False)
+registered = await subscribe_threadsafe(
+    "work.*", group="workers", thread_ids=["worker-a", "worker-b"],
+)(observe_work)
+await unsubscribe_threadsafe(group="workers", thread_ids=["worker-a", "worker-b"], missing_ok=False)
 ```
 
-工作线程不要用 `@subscribe`，也不要用 `@subscribe_threadsafe`；两者的装饰器应用在工作线程都会返回需要等待的协程。注册仍返回原函数或实例，callback 在主循环执行。校验和注册错误直接传播给等待方；取消尚未执行的操作会跳过修改，已经完成的注册或移除不会回滚。
+目标需先完成 `await start_core()`。回调在各目标线程执行；跨线程注册 `ApixEventHandler` 时按目标浅拷贝注册对象，避免元数据相互覆盖。字符串目标返回该目标注册对象，目标集合返回按线程 ID 索引的字典。校验和注册错误传播给等待方，并清理其他未完成请求；已生效的修改不会回滚。
+
+`subscribe_threadsafe()` 需显式等待装饰器应用，不能用作 `@` 装饰器。
 
 handler 的 `group` 默认为 `"global"`，必须是非空字符串。可在构造函数、`subscribe()` 或 `register()` 中指定；后两者省略 `group` 或传入 `None` 时保留已有实例的分组，新函数默认使用 `"global"`。handler 名称仍在整个 registry 中唯一。
 

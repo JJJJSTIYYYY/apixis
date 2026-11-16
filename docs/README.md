@@ -18,7 +18,7 @@ pip install apixis
 
 | 功能 | 文档 |
 | --- | --- |
-| 发布事件、管理共享事件系统 | [事件 API](./core/event/README.md) |
+| 发布事件、管理线程内事件系统 | [事件 API](./core/event/README.md) |
 | 发布事件并等待前台处理结束 | [post_and_wait](./core/event/README.md#发布并等待处理结束post_and_wait) |
 | 等待事件，或先订阅回包再发布请求 | [事件 API：wait_event 与 expect_event](./core/event/README.md#等待事件wait_event-与-expect_event) |
 | 工作线程订阅或取消订阅、发布事件、等待处理结果或业务回包 | [跨线程发布与等待](./core/event/README.md#跨线程发布与等待) |

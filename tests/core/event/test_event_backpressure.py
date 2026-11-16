@@ -28,7 +28,7 @@ async def runtime(monkeypatch, request):
     handlers = factory.ApixHandlerRegistry(registry)
     loop = event_loop.ApixEventLoop(handlers, pipe, registry)
     core = factory.EventCore(registry, pipe, handlers, loop)
-    monkeypatch.setattr(factory, "_core", core)
+    monkeypatch.setattr(factory._local, "core", core)
     await factory.start_core()
     running_loop = asyncio.get_running_loop()
     previous_handler = running_loop.get_exception_handler()

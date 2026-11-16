@@ -2,7 +2,7 @@
 
 import asyncio
 import traceback
-from typing import Any, Awaitable, Callable, Coroutine, Literal, Self
+from typing import Any, Awaitable, Callable, Literal, Self
 from uuid import uuid4
 
 from apixis.core.event.base.event import ApixEvent, ApixEventError, EventHandlerFunc, EventHandlerErrorFunc
@@ -255,8 +255,8 @@ class ApixEventHandler:
         between_handlers: tuple[str | None, str | None] | None = None,
         filter_event: list[str] | None = None,
         group: str | None = None,
-    ) -> Self | Coroutine[Any, Any, Self]:
-        """Register this instance globally with the same options as subscribe().
+    ) -> Self:
+        """Register this instance in the current thread with the same options as subscribe().
 
         Equivalent to ``subscribe(*event_names, **options)(self)``. At least
         one non-empty event-name pattern is required. Subscriptions and filters
@@ -270,15 +270,14 @@ class ApixEventHandler:
         Explicit values override them; non-positive time_out disables the
         timeout. Core and notification callbacks are preserved.
 
-        Handler names are unique across the global registry. With exist_ok=True,
+        Handler names are unique across the current thread's registry. With exist_ok=True,
         this instance replaces the same-name registration. With exist_ok=False,
         a duplicate raises EventHandlerAlreadyRegisteredError. Validation
         failures leave the instance and any existing registration unchanged.
 
         Returns:
             This instance after successful registration or replacement.
-            On worker threads, a coroutine yielding this instance; use
-            ``await handler.register(...)`` after main-thread core startup.
+            Registration is synchronous in the calling thread's core.
         """
         # Import at call time because handler_registry imports this class.
         from apixis.core.event.subscription.subscriber import subscribe
@@ -297,8 +296,8 @@ class ApixEventHandler:
 
     def unregister(
         self, *, same_group: bool = False, missing_ok: bool = True,
-    ) -> None | Coroutine[Any, Any, None]:
-        """Immediately remove the global registration under this handler's name.
+    ) -> None:
+        """Immediately remove the thread-local registration under this handler's name.
 
         Equivalent to ``unsubscribe(self.name, missing_ok=missing_ok)``. Remove
         the whole registration, including all subscriptions. Missing names are
@@ -309,15 +308,15 @@ class ApixEventHandler:
 
         With ``same_group=True``, remove every registration in ``self.group``
         using the group index instead. Missing groups follow ``missing_ok``.
-        On worker threads, use ``await handler.unregister(...)`` to confirm
-        owner-loop removal after main-thread core startup.
+        Removal is synchronous in the calling thread's core.
         """
         # Import at call time because handler_registry imports this class.
         from apixis.core.event.subscription.subscriber import unsubscribe
 
         if same_group:
-            return unsubscribe(group=self.group, missing_ok=missing_ok)
-        return unsubscribe(self.name, missing_ok=missing_ok)
+            unsubscribe(group=self.group, missing_ok=missing_ok)
+        else:
+            unsubscribe(self.name, missing_ok=missing_ok)
 
 
 __all__ = [

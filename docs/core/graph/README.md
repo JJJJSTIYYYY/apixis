@@ -2,6 +2,8 @@
 
 Graph API 的主要入口是 `GraphManager`。它负责注册节点与 state 策略，`compile_graph()` 返回可执行的 `NodeGraph`。
 
+每个线程的图使用自己的事件 core 和命名空间表。工作线程先调用 `create_core("worker")`，随后按下文正常定义和调用图；同名 namespace 可以在不同线程独立存在，`namespace_set` 只观察当前线程。图应在创建它的线程内调用和清理，跨线程通信通过事件的 `*_threadsafe(thread_ids=...)` 接口完成。
+
 ## 构建图
 
 ```python

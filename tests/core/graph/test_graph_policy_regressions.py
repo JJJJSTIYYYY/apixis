@@ -7,7 +7,7 @@ import pytest
 
 from apixis import BaseNode, Command, GraphContext, GraphManager, Node, NodeGraph
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.graph.base import _END, _namespace_graphs
+from apixis.core.graph.base import _END, get_namespace_graphs
 from apixis.core.graph.context import noop_stream_writer
 
 
@@ -126,11 +126,11 @@ async def test_manual_snapshots_and_restored_history_are_bounded():
     (float("nan"), TypeError), (float("inf"), TypeError), (-1, ValueError),
 ])
 def test_invalid_step_limit_fails_before_registration_and_setter_is_atomic(value, error):
-    before_namespaces = dict(_namespace_graphs)
+    before_namespaces = dict(get_namespace_graphs())
     before_handlers = dict(get_handler_registry().registry)
     with pytest.raises(error):
         NodeGraph({}, None, max_steps=value)
-    assert dict(_namespace_graphs) == before_namespaces
+    assert dict(get_namespace_graphs()) == before_namespaces
     assert dict(get_handler_registry().registry) == before_handlers
     graph = NodeGraph({}, None, max_steps=2)
     with pytest.raises(error):

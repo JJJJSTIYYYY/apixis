@@ -1,17 +1,21 @@
-"""Bounded thread-to-loop requests; all event operations run on the owner loop."""
+"""Process-wide routing and bounded receiver endpoints for independent thread cores."""
 
 import asyncio
 from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future, InvalidStateError
-from contextlib import AbstractAsyncContextManager, nullcontext
 from contextvars import Context, copy_context
 from dataclasses import dataclass, field
-from threading import Lock
+from threading import Lock, Thread, current_thread, main_thread
 from typing import Any
 
 from apixis.core.event.base.process import handler_chain_token_context, suspend_process
 from apixis.core.event.base.status import EventThreadBridgeStatus
+from apixis.core.utils.tasks import gather_results
+from apixis.core.utils.validation import validate_non_empty_string
+
+
+type ThreadIds = str | list[str] | tuple[str, ...] | set[str] | None
 
 
 @dataclass(eq=False)
@@ -37,7 +41,7 @@ def complete_future(future: Future[Any], *, value: Any = None, error: BaseExcept
         pass
 
 
-class EventThreadBridge:
+class ThreadEndpoint:
     """Transfer bounded requests without moving asyncio objects between threads.
 
     Publications are awaited serially so a full event pipe cannot create an
@@ -61,8 +65,8 @@ class EventThreadBridge:
 
     @property
     def closed(self) -> bool:
-        with self._admission:
-            return self._closed
+        """Read the close marker; admission rechecks it under its queue lock."""
+        return self._closed
 
     def get_status(self) -> EventThreadBridgeStatus:
         """Snapshot on the owner thread; lock admission state shared by workers."""
@@ -102,34 +106,24 @@ class EventThreadBridge:
             await asyncio.shield(asyncio.wrap_future(request.closed))
             raise
 
-    def suspend_caller(self) -> AbstractAsyncContextManager[None]:
-        """Lend managed caller capacity only on the bridge's owner loop."""
-        return suspend_process() if asyncio.get_running_loop() is self.loop else nullcontext()
-
     async def call[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool = False,
     ) -> T:
-        """Await an owner-loop operation and finish cleanup when cancelled."""
-        async with self.suspend_caller():
-            request = await self.asubmit(operation, background=background)
-            try:
-                return await asyncio.wrap_future(request.result)
-            except asyncio.CancelledError:
-                request.result.cancel()
-                await asyncio.shield(asyncio.wrap_future(request.closed))
-                raise
+        """Await one target operation and finish its cleanup when cancelled.
 
-    async def call_sync[T](self, operation: Callable[[], T]) -> T:
-        """Run a synchronous operation atomically on the owner loop.
-
-        Use the same bounded admission, cancellation and caller-permit handling
-        as ``call``. Cancellation before execution skips the operation; completed
-        changes are not rolled back when the caller is cancelled.
+        The process-wide router owns caller-permit suspension. This endpoint
+        owns only target admission, execution and acknowledgement.
         """
-        async def execute() -> T:
-            return operation()
-
-        return await self.call(execute)
+        request = await self.asubmit(operation, background=background)
+        try:
+            return await asyncio.wrap_future(request.result)
+        except asyncio.CancelledError:
+            request.result.cancel()
+            await asyncio.shield(asyncio.wrap_future(request.closed))
+            raise
+        except Exception:
+            await asyncio.shield(asyncio.wrap_future(request.closed))
+            raise
 
     def _make_request[T](
         self, operation: Callable[[], Awaitable[T]], *, background: bool,
@@ -247,17 +241,132 @@ class EventThreadBridge:
             if not request.closed.done():
                 self._release(request)
         tasks = []
+        current = asyncio.current_task()
+        closing_from_request = False
         for request in tuple(self._active):
             if not request.result.done():
                 complete_future(request.result, error=RuntimeError("The event core stopped."))
             if request.task is not None:
-                request.task.cancel()
-                tasks.append(request.task)
-        if self._consumer is not None:
+                if request.task is current:
+                    # A routed stop_core() must finish its own shutdown rather
+                    # than cancelling or awaiting itself through the consumer.
+                    closing_from_request = True
+                else:
+                    request.task.cancel()
+                    tasks.append(request.task)
+        if self._consumer is not None and not closing_from_request:
             self._consumer.cancel()
             tasks.append(self._consumer)
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
 
-__all__ = ["EventThreadBridge", "ThreadSubmission", "complete_future"]
+class ThreadBridge:
+    """Process-wide directory routing explicit requests to named thread cores.
+
+    Registration and target resolution take one directory lock. Each target
+    owns its bounded endpoint and asyncio state; ordinary local operations do
+    not visit this directory. No event is forwarded implicitly.
+    """
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._owners: dict[str, Thread] = {}
+        self._endpoints: dict[str, ThreadEndpoint] = {}
+        self._main_thread_id: str | None = None
+
+    def register(self, thread_id: str, endpoint: ThreadEndpoint | None = None) -> None:
+        """Reserve a name for the calling thread, optionally binding its endpoint."""
+        validate_non_empty_string(thread_id, "thread_id")
+        owner = current_thread()
+        with self._lock:
+            previous = self._owners.get(thread_id)
+            if previous is not None and previous is not owner and previous.is_alive():
+                raise ValueError(f"Thread core {thread_id!r} is already registered.")
+            if previous is not owner:
+                self._endpoints.pop(thread_id, None)
+            self._owners[thread_id] = owner
+            if endpoint is not None:
+                self._endpoints[thread_id] = endpoint
+            if owner is main_thread():
+                self._main_thread_id = thread_id
+
+    def unregister(self, thread_id: str) -> None:
+        """Release the caller's name after its endpoint has closed."""
+        with self._lock:
+            if self._owners.get(thread_id) is current_thread():
+                self._owners.pop(thread_id)
+                self._endpoints.pop(thread_id, None)
+                if self._main_thread_id == thread_id:
+                    self._main_thread_id = None
+
+    def targets(self, thread_ids: ThreadIds = None) -> dict[str, ThreadEndpoint]:
+        """Resolve every target before submission; None selects the main core.
+
+        A string selects one target. Lists, tuples and sets select a non-empty
+        group and deduplicate names. Missing, stopped or unstarted cores raise
+        RuntimeError. Resolved endpoints are retained for the entire operation,
+        so restarting a target cannot redirect an in-flight request.
+        """
+        if thread_ids is not None and not isinstance(thread_ids, (str, list, tuple, set)):
+            raise TypeError("thread_ids must be a string or a list, tuple or set of strings.")
+        names = (thread_ids,) if isinstance(thread_ids, str) else thread_ids
+        if names is not None:
+            if not names:
+                raise ValueError("thread_ids cannot be empty.")
+            for name in names:
+                validate_non_empty_string(name, "thread_ids")
+        with self._lock:
+            if names is None:
+                if self._main_thread_id is None:
+                    raise RuntimeError("The main thread core is not running; await start_core() there first.")
+                names = (self._main_thread_id,)
+            targets = {}
+            for name in names:
+                endpoint = self._endpoints.get(name)
+                owner = self._owners.get(name)
+                if endpoint is None or not owner.is_alive() or endpoint.closed or not endpoint.loop.is_running():
+                    raise RuntimeError(f"Thread core {name!r} is not running; await start_core() there first.")
+                targets[name] = endpoint
+            return targets
+
+    async def call[T](
+        self, operation: Callable[[], Awaitable[T]], *,
+        thread_ids: ThreadIds = None, background: bool = False,
+    ) -> T | dict[str, T]:
+        """Execute on the selected cores, lending only the caller's local permit.
+
+        None or a string returns a single result; a collection returns results
+        keyed by thread ID, including for a one-item collection. All targets
+        run concurrently. On failure or cancellation unfinished requests are
+        cancelled and their cleanup is awaited; completed effects remain.
+        """
+        targets = self.targets(thread_ids)
+        async with suspend_process():
+            if thread_ids is None or isinstance(thread_ids, str):
+                endpoint = next(iter(targets.values()))
+                return await endpoint.call(operation, background=background)
+            results = await gather_results(
+                endpoint.call(operation, background=background) for endpoint in targets.values()
+            )
+        return dict(zip(targets, results))
+
+    async def call_sync[T](
+        self, operation: Callable[[], T], *, thread_ids: ThreadIds = None,
+    ) -> T | dict[str, T]:
+        """Run a synchronous operation on each selected core without yielding there."""
+        async def execute() -> T:
+            return operation()
+
+        return await self.call(execute, thread_ids=thread_ids)
+
+
+_thread_bridge = ThreadBridge()
+
+
+def get_thread_bridge() -> ThreadBridge:
+    """Return the process-wide thread router without creating a local core."""
+    return _thread_bridge
+
+
+__all__ = ["ThreadBridge", "ThreadIds", "get_thread_bridge"]

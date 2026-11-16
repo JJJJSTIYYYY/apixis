@@ -141,7 +141,9 @@ async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_erro
                 return await waiter.wait(time_out=3)
         return await wait("job.reply", predicate=predicate, time_out=3)
 
-    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
+    task = asyncio.create_task(
+        asyncio.to_thread(lambda: asyncio.run(worker())) if explicit else worker(),
+    )
     try:
         async with asyncio.timeout(3):
             while not core.handler_registry.waiter_count:
@@ -156,7 +158,7 @@ async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_erro
             assert (await asyncio.wait_for(task, 3)).context == 7
         assert seen == [(owner, 0), (owner, 7)]
         async with asyncio.timeout(3):
-            while core.thread_bridge.get_status().active_requests:
+            while core.endpoint.get_status().active_requests:
                 await asyncio.sleep(0)
         assert not core.handler_registry.registry
     finally:

@@ -11,7 +11,6 @@ from apixis import (
     ApixEventPipe, expect_event_threadsafe, post_and_wait,
     post_and_wait_threadsafe, post_event, post_event_threadsafe, subscribe,
     subscribe_threadsafe, unsubscribe_threadsafe,
-    asubscribe, unasubscribe,
 )
 from apixis.core.event import factory
 from apixis.core.event.base import handler_chain_token_context
@@ -42,12 +41,12 @@ async def runtime(cleanup_event_runtime, request):
     try:
         yield core
     finally:
-        await core.thread_bridge.close()
+        await core.endpoint.close()
         await asyncio.sleep(0)
         loop.set_task_factory(previous_factory)
         loop.set_exception_handler(previous_handler)
-        assert not core.thread_bridge._active
-        assert not core.thread_bridge._async_admission
+        assert not core.endpoint._active
+        assert not core.endpoint._async_admission
         assert not errors, errors
 
 
@@ -112,10 +111,7 @@ async def test_managed_context_entry_drains_full_queues(runtime):
         await asyncio.gather(worker_task, return_exceptions=True)
 
 
-@pytest.mark.parametrize("register, remove", [
-    (subscribe_threadsafe, unsubscribe_threadsafe), (asubscribe, unasubscribe),
-])
-async def test_managed_subscription_changes_drain_full_queues(runtime, register, remove):
+async def test_managed_subscription_changes_drain_full_queues(runtime):
     entered, allow_registration = asyncio.Event(), asyncio.Event()
 
     async def temporary(event):
@@ -125,9 +121,9 @@ async def test_managed_subscription_changes_drain_full_queues(runtime, register,
     async def parent(event):
         entered.set()
         await allow_registration.wait()
-        assert await register("unused.reply")(temporary) is temporary
+        assert await subscribe_threadsafe("unused.reply")(temporary) is temporary
         assert handler_chain_token_context.get().held
-        await remove("temporary", missing_ok=False)
+        await unsubscribe_threadsafe("temporary", missing_ok=False)
         assert handler_chain_token_context.get().held
         event.context["updated"] = True
 
@@ -184,7 +180,7 @@ async def test_threadsafe_calls_progress_with_occupied_default_executor(runtime,
     finally:
         # Release foreign callers before joining their executor if a regression
         # leaves a managed handler waiting for an executor-backed submission.
-        await runtime.thread_bridge.close()
+        await runtime.endpoint.close()
         await asyncio.gather(*tasks, return_exceptions=True)
         pool.shutdown(wait=True)
 
@@ -237,7 +233,7 @@ async def test_cancel_notified_producer_passes_capacity_to_next_waiter(runtime, 
         published.append(event.event_name)
 
     monkeypatch.setattr(runtime.event_pipe, "put", blocked)
-    bridge = runtime.thread_bridge
+    bridge = runtime.endpoint
     first = await bridge.asubmit(partial(post_event, event_name="first"))
     await asyncio.wait_for(entered.wait(), 3)
     second = await bridge.asubmit(partial(post_event, event_name="second"))

@@ -147,12 +147,12 @@ async def drain(core):
 
 
 async def fresh_runtime():
-    if factory._core is not None:
-        await drain(factory._core)
+    if factory._local.core is not None:
+        await drain(factory._local.core)
         await stop_core()
-    factory._core = None
+    factory._local.core = None
     await start_core()
-    return factory._core
+    return factory._local.core
 
 
 async def runtime_audit(results):

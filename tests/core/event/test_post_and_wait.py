@@ -8,7 +8,7 @@ import pytest
 
 from apixis import (
     ApixEventPipe, EventType, EventWaiter,
-    post_and_wait, post_and_wait_threadsafe, post_event, subscribe,
+    post_and_wait, post_and_wait_threadsafe, post_event, post_event_threadsafe, subscribe,
 )
 from apixis.core.event.base import handler_chain_token_context
 from apixis.core.event.subscription import publication
@@ -249,12 +249,28 @@ async def test_deferred_waiter_retains_exact_event_and_listener_ownership(
         await wait_for_dispatch(core.event_loop)
 
 
-async def test_async_worker_rejects_retained_main_loop_waiter(cleanup_event_runtime):
-    with pytest.raises(ValueError, match="Cross-thread post_and_wait"):
-        await asyncio.to_thread(lambda: asyncio.run(post_and_wait(
-            event_name="worker.deferred", time_out=0, keep_listening=True,
-        )))
-    assert not cleanup_event_runtime.handler_registry.registry
+async def test_worker_core_supports_retained_local_waiter(thread_cores):
+    from apixis import get_thread_bridge
+    await thread_cores("deferred")
+
+    async def collect_locally():
+        release = asyncio.Event()
+
+        @subscribe("worker.deferred")
+        async def process(event):
+            await release.wait()
+
+        waiter = await post_and_wait(event_name="worker.deferred", time_out=0, keep_listening=True)
+        assert isinstance(waiter, EventWaiter)
+        try:
+            release.set()
+            return (await waiter.get_result()).event_name
+        finally:
+            waiter.close()
+
+    assert await get_thread_bridge().call(
+        collect_locally, thread_ids="deferred", background=True,
+    ) == "worker.deferred"
 
 
 async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime):
@@ -271,12 +287,12 @@ async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime
     async def unblock(event):
         release.set()
 
-    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(post_and_wait(
+    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(post_and_wait_threadsafe(
         event_type=EventType.INFO, event_name="worker.wait", context={}, time_out=2,
     ))))
     try:
         await asyncio.wait_for(entered.wait(), 1)
-        await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(post_event(
+        await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(post_event_threadsafe(
             event_type=EventType.INFO, event_name="worker.release",
         ))), 1)
         result = await asyncio.wait_for(task, 2)

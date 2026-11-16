@@ -11,11 +11,11 @@ import pytest
 from apixis import (
     ApixEventPipe, EventType, ThreadEventWaiter,
     wait_event, wait_event_threadsafe, post_event, post_event_threadsafe, start_core, stop_core,
-    subscribe, expect_event, expect_event_threadsafe,
-    post_and_wait, post_and_wait_threadsafe,
+    subscribe, expect_event_threadsafe,
+    post_and_wait_threadsafe,
 )
 from apixis.core.event import factory
-from apixis.core.event.base import handler_chain_token_context
+from apixis.core.event.base import HandlerChainToken, handler_chain_token_context
 from apixis.core.event.subscription.waiter import collect_events
 
 
@@ -23,11 +23,11 @@ publisher_context = ContextVar("thread_event_test", default=None)
 
 
 async def _submit_publication(**kwargs):
-    return (await factory.get_thread_bridge().asubmit(partial(post_event, **kwargs))).result
+    return (await next(iter(factory.get_thread_bridge().targets().values())).asubmit(partial(post_event, **kwargs))).result
 
 
 async def _submit_collection(event_name, **kwargs):
-    return (await factory.get_thread_bridge().asubmit(partial(
+    return (await next(iter(factory.get_thread_bridge().targets().values())).asubmit(partial(
         collect_events, event_name, point="received", filter=None, time_out=None, **kwargs,
     ), background=True)).result
 
@@ -52,7 +52,7 @@ def test_thread_waiting_exports_and_aliases(module_name):
 
 @pytest.fixture
 def event_runtime_capacity(monkeypatch):
-    monkeypatch.setattr(factory, "_core", None)
+    monkeypatch.setattr(factory._local, "core", None)
     monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(maxsize=2))
     return 1
 
@@ -67,9 +67,9 @@ async def runtime(cleanup_event_runtime):
     try:
         yield core
     finally:
-        await core.thread_bridge.close()
+        await core.endpoint.close()
         await asyncio.sleep(0)
-        assert not core.thread_bridge._active
+        assert not core.endpoint._active
         assert not errors, errors
         loop.set_exception_handler(previous)
 
@@ -80,7 +80,7 @@ async def until(predicate):
             await asyncio.sleep(0)
 
 
-@pytest.mark.parametrize("expect", [expect_event, expect_event_threadsafe])
+@pytest.mark.parametrize("expect", [expect_event_threadsafe])
 async def test_roundtrip_and_thread_context_snapshot(runtime, expect):
     owner = get_ident()
     seen = []
@@ -101,7 +101,7 @@ async def test_roundtrip_and_thread_context_snapshot(runtime, expect):
         event.context["processed"] = True
         processed.set()
 
-    marker = object()
+    marker = HandlerChainToken(runtime.event_loop._event_semaphore, closed=True)
 
     async def worker():
         publisher_context.set("worker-context")
@@ -197,7 +197,7 @@ async def test_post_and_wait_threadsafe_abandonment_cleans_listener(runtime, can
             task.cancel()
         with pytest.raises(asyncio.CancelledError if cancel else TimeoutError):
             await task
-        await until(lambda: not runtime.thread_bridge._active)
+        await until(lambda: not runtime.endpoint._active)
         assert set(runtime.handler_registry.registry) == registered
         assert not finished.is_set()
     finally:
@@ -238,7 +238,7 @@ async def test_async_wait_filters_and_collects_all_patterns(runtime):
     assert {pattern: event.event_name for pattern, event in events.items()} == {
         "job.*": "job.public", "done": "done",
     }
-    await until(lambda: not runtime.thread_bridge._active)
+    await until(lambda: not runtime.endpoint._active)
     assert not runtime.handler_registry.registry
 
 
@@ -250,7 +250,7 @@ async def test_async_wait_filters_and_collects_all_patterns(runtime):
     ({"event_name": "never", "time_out": 0.01}, TimeoutError),
 ])
 @pytest.mark.parametrize("expect, wait", [
-    (expect_event, wait_event), (expect_event_threadsafe, wait_event_threadsafe),
+    (expect_event_threadsafe, wait_event_threadsafe),
 ])
 async def test_validation_and_timeout_clean_up(runtime, use_context, options, error, expect, wait):
     async def worker():
@@ -262,7 +262,7 @@ async def test_validation_and_timeout_clean_up(runtime, use_context, options, er
                 await wait(**options)
 
     await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 5)
-    await until(lambda: not runtime.thread_bridge._active)
+    await until(lambda: not runtime.endpoint._active)
     assert not runtime.handler_registry.registry
 
 
@@ -279,7 +279,7 @@ async def test_wait_call_timeout_cleans_listeners_before_return(runtime):
     assert not runtime.handler_registry.registry
 
 
-@pytest.mark.parametrize("expect", [expect_event, expect_event_threadsafe])
+@pytest.mark.parametrize("expect", [expect_event_threadsafe])
 async def test_wait_deadline_update_progresses_behind_blocked_publication(runtime, monkeypatch, expect):
     registered, start_wait = Event(), Event()
     publishing, release = asyncio.Event(), asyncio.Event()
@@ -349,10 +349,10 @@ async def test_cancel_before_deadline_update_does_not_reactivate_collection(runt
     await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 3)
     pending[0]()
     assert not runtime.handler_registry.registry
-    assert not runtime.thread_bridge._active
+    assert not runtime.endpoint._active
 
 
-@pytest.mark.parametrize("expect", [expect_event, expect_event_threadsafe])
+@pytest.mark.parametrize("expect", [expect_event_threadsafe])
 async def test_context_body_exception_closes_waiter(runtime, expect):
     async def worker():
         with pytest.raises(LookupError):
@@ -371,7 +371,7 @@ async def test_cancel_wait_task(runtime, after_registration):
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
-    await until(lambda: not runtime.thread_bridge._active and not runtime.handler_registry.registry)
+    await until(lambda: not runtime.endpoint._active and not runtime.handler_registry.registry)
 
 
 @pytest.mark.parametrize("operation", ["wait", "post"])
@@ -383,7 +383,7 @@ async def test_cancel_task_before_its_coroutine_starts(runtime, monkeypatch, ope
     def create_cancelled(coroutine, **kwargs):
         nonlocal cancelled
         task = create_task(coroutine, **kwargs)
-        if coroutine.__qualname__ == "EventThreadBridge._execute" and not cancelled:
+        if coroutine.__qualname__ == "ThreadEndpoint._execute" and not cancelled:
             cancelled = True
             task.cancel()
         return task
@@ -395,14 +395,14 @@ async def test_cancel_task_before_its_coroutine_starts(runtime, monkeypatch, ope
         else:
             await post_event_threadsafe(event_name="cancelled")
     await post_event_threadsafe(event_name="next")
-    await until(lambda: not runtime.thread_bridge._active)
+    await until(lambda: not runtime.endpoint._active)
     assert not runtime.handler_registry.registry
 
 
 async def test_bounded_admission_and_cancel_before_publication(runtime):
     first = await _submit_publication(event_type=EventType.INFO, event_name="first")
     second = await _submit_publication(event_type=EventType.INFO, event_name="cancelled")
-    assert len(runtime.thread_bridge._requests) == runtime.event_pipe.maxsize
+    assert len(runtime.endpoint._requests) == runtime.event_pipe.maxsize
     assert second.cancel()
     received = []
 
@@ -411,7 +411,7 @@ async def test_bounded_admission_and_cancel_before_publication(runtime):
         received.append(event.event_name)
 
     await asyncio.wrap_future(first)
-    await until(lambda: received == ["first"] and not runtime.thread_bridge._active)
+    await until(lambda: received == ["first"] and not runtime.endpoint._active)
     assert received == ["first"]
 
 
@@ -458,7 +458,7 @@ async def test_stop_fails_pending_waits_and_blocked_publications(runtime, monkey
     with pytest.raises(RuntimeError, match="not running"):
         await _submit_collection("never")
     await start_core()
-    assert not runtime.thread_bridge.closed
+    assert not runtime.endpoint.closed
 
 
 async def test_shutdown_unblocks_context_entry_and_wait(runtime, monkeypatch):
@@ -472,7 +472,7 @@ async def test_shutdown_unblocks_context_entry_and_wait(runtime, monkeypatch):
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     await until(entered.is_set)
-    await until(lambda: len(runtime.thread_bridge._active) == 1)
+    await until(lambda: len(runtime.endpoint._active) == 1)
     await stop_core()
     await asyncio.wait_for(task, 3)
     assert not runtime.handler_registry.registry
@@ -497,7 +497,7 @@ async def test_thread_context_wait_replaces_registration_deadline(runtime):
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     await until(entered.is_set)
-    await until(lambda: waiters[0]._waiter._deadline is None)
+    await until(lambda: waiters[0]._targets["main"]._waiter._deadline is None)
     await asyncio.sleep(0.06)
     assert not task.done()
     await post_event_threadsafe(event_name="deadline.reply")
@@ -523,11 +523,11 @@ async def test_thread_context_cancellation_finishes_owner_cleanup(runtime):
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     await until(entered.is_set)
-    await until(lambda: len(runtime.thread_bridge._active) == 1)
+    await until(lambda: len(runtime.endpoint._active) == 1)
     cancel.set()
     await asyncio.wait_for(task, 2)
     assert not runtime.handler_registry.registry
-    assert not runtime.thread_bridge._active
+    assert not runtime.endpoint._active
 
 
 @pytest.mark.parametrize("waiting_for_admission", [False, True])
@@ -565,9 +565,9 @@ async def test_cancel_thread_context_entry_keeps_worker_loop_responsive(
     try:
         await until(ticked.is_set)
         if waiting_for_admission:
-            await until(lambda: bool(runtime.thread_bridge._async_admission))
+            await until(lambda: bool(runtime.endpoint._async_admission))
         else:
-            await until(lambda: len(runtime.thread_bridge._requests) == 1)
+            await until(lambda: len(runtime.endpoint._requests) == 1)
         cancel.set()
         await asyncio.wait_for(task, 2)
         assert not runtime.handler_registry.registry
@@ -601,21 +601,22 @@ async def test_threadsafe_awaits_lend_managed_caller_permit(runtime):
     assert results == [(True, "managed.reply")]
 
 
-async def test_worker_cannot_start_core_or_access_registry(runtime):
+async def test_unregistered_worker_requires_create_core(runtime):
     async def worker():
-        with pytest.raises(RuntimeError, match="main thread"):
+        with pytest.raises(RuntimeError, match="create_core"):
             factory.get_handler_registry()
-        with pytest.raises(RuntimeError, match="main thread"):
+        with pytest.raises(RuntimeError, match="create_core"):
             await start_core()
 
     await asyncio.to_thread(lambda: asyncio.run(worker()))
 
 
 async def test_uninitialized_bridge_does_not_construct_core(runtime, monkeypatch):
-    monkeypatch.setattr(factory, "_core", None)
+    await stop_core()
+    monkeypatch.setattr(factory._local, "core", None)
     with pytest.raises(RuntimeError, match="start_core"):
         await wait_event_threadsafe("never")
-    assert factory._core is None
+    assert factory._local.core is None
 
 
 async def test_worker_waits_for_full_bridge_without_retry(runtime, monkeypatch):
@@ -639,7 +640,7 @@ async def test_worker_waits_for_full_bridge_without_retry(runtime, monkeypatch):
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     await until(started.is_set)
-    await until(lambda: bool(runtime.thread_bridge._async_admission))
+    await until(lambda: bool(runtime.endpoint._async_admission))
     assert not admitted.is_set()
     release.set()
     await asyncio.wait_for(task, 3)
@@ -654,7 +655,7 @@ async def test_consumer_wakeup_coalesces_and_restarts_after_idle(runtime, monkey
 
     def count_wakeups(callback, *args, **kwargs):
         nonlocal wakeups
-        if callback == runtime.thread_bridge._ensure_consumer:
+        if callback == runtime.endpoint._ensure_consumer:
             wakeups += 1
         return schedule(callback, *args, **kwargs)
 
@@ -681,8 +682,8 @@ async def test_consumer_wakeup_coalesces_and_restarts_after_idle(runtime, monkey
             assert wakeups == burst + 1
             release.set()
             await asyncio.gather(*(asyncio.wrap_future(future) for future in [first, *queued]))
-            await until(lambda: runtime.thread_bridge._consumer.done())
-            assert not runtime.thread_bridge._consumer_scheduled
+            await until(lambda: runtime.endpoint._consumer.done())
+            assert not runtime.endpoint._consumer_scheduled
         assert published == [name for burst in range(4) for name in (f"{burst}.first", f"{burst}.0", f"{burst}.1")]
     finally:
         release.set()
@@ -710,7 +711,7 @@ async def test_stop_wakes_worker_waiting_for_admission(runtime, monkeypatch, wor
 
     tasks = [asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker()))) for _ in range(workers)]
     await until(started.is_set)
-    await until(lambda: len(runtime.thread_bridge._async_admission) == workers)
+    await until(lambda: len(runtime.endpoint._async_admission) == workers)
     await stop_core()
     await asyncio.wait_for(asyncio.gather(*tasks), 3)
     for future in [first, *queued]:
@@ -736,7 +737,7 @@ async def test_async_worker_admission_keeps_its_loop_responsive(runtime, monkeyp
     queued = [await _submit_publication(event_type=EventType.INFO, event_name="queued") for _ in range(2)]
 
     async def async_worker():
-        task = asyncio.create_task(post_event(event_type=EventType.INFO, event_name="async"))
+        task = asyncio.create_task(post_event_threadsafe(event_type=EventType.INFO, event_name="async"))
         worker_waiting.set()
         await asyncio.sleep(0.01)
         worker_ticked.set()
@@ -753,17 +754,17 @@ async def test_async_worker_admission_keeps_its_loop_responsive(runtime, monkeyp
     await until(worker_waiting.is_set)
     await until(worker_ticked.is_set)
     if cancel:
-        await until(lambda: bool(runtime.thread_bridge._async_admission))
+        await until(lambda: bool(runtime.endpoint._async_admission))
         cancel_now.set()
         await asyncio.wait_for(task, 3)
-        assert len(runtime.thread_bridge._requests) == 2
+        assert len(runtime.endpoint._requests) == 2
     release.set()
     await asyncio.wait_for(task, 3)
     await asyncio.gather(*(asyncio.wrap_future(future) for future in [first, *queued]))
     assert published == ["first", "queued", "queued"] + ([] if cancel else ["async"])
 
 
-@pytest.mark.parametrize("wait", [wait_event, wait_event_threadsafe])
+@pytest.mark.parametrize("wait", [wait_event_threadsafe])
 async def test_async_worker_waits_on_owner_loop(runtime, wait):
     def worker():
         return asyncio.run(wait("foreign.reply", point="processed", time_out=3))
@@ -777,7 +778,7 @@ async def test_async_worker_waits_on_owner_loop(runtime, wait):
 
 
 @pytest.mark.parametrize("waiting_for_admission", [False, True])
-@pytest.mark.parametrize("expect", [expect_event, expect_event_threadsafe])
+@pytest.mark.parametrize("expect", [expect_event_threadsafe])
 async def test_stop_unblocks_context_before_registration(runtime, monkeypatch, waiting_for_admission, expect):
     entered = asyncio.Event()
 
@@ -798,9 +799,9 @@ async def test_stop_unblocks_context_before_registration(runtime, monkeypatch, w
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     if waiting_for_admission:
-        await until(lambda: bool(runtime.thread_bridge._async_admission))
+        await until(lambda: bool(runtime.endpoint._async_admission))
     else:
-        await until(lambda: len(runtime.thread_bridge._requests) == 1)
+        await until(lambda: len(runtime.endpoint._requests) == 1)
     await stop_core()
     await asyncio.wait_for(task, 3)
     for future in futures:
@@ -813,7 +814,7 @@ async def test_cancel_async_worker_after_registration(runtime):
     listening, cancelled = Event(), Event()
 
     async def async_worker():
-        task = asyncio.create_task(wait_event("never"))
+        task = asyncio.create_task(wait_event_threadsafe("never"))
         listening.set()
         while not cancelled.is_set():
             await asyncio.sleep(0.001)
@@ -826,14 +827,14 @@ async def test_cancel_async_worker_after_registration(runtime):
     await until(lambda: bool(runtime.handler_registry.registry))
     cancelled.set()
     await asyncio.wait_for(task, 3)
-    await until(lambda: not runtime.thread_bridge._active)
+    await until(lambda: not runtime.endpoint._active)
     assert not runtime.handler_registry.registry
 
 
 async def test_different_owner_loop_is_rejected(runtime, monkeypatch):
     other = asyncio.new_event_loop()
     try:
-        monkeypatch.setattr(runtime.thread_bridge, "loop", other)
+        monkeypatch.setattr(runtime, "loop", other)
         with pytest.raises(RuntimeError, match="different asyncio loop"):
             factory.get_event_pipe()
         with pytest.raises(RuntimeError, match="different asyncio loop"):
@@ -841,11 +842,11 @@ async def test_different_owner_loop_is_rejected(runtime, monkeypatch):
         with pytest.raises(RuntimeError, match="different asyncio loop"):
             await stop_core()
     finally:
-        monkeypatch.setattr(runtime.thread_bridge, "loop", asyncio.get_running_loop())
+        monkeypatch.setattr(runtime, "loop", asyncio.get_running_loop())
         other.close()
 
 
-@pytest.mark.parametrize("expect", [expect_event, expect_event_threadsafe])
+@pytest.mark.parametrize("expect", [expect_event_threadsafe])
 async def test_eager_tasks_register_before_publication(runtime, monkeypatch, expect):
     loop = asyncio.get_running_loop()
     previous = loop.get_task_factory()
@@ -860,69 +861,3 @@ async def test_eager_tasks_register_before_publication(runtime, monkeypatch, exp
         assert not runtime.handler_registry.registry
     finally:
         loop.set_task_factory(previous)
-
-
-@pytest.mark.parametrize("point", ["received", "processed"])
-@pytest.mark.parametrize("event_names", ["reply.*", ["reply.*"], {"reply.*", "reply.public"}])
-async def test_auto_context_retains_early_matches_and_result_shape(runtime, point, event_names):
-    async def worker():
-        async with expect_event(
-            event_names, point=point, filter="reply.internal", time_out=3,
-        ) as waiter:
-            assert isinstance(waiter, ThreadEventWaiter)
-            await post_and_wait(event_name="reply.internal")
-            event = await post_and_wait(event_name="reply.public")
-            result = await waiter.wait()
-            if isinstance(event_names, str):
-                assert result is event
-            else:
-                assert set(result) == set(event_names)
-                assert all(match is event for match in result.values())
-
-    await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 5)
-    assert not runtime.handler_registry.registry
-    assert not runtime.thread_bridge._active
-
-
-@pytest.mark.parametrize("use_context", [False, True])
-async def test_auto_worker_wait_rejects_deferred_listener_ownership(runtime, use_context):
-    async def worker():
-        with pytest.raises(ValueError, match="Cross-thread.*keep_listening"):
-            if use_context:
-                async with expect_event("never", keep_listening=True):
-                    pytest.fail("Deferred ownership must be rejected before registration.")
-            else:
-                await wait_event("never", keep_listening=True)
-
-    await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 3)
-    assert not runtime.handler_registry.registry
-    assert not runtime.thread_bridge._active
-
-
-async def test_auto_context_selects_entry_thread_and_cleans_cancelled_wait(runtime):
-    context = expect_event("never")
-    registered, cancel_now = Event(), Event()
-
-    async def worker():
-        async def collect():
-            async with context as waiter:
-                assert isinstance(waiter, ThreadEventWaiter)
-                registered.set()
-                await waiter.get_result()
-
-        task = asyncio.create_task(collect())
-        while not cancel_now.is_set():
-            await asyncio.sleep(0)
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-
-    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
-    try:
-        await until(registered.is_set)
-        assert runtime.handler_registry.registry
-    finally:
-        cancel_now.set()
-        await asyncio.wait_for(task, 3)
-    assert not runtime.handler_registry.registry
-    assert not runtime.thread_bridge._active

@@ -19,7 +19,7 @@ from apixis.core.graph import (
     release_namespace,
 )
 from apixis.core.graph.base import (
-    _namespace_graphs,
+    get_namespace_graphs,
 )
 
 
@@ -202,7 +202,7 @@ def test_compile_forwards_listener_namespace(using_namespace, expected):
 
     assert graph.namespace == expected
     assert expected in namespace_set
-    assert _namespace_graphs[expected] is graph
+    assert get_namespace_graphs()[expected] is graph
 
 
 @pytest.mark.parametrize("using_namespace", [None, ""])
@@ -222,8 +222,8 @@ def test_compile_generates_namespace_for_empty_value(using_namespace):
     assert first.namespace != second.namespace
     assert UUID(hex=first.namespace).version == 4
     assert UUID(hex=second.namespace).version == 4
-    assert _namespace_graphs[first.namespace] is first
-    assert _namespace_graphs[second.namespace] is second
+    assert get_namespace_graphs()[first.namespace] is first
+    assert get_namespace_graphs()[second.namespace] is second
 
 
 def test_compile_rejects_occupied_namespace_by_default():
@@ -242,7 +242,7 @@ def test_compile_rejects_occupied_namespace_by_default():
         )
 
     assert first_graph._decomposed is False
-    assert _namespace_graphs["occupied"] is first_graph
+    assert get_namespace_graphs()["occupied"] is first_graph
 
 
 @pytest.mark.parametrize("namespace", [GLOBALNS, "replaceable"])
@@ -283,11 +283,11 @@ def test_compile_exist_ok_decomposes_and_replaces_original_graph(namespace):
     assert first_callbacks.isdisjoint(replacement_callbacks)
     assert len(replacement_callbacks) == 1
     assert namespace_set == {namespace}
-    assert _namespace_graphs[namespace] is replacement
+    assert get_namespace_graphs()[namespace] is replacement
 
     release_namespace(first_graph)
     assert namespace_set == {namespace}
-    assert _namespace_graphs[namespace] is replacement
+    assert get_namespace_graphs()[namespace] is replacement
 
 
 def test_decompose_releases_namespace_by_contextmanager():
@@ -298,13 +298,13 @@ def test_decompose_releases_namespace_by_contextmanager():
     )
 
     assert "reusable" in namespace_set
-    assert "reusable" in _namespace_graphs
+    assert "reusable" in get_namespace_graphs()
 
     with graph:
         pass
 
     assert "reusable" not in namespace_set
-    assert "reusable" not in _namespace_graphs
+    assert "reusable" not in get_namespace_graphs()
     assert graph._decomposed is True
 
 
@@ -317,19 +317,19 @@ def test_decompose_releases_namespace_for_later_compile():
     )
 
     assert "reusable" in namespace_set
-    assert "reusable" in _namespace_graphs
+    assert "reusable" in get_namespace_graphs()
 
     first_graph.decompose()
 
     assert "reusable" not in namespace_set
-    assert "reusable" not in _namespace_graphs
+    assert "reusable" not in get_namespace_graphs()
 
     replacement = (
         GraphManager()
         .add_node(target)
         .compile_graph(entry_point="target", using_namespace="reusable")
     )
-    assert _namespace_graphs["reusable"] is replacement
+    assert get_namespace_graphs()["reusable"] is replacement
 
 
 def test_none_and_empty_string_create_independent_namespaces():
@@ -361,7 +361,7 @@ def test_compile_rejects_glob_namespace_without_changing_registry(namespace, exi
     with pytest.raises(ValueError, match="glob characters"):
         manager.compile_graph(entry_point="source", using_namespace=namespace, exist_ok=exist_ok)
 
-    assert _namespace_graphs == {original.namespace: original}
+    assert get_namespace_graphs() == {original.namespace: original}
     assert get_handler_registry().registry == handlers
     assert original._decomposed is False
 

@@ -76,6 +76,10 @@ async def run_worker(args):
     import inspect
 
     shared_start = not inspect.signature(factory.start_core).parameters
+    thread_local_core = hasattr(factory, "create_core")
+    core_storage = factory._local if thread_local_core else factory
+    core_attribute = "core" if thread_local_core else "_core"
+    endpoint_attribute = "endpoint" if thread_local_core else "thread_bridge"
     bounded_snapshots = "max_snapshots" in inspect.signature(NodeGraph).parameters
     log_module = importlib.import_module("apixis.core.utils.logger")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
@@ -106,10 +110,11 @@ async def run_worker(args):
         assert core.event_loop._event_semaphore._value == core.event_loop._event_semaphore._bound_value
 
     async def fresh_core(capacity):
-        if factory._core is not None:
-            await stop(factory._core)
+        previous = getattr(core_storage, core_attribute)
+        if previous is not None:
+            await stop(previous)
         loop_module.EVENT_LOOP_BACKPRESSURE = capacity
-        factory._core = None
+        setattr(core_storage, core_attribute, None)
         core = factory._get_core()
         if shared_start:
             await factory.start_core()
@@ -415,10 +420,13 @@ async def run_worker(args):
         return {"seconds": time.perf_counter() - started, "operations": 200000}
 
     async def thread_round(core, kind, queue_capacity):
-        from apixis.core.event.thread_bridge import EventThreadBridge
-
-        await core.thread_bridge.close()
-        core.thread_bridge = EventThreadBridge(asyncio.get_running_loop(), maxsize=queue_capacity)
+        bridge_module = importlib.import_module("apixis.core.event.thread_bridge")
+        endpoint_type = bridge_module.ThreadEndpoint if thread_local_core else bridge_module.EventThreadBridge
+        await getattr(core, endpoint_attribute).close()
+        endpoint = endpoint_type(asyncio.get_running_loop(), maxsize=queue_capacity)
+        setattr(core, endpoint_attribute, endpoint)
+        if thread_local_core:
+            factory.get_thread_bridge().register(core.thread_id, endpoint)
         core.handler_registry.clear()
         owner = get_ident()
         seen = set()
@@ -444,7 +452,7 @@ async def run_worker(args):
             asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
             await asyncio.to_thread(barrier.wait, 30)
             if kind == "async-publication":
-                await asyncio.gather(*(subscription.post_event(
+                await asyncio.gather(*(subscription.post_event_threadsafe(
                     event_type=EventType.TRANSIENT, event_name="benchmark.thread", context=(producer, sequence),
                 ) for sequence in range(args.thread_iterations)))
             elif kind == "request-reply":
@@ -470,14 +478,14 @@ async def run_worker(args):
         await asyncio.wait_for(asyncio.to_thread(run_workers), 90)
         await drain(core)
         async with asyncio.timeout(10):
-            while core.thread_bridge._active or not core.thread_bridge._consumer.done():
+            while endpoint._active or not endpoint._consumer.done():
                 await asyncio.sleep(0)
         seconds = time.perf_counter() - started
         expected = args.thread_workers * args.thread_iterations
         assert callbacks == len(seen) == expected
         assert set(core.handler_registry.registry) == {receive.__name__}
-        await core.thread_bridge.close()
-        assert not core.thread_bridge._active
+        await endpoint.close()
+        assert not endpoint._active
         return {"seconds": seconds, "operations": expected, "operations_per_second": expected / seconds}
 
     report = {

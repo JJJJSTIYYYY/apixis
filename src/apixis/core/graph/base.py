@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Set
 from dataclasses import dataclass, field
+from threading import local
 from typing import (
     Any,
     TYPE_CHECKING,
@@ -91,11 +92,38 @@ GRAPH_INTERRUPTED = "__graph_interrupted__"
 GLOBALNS = "<global>"
 """Explicit namespace for graph events and handlers in the global domain."""
 
-_namespace_graphs: dict[str, NodeGraph] = {}
-"""Compiled graph indexed by its exclusive listener namespace."""
+class _GraphLocal(local):
+    def __init__(self) -> None:
+        self.graphs: dict[str, NodeGraph] = {}
 
-namespace_set = _namespace_graphs.keys()
-"""Namespaces currently owned by compiled graphs."""
+
+_graph_local = _GraphLocal()
+
+
+def get_namespace_graphs() -> dict[str, NodeGraph]:
+    """Return the calling thread's exclusive graph namespace registry."""
+    return _graph_local.graphs
+
+
+class _NamespaceView(Set[str]):
+    """Live public set view selecting the caller's thread-local registry."""
+
+    def __contains__(self, namespace: object) -> bool:
+        return namespace in _graph_local.graphs
+
+    def __iter__(self):
+        return iter(_graph_local.graphs)
+
+    def __len__(self) -> int:
+        return len(_graph_local.graphs)
+
+    @classmethod
+    def _from_iterable(cls, values):
+        return set(values)
+
+
+namespace_set: Set[str] = _NamespaceView()
+"""Namespaces currently owned by graphs in the calling thread."""
 
 
 @dataclass(slots=True)
