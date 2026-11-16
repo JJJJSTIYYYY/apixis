@@ -4,6 +4,8 @@ Graph API 的主要入口是 `GraphManager`。它负责注册节点与 state 策
 
 每个线程的图使用自己的事件 core 和命名空间表。工作线程先调用 `create_core("worker")`，随后按下文正常定义和调用图；同名 namespace 可以在不同线程独立存在，`namespace_set` 只观察当前线程。图应在创建它的线程内调用和清理，跨线程通信通过事件的 `*_threadsafe(thread_ids=...)` 接口完成。
 
+图内 `post_event()` 发布到图所在 core；`post_event_threadsafe(thread_ids=...)` 发布到指定 core。等待能否收到事件取决于监听目标与发布目标是否一致，详见[图内发布与监听目标](../event/README.md#图内发布与监听目标)。图运行不会自动广播事件，也不会改变 `thread_ids=None` 默认选择主线程的规则。框架会协调事件和嵌套图的派发许可；节点自行持有的锁、线程任务和业务依赖环仍由应用负责，见[死锁保证边界](../event/README.md#框架与应用的死锁保证边界)。
+
 ## 构建图
 
 ```python

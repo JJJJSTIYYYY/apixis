@@ -46,7 +46,9 @@ async def suspend_process():
     inside it. Independently suspended branches share one permit: the last
     branch to resume reacquires it. Background handlers have no chain token.
     Child cancellation is deferred during reacquisition while its dispatch
-    remains live. Cancelling the dispatch itself still propagates promptly.
+    remains live. Cancellation during the body still restores the permit
+    before propagating. Cancelling the dispatch during reacquisition can
+    interrupt it; application-owned dependency cycles must be broken there.
 
     Yields:
         None

@@ -45,8 +45,8 @@ class ThreadEndpoint:
     """Transfer bounded requests without moving asyncio objects between threads.
 
     Publications are awaited serially so a full event pipe cannot create an
-    unbounded collection of publishing tasks. Background operations register
-    event waiters and collect results independently of subsequent requests.
+    unbounded collection of publishing tasks. Background operations, including
+    event waiters, run independently of subsequent requests.
     A single lock protects queue capacity and the idle-to-running handoff;
     producers share one scheduled consumer until it drains the queue. Async
     admission uses cross-thread Futures rather than a caller's executor.
@@ -138,7 +138,7 @@ class ThreadEndpoint:
         """Check capacity and schedule the consumer under the admission lock."""
         if self._closed or not self.loop.is_running():
             raise RuntimeError("The event thread bridge is not running; await start_core() first.")
-        if self._maxsize > 0 and len(self._requests) >= self._maxsize:
+        if len(self._requests) >= self._maxsize:
             return False
         self._requests.append(request)
         if not self._consumer_scheduled:
@@ -332,7 +332,7 @@ class ThreadBridge:
 
     async def call[T](
         self, operation: Callable[[], Awaitable[T]], *,
-        thread_ids: ThreadIds = None, background: bool = False,
+        thread_ids: ThreadIds = None, background: bool = True,
     ) -> T | dict[str, T]:
         """Execute on the selected cores, lending only the caller's local permit.
 
@@ -340,6 +340,10 @@ class ThreadBridge:
         keyed by thread ID, including for a one-item collection. All targets
         run concurrently. On failure or cancellation unfinished requests are
         cancelled and their cleanup is awaited; completed effects remain.
+
+        Async operations run independently by default so nested requests can
+        enter the same endpoint. Use background=False only for operations
+        that do not await further bridge requests or handler completion.
         """
         targets = self.targets(thread_ids)
         async with suspend_process():
@@ -358,7 +362,7 @@ class ThreadBridge:
         async def execute() -> T:
             return operation()
 
-        return await self.call(execute, thread_ids=thread_ids)
+        return await self.call(execute, thread_ids=thread_ids, background=False)
 
 
 _thread_bridge = ThreadBridge()

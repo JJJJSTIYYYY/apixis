@@ -1,6 +1,4 @@
-"""Process-local registry of exact event names observed at runtime."""
-
-from threading import RLock
+"""Owner-thread registry of exact event names observed at runtime."""
 
 from apixis.core.event.base.event import ApixEvent, EventType
 
@@ -14,14 +12,13 @@ class ApixEventRegistry:
     unhashable. Exact names can be used for diagnostics and subscription
     analysis.
 
-    Each instance owns its observations. All reads and writes are protected
-    by a reentrant lock so event observation and handler registration may query
-    the registry safely from different threads.
+    Each instance owns its observations and is accessed on its core's thread.
+    Use ThreadBridge.call_sync to query another core rather than sharing its
+    registry. Standalone instances require caller synchronization if shared.
     """
 
     def __init__(self) -> None:
         self._registered_events: set[str] = set()
-        self._lock = RLock()
 
     def record_event(self, event: ApixEvent) -> None:
         """Record the exact name of one observed event.
@@ -44,18 +41,15 @@ class ApixEventRegistry:
         if not event.event_name:
             raise ValueError("event.event_name must be a non-empty string.")
 
-        with self._lock:
-            self._registered_events.add(event.event_name)
+        self._registered_events.add(event.event_name)
 
     def get_registered_events(self) -> frozenset[str]:
         """Return an immutable snapshot of exact event names seen at runtime."""
-        with self._lock:
-            return frozenset(self._registered_events)
+        return frozenset(self._registered_events)
 
     def clear(self) -> None:
         """Forget every observed event name without affecting queued events."""
-        with self._lock:
-            self._registered_events.clear()
+        self._registered_events.clear()
 
 
 __all__ = ["ApixEventRegistry"]

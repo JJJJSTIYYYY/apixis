@@ -130,7 +130,7 @@ async def post_event_threadsafe(
     """
     await get_thread_bridge().call(partial(
         post_event, event_type=event_type, event_name=event_name, context=context,
-    ), thread_ids=thread_ids)
+    ), thread_ids=thread_ids, background=False)
 
 
 __all__ = [

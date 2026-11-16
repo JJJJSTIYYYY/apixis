@@ -1,7 +1,7 @@
 """Local handler subscription, removal, and registration inspection."""
 
 from collections.abc import Callable, Coroutine
-from copy import copy, deepcopy
+from copy import copy
 from functools import partial
 from typing import Any
 
@@ -395,10 +395,10 @@ def get_handler_meta(
         'name': handler.name,
         'group': handler.group,
         'register_order': handler._register_order,
-        'subscribe': deepcopy(handler.subscribe),
-        'filter_event': deepcopy(handler.filter_event),
+        'subscribe': handler.subscribe.copy(),
+        'filter_event': handler.filter_event.copy(),
         'priority': handler.priority,
-        'between_handlers': deepcopy(handler.between_handlers),
+        'between_handlers': handler.between_handlers,
         'stop_when_error': handler.stop_when_error,
         'time_out': handler.time_out,
         'background': handler.background,

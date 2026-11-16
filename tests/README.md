@@ -40,9 +40,15 @@ uv run --no-sync pytest tests/integration/graph
 
 `core/event/test_thread_events.py` 覆盖注册就绪、超时重设、取消、容量等待和停止／重启；`core/event/test_thread_deadlocks.py` 固定派发容量和两条队列容量为 `1`，在默认和 eager task factory 下检查 handler 内的线程版等待、满队列注册、默认线程池被占满，以及取消时的许可恢复和容量通知转交。
 
+`integration/graph/test_thread_events.py` 用真实线程验证图内本地发布、跨线程发布与本地／跨线程监听的目标匹配矩阵，并覆盖 `received`、`processed` 和容量 1 下的图内远程请求／回包。发布和监听选择同一个 core 时收到原事件，选择不同 core 时超时并清理监听。
+
+`core/event/test_multicore_deadlocks.py` 验证默认桥接调用可重入同一接收端、默认／eager 调度下多个真实 core 的并发 A→B→A 往返、目标停止与多目标发布取消。应用边界测试对照 `to_thread()` 来源许可未挂起／已挂起的行为，并验证应用持锁时框架借出许可仍不能解除资源环，取消恢复许可也可能等待应用解除依赖。保证范围见[死锁保证边界](../docs/core/event/README.md#框架与应用的死锁保证边界)。
+
 ```bash
 uv run --no-sync pytest tests/core/event/test_thread_events.py \
-  tests/core/event/test_thread_deadlocks.py -q -o asyncio_debug=true
+  tests/core/event/test_thread_deadlocks.py tests/core/event/test_multicore.py \
+  tests/core/event/test_multicore_deadlocks.py tests/integration/graph/test_thread_events.py \
+  -q -o asyncio_debug=true
 ```
 
 真实线程压力测试位于 `performance/test_thread_events.py`，包含逐生产者顺序发布、请求／回复、广播与取消风暴、工作线程 loop 内并发发布四种负载。每种负载分别使用派发容量 `1`、`128`、`None`，共十二组。队列默认容量为 `64`；`--thread-queue-size` 同时设置事件队列与桥接队列容量。
