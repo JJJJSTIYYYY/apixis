@@ -1,0 +1,37 @@
+{
+  "started_at": "2026-11-16T17:13:37.174781+00:00",
+  "commit": "78684a2a0ea75b66fd73c3b1471dc7e21a0c2828",
+  "python": "3.12.12",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "architecture": "arm64",
+  "processor": "arm",
+  "source_sha256_excluding_version": "d81ab08fb6ec06521bf7036836adc68ebc51b045d4017417c4a8b075bf3bae2c",
+  "drivers_sha256": {
+    "conftest.py": "93f096f0bfb2035ab23f217e0e233f44e6a6462b303f598733684098e37c565f",
+    "tests/performance/conftest.py": "f56ac965f0cc008aec22aa410e57ebe5b94fb283692336773a906e206940d8a6",
+    "tests/performance/test_graph_scheduling.py": "150abb54dc10e13e79a326a30c77d192437c6fb9233b42a9fc84464570e5d164",
+    "tests/performance/test_thread_events.py": "3efe5f5d93fc8c447a867b2323155109b4267f58391e56ba514d0be9e2f11a96"
+  },
+  "configured_dispatch_capacity": 128,
+  "configured_event_queue_capacity": 65536,
+  "command": ".venv/bin/python -m pytest tests/performance --run-performance -q --graph-report=docs/performance/data/2026-11-17/graph.json --thread-report=docs/performance/data/2026-11-17/thread.json",
+  "scope": "Current commit only; no paired baseline or ABBA comparison.",
+  "graph_rounds": {
+    "warmup": 1,
+    "measured": 3
+  },
+  "thread_rounds_per_case": 1,
+  "finished_at": "2026-11-16T17:17:37.448278+00:00",
+  "exit_code": 0,
+  "local_timezone": "Asia/Shanghai",
+  "result": "25 passed",
+  "graph_cases": 13,
+  "thread_cases": 12,
+  "source_hash_method": "SHA256 over sorted src/apixis/**/*.py: relative path from src + NUL + file bytes; excludes _version.py.",
+  "plotting": {
+    "matplotlib": "3.11.2",
+    "font_family": "Arial Unicode MS",
+    "encoding": "UTF-8",
+    "svg_fonttype": "path"
+  }
+}

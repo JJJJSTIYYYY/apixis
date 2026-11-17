@@ -401,7 +401,7 @@ class ThreadEventWaiter:
         self._thread_ids = thread_ids
         self._single = thread_ids is None or isinstance(thread_ids, str)
         self._targets: dict[str, _TargetEventWaiter] = {}
-        self._stack = AsyncExitStack()
+        self._stack = None if self._single else AsyncExitStack()
         self._entered = False
 
     async def __aenter__(self) -> Self:
@@ -414,29 +414,35 @@ class ThreadEventWaiter:
                 for thread_id, endpoint in targets.items():
                     target = self._make_target(endpoint=endpoint)
                     self._targets[thread_id] = target
-                    await self._stack.enter_async_context(target)
+                    if self._single:
+                        await target.__aenter__()
+                    else:
+                        await self._stack.enter_async_context(target)
         except BaseException:
-            self.close()
-            await self._stack.aclose()
+            await self.__aexit__(None, None, None)
             raise
         return self
 
     async def __aexit__(self, exc_type, exc, traceback) -> None:
         self.close()
-        await self._stack.aclose()
+        if self._single:
+            for target in self._targets.values():
+                await target._wait_closed()
+        else:
+            await self._stack.aclose()
 
     async def _collect(self, time_out: float | None, *, reset_deadline: bool) -> _ThreadEventMatches:
         if not self._targets:
             raise RuntimeError("Enter the thread event waiter context before waiting.")
         try:
             async with suspend_process():
-                operations = (
+                if self._single:
+                    target = next(iter(self._targets.values()))
+                    return await target.wait(time_out) if reset_deadline else await target.get_result()
+                results = await gather_results(
                     target.wait(time_out) if reset_deadline else target.get_result()
                     for target in self._targets.values()
                 )
-                if self._single:
-                    return await next(operations)
-                results = await gather_results(operations)
                 return dict(zip(self._targets, results))
         except BaseException:
             self.close()

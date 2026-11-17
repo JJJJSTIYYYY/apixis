@@ -1,0 +1,22 @@
+{
+  "completed_at": "2026-11-16T17:34:44.218859+00:00",
+  "baseline_commit": "33022f6",
+  "current_commit": "78684a2",
+  "baseline_source_sha256_excluding_version": "fbcc545a3367b628bc6263b886872680eb404d884190c38178b4bde88a211fbd",
+  "current_source_sha256_excluding_version": "e325cf38cce0f67bda1b687f068e82da26bac09e733f15cbcc5c33d65cea1036",
+  "source_hash_method": "benchmark_runtime.py: sorted relative source paths + bytes, excluding _version.py; no NUL separators. The single-version environment.json uses a different hash encoding.",
+  "driver_sha256": "9b2e5f2d18efab601bccb3776879b3e49666d32f2f9dcdaa6945cbc5cd8ddf6a",
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "scenarios": 28,
+  "repeats_per_worker": 9,
+  "samples_per_version_per_scenario": 18,
+  "formal_samples_total": 1008,
+  "command": ".venv/bin/python scripts/benchmark_runtime.py --baseline-source /tmp/apixis-perf-baseline-33022f6/src --output docs/performance/data/2026-11-17/refactor-abba.json --repeats 9",
+  "warmup": "One per scenario in each isolated process; excluded from measured samples.",
+  "scope": "Equal-workload comparison; local paths and workers forwarding to one main core. Multi-core scaling is not measured."
+}

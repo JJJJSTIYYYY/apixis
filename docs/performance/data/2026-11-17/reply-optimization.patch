@@ -1,0 +1,108 @@
+diff --git a/src/apixis/core/event/base/process.py b/src/apixis/core/event/base/process.py
+index acf554f..bf0b8b1 100644
+--- a/src/apixis/core/event/base/process.py
++++ b/src/apixis/core/event/base/process.py
+@@ -1,7 +1,7 @@
+ """Foreground handler-chain ownership and temporary permit suspension."""
+ 
+ import asyncio
+-from contextlib import asynccontextmanager
++from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
+ from contextvars import ContextVar
+ from dataclasses import dataclass, field
+ 
+@@ -34,8 +34,7 @@ handler_chain_token_context: ContextVar[HandlerChainToken | None] = ContextVar(
+ )
+ 
+ 
+-@asynccontextmanager
+-async def suspend_process():
++def suspend_process() -> AbstractAsyncContextManager[None]:
+     """Suspend the current event process chain (handler chain).
+ 
+     While the ``async with`` block is running, the current handler chain
+@@ -50,8 +49,9 @@ async def suspend_process():
+     before propagating. Cancelling the dispatch during reacquisition can
+     interrupt it; application-owned dependency cycles must be broken there.
+ 
+-    Yields:
+-        None
++    Returns:
++        A context to enter immediately on the caller's loop. Calls without a
++        live local chain use an empty context without an async generator.
+ 
+     Example:
+         ```python
+@@ -62,9 +62,13 @@ async def suspend_process():
+     chain = handler_chain_token_context.get()
+ 
+     if chain is None or chain.closed or chain.loop is not asyncio.get_running_loop():
+-        yield
+-        return
++        return nullcontext()
++    return _suspend_process(chain)
++
+ 
++@asynccontextmanager
++async def _suspend_process(chain: HandlerChainToken):
++    """Lend and restore a live local chain's shared permit."""
+     owner = chain.owner
+     token = handler_chain_token_context.set(None)
+     try:
+diff --git a/src/apixis/core/event/subscription/waiter.py b/src/apixis/core/event/subscription/waiter.py
+index 6ad3581..304e599 100644
+--- a/src/apixis/core/event/subscription/waiter.py
++++ b/src/apixis/core/event/subscription/waiter.py
+@@ -401,7 +401,7 @@ class ThreadEventWaiter:
+         self._thread_ids = thread_ids
+         self._single = thread_ids is None or isinstance(thread_ids, str)
+         self._targets: dict[str, _TargetEventWaiter] = {}
+-        self._stack = AsyncExitStack()
++        self._stack = None if self._single else AsyncExitStack()
+         self._entered = False
+ 
+     async def __aenter__(self) -> Self:
+@@ -414,29 +414,35 @@ class ThreadEventWaiter:
+                 for thread_id, endpoint in targets.items():
+                     target = self._make_target(endpoint=endpoint)
+                     self._targets[thread_id] = target
+-                    await self._stack.enter_async_context(target)
++                    if self._single:
++                        await target.__aenter__()
++                    else:
++                        await self._stack.enter_async_context(target)
+         except BaseException:
+-            self.close()
+-            await self._stack.aclose()
++            await self.__aexit__(None, None, None)
+             raise
+         return self
+ 
+     async def __aexit__(self, exc_type, exc, traceback) -> None:
+         self.close()
+-        await self._stack.aclose()
++        if self._single:
++            for target in self._targets.values():
++                await target._wait_closed()
++        else:
++            await self._stack.aclose()
+ 
+     async def _collect(self, time_out: float | None, *, reset_deadline: bool) -> _ThreadEventMatches:
+         if not self._targets:
+             raise RuntimeError("Enter the thread event waiter context before waiting.")
+         try:
+             async with suspend_process():
+-                operations = (
++                if self._single:
++                    target = next(iter(self._targets.values()))
++                    return await target.wait(time_out) if reset_deadline else await target.get_result()
++                results = await gather_results(
+                     target.wait(time_out) if reset_deadline else target.get_result()
+                     for target in self._targets.values()
+                 )
+-                if self._single:
+-                    return await next(operations)
+-                results = await gather_results(operations)
+                 return dict(zip(self._targets, results))
+         except BaseException:
+             self.close()

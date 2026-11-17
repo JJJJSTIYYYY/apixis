@@ -1,7 +1,7 @@
 """Foreground handler-chain ownership and temporary permit suspension."""
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
@@ -34,8 +34,7 @@ handler_chain_token_context: ContextVar[HandlerChainToken | None] = ContextVar(
 )
 
 
-@asynccontextmanager
-async def suspend_process():
+def suspend_process() -> AbstractAsyncContextManager[None]:
     """Suspend the current event process chain (handler chain).
 
     While the ``async with`` block is running, the current handler chain
@@ -50,8 +49,9 @@ async def suspend_process():
     before propagating. Cancelling the dispatch during reacquisition can
     interrupt it; application-owned dependency cycles must be broken there.
 
-    Yields:
-        None
+    Returns:
+        A context to enter immediately on the caller's loop. Calls without a
+        live local chain use an empty context without an async generator.
 
     Example:
         ```python
@@ -62,9 +62,13 @@ async def suspend_process():
     chain = handler_chain_token_context.get()
 
     if chain is None or chain.closed or chain.loop is not asyncio.get_running_loop():
-        yield
-        return
+        return nullcontext()
+    return _suspend_process(chain)
 
+
+@asynccontextmanager
+async def _suspend_process(chain: HandlerChainToken):
+    """Lend and restore a live local chain's shared permit."""
     owner = chain.owner
     token = handler_chain_token_context.set(None)
     try:

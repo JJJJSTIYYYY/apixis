@@ -1,0 +1,1702 @@
+{
+  "environment": {
+    "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+    "platform": "macOS-27.2-arm64-arm-64bit",
+    "gc_enabled": true,
+    "source_sha256_excluding_version": "fbcc545a3367b628bc6263b886872680eb404d884190c38178b4bde88a211fbd",
+    "driver_sha256": "9b2e5f2d18efab601bccb3776879b3e49666d32f2f9dcdaa6945cbc5cd8ddf6a",
+    "logging": "ERROR",
+    "loop_lag_probe_interval_ms": 1
+  },
+  "scenarios": {
+    "registry/cold": {
+      "rounds": [
+        {
+          "seconds": 0.0009270420123357326,
+          "operations": 2000
+        },
+        {
+          "seconds": 0.0008185420010704547,
+          "operations": 2000
+        },
+        {
+          "seconds": 0.0009262500097975135,
+          "operations": 2000
+        },
+        {
+          "seconds": 0.0008228330116253346,
+          "operations": 2000
+        },
+        {
+          "seconds": 0.0009145000076387078,
+          "operations": 2000
+        }
+      ]
+    },
+    "registry/hot": {
+      "rounds": [
+        {
+          "seconds": 0.003591124986996874,
+          "operations": 30000
+        },
+        {
+          "seconds": 0.00359595799818635,
+          "operations": 30000
+        },
+        {
+          "seconds": 0.0036005409783683717,
+          "operations": 30000
+        },
+        {
+          "seconds": 0.00359541701618582,
+          "operations": 30000
+        },
+        {
+          "seconds": 0.0036139169824309647,
+          "operations": 30000
+        }
+      ]
+    },
+    "registry/mutation": {
+      "rounds": [
+        {
+          "seconds": 2.4999899324029684e-06,
+          "operations": 1,
+          "retained_names": 8192
+        },
+        {
+          "seconds": 2.4999899324029684e-06,
+          "operations": 1,
+          "retained_names": 8192
+        },
+        {
+          "seconds": 2.416985807940364e-06,
+          "operations": 1,
+          "retained_names": 8192
+        },
+        {
+          "seconds": 2.5830231606960297e-06,
+          "operations": 1,
+          "retained_names": 8192
+        },
+        {
+          "seconds": 2.6249908842146397e-06,
+          "operations": 1,
+          "retained_names": 8192
+        }
+      ]
+    },
+    "graph/shared-chain": {
+      "workload": {
+        "count": 512,
+        "nodes": 16,
+        "state": "visits"
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.3073214159812778,
+          "build_seconds": 0.00013858298189006746,
+          "cpu_seconds": 0.29934700000000003,
+          "gc_collections": 530,
+          "prepare_seconds": 0.001367874996503815,
+          "execute_seconds": 0.30581495800288394,
+          "nodes_per_second": 26656.13124891713,
+          "execute_nodes_per_second": 26787.44052775452,
+          "latency_p50_ms": 301.8828750064131,
+          "latency_p95_ms": 305.42170800617896,
+          "latency_p99_ms": 305.72216701693833,
+          "loop_lag_max_ms": 5.32345799729228,
+          "loop_lag_p95_ms": 2.874708006856963,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.31019950000336394,
+          "build_seconds": 0.00014220899902284145,
+          "cpu_seconds": 0.302269,
+          "gc_collections": 530,
+          "prepare_seconds": 0.001389500015648082,
+          "execute_seconds": 0.308667790988693,
+          "nodes_per_second": 26408.811103535507,
+          "execute_nodes_per_second": 26539.86013169766,
+          "latency_p50_ms": 304.7775409941096,
+          "latency_p95_ms": 308.2776249793824,
+          "latency_p99_ms": 308.57666599331424,
+          "loop_lag_max_ms": 5.3439170005731285,
+          "loop_lag_p95_ms": 2.943750034319237,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.30688612497760914,
+          "build_seconds": 0.00013841598411090672,
+          "cpu_seconds": 0.298872,
+          "gc_collections": 530,
+          "prepare_seconds": 0.001359124988084659,
+          "execute_seconds": 0.3053885840054136,
+          "nodes_per_second": 26693.9406289473,
+          "execute_nodes_per_second": 26824.84031510091,
+          "latency_p50_ms": 301.53641701326706,
+          "latency_p95_ms": 305.00308400951326,
+          "latency_p99_ms": 305.29641700559296,
+          "loop_lag_max_ms": 5.376833025366068,
+          "loop_lag_p95_ms": 2.8289589972700924,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.2995493749913294,
+          "build_seconds": 0.00013462500646710396,
+          "cpu_seconds": 0.291617,
+          "gc_collections": 530,
+          "prepare_seconds": 0.0013720830029342324,
+          "execute_seconds": 0.29804266698192805,
+          "nodes_per_second": 27347.74525981609,
+          "execute_nodes_per_second": 27485.99750148097,
+          "latency_p50_ms": 294.27191699505784,
+          "latency_p95_ms": 297.65941700316034,
+          "latency_p99_ms": 297.9496250045486,
+          "loop_lag_max_ms": 5.146458017406985,
+          "loop_lag_p95_ms": 2.7617499872576445,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.29836162499850616,
+          "build_seconds": 0.0001219160039909184,
+          "cpu_seconds": 0.29044800000000004,
+          "gc_collections": 530,
+          "prepare_seconds": 0.0013600839884020388,
+          "execute_seconds": 0.2968796250061132,
+          "nodes_per_second": 27456.61410056007,
+          "execute_nodes_per_second": 27593.67538217321,
+          "latency_p50_ms": 293.1034160137642,
+          "latency_p95_ms": 296.5036249952391,
+          "latency_p99_ms": 296.7915410117712,
+          "loop_lag_max_ms": 5.072666011983529,
+          "loop_lag_p95_ms": 2.765375014860183,
+          "completed": 512,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "graph/independent-chain": {
+      "workload": {
+        "count": 512,
+        "nodes": 16,
+        "state": "visits",
+        "independent": true
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.39292916702106595,
+          "build_seconds": 0.04295437500695698,
+          "cpu_seconds": 0.384989,
+          "gc_collections": 727,
+          "prepare_seconds": 0.0016123340174090117,
+          "execute_seconds": 0.34836245799669996,
+          "nodes_per_second": 20848.541384968772,
+          "execute_nodes_per_second": 23515.73716384101,
+          "latency_p50_ms": 344.35062497504987,
+          "latency_p95_ms": 347.958332975395,
+          "latency_p99_ms": 348.26691600028425,
+          "loop_lag_max_ms": 14.029042009497061,
+          "loop_lag_p95_ms": 3.0248750117607415,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.3875018749968149,
+          "build_seconds": 0.04413150000618771,
+          "cpu_seconds": 0.3795989999999998,
+          "gc_collections": 727,
+          "prepare_seconds": 0.001624166005058214,
+          "execute_seconds": 0.34174620898556896,
+          "nodes_per_second": 21140.542868514727,
+          "execute_nodes_per_second": 23971.004753255147,
+          "latency_p50_ms": 337.8417499770876,
+          "latency_p95_ms": 341.35512498323806,
+          "latency_p99_ms": 341.65487499558367,
+          "loop_lag_max_ms": 14.752124989172444,
+          "loop_lag_p95_ms": 3.1072500278241932,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.38409662499907427,
+          "build_seconds": 0.04232841599150561,
+          "cpu_seconds": 0.3761429999999999,
+          "gc_collections": 727,
+          "prepare_seconds": 0.0016004589851945639,
+          "execute_seconds": 0.3401677500223741,
+          "nodes_per_second": 21327.966628240338,
+          "execute_nodes_per_second": 24082.235895263973,
+          "latency_p50_ms": 336.2450410204474,
+          "latency_p95_ms": 339.77279101964086,
+          "latency_p99_ms": 340.07533302064985,
+          "loop_lag_max_ms": 14.17075001518242,
+          "loop_lag_p95_ms": 2.935124997748062,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.39784029198926874,
+          "build_seconds": 0.04383520898409188,
+          "cpu_seconds": 0.38985000000000003,
+          "gc_collections": 727,
+          "prepare_seconds": 0.0016332080122083426,
+          "execute_seconds": 0.3523718749929685,
+          "nodes_per_second": 20591.17732655638,
+          "execute_nodes_per_second": 23248.166443940707,
+          "latency_p50_ms": 348.35991699947044,
+          "latency_p95_ms": 351.9740419869777,
+          "latency_p99_ms": 352.2772080032155,
+          "loop_lag_max_ms": 15.010000002803281,
+          "loop_lag_p95_ms": 3.0255000165198,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.3939154160034377,
+          "build_seconds": 0.04409025001223199,
+          "cpu_seconds": 0.38595000000000024,
+          "gc_collections": 727,
+          "prepare_seconds": 0.0016495829913765192,
+          "execute_seconds": 0.3481755829998292,
+          "nodes_per_second": 20796.342735488444,
+          "execute_nodes_per_second": 23528.35867874175,
+          "latency_p50_ms": 344.2523749836255,
+          "latency_p95_ms": 347.7855419914704,
+          "latency_p99_ms": 348.0839580006432,
+          "loop_lag_max_ms": 14.688417024444789,
+          "loop_lag_p95_ms": 3.010665997862816,
+          "completed": 512,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "graph/shared-parallel": {
+      "workload": {
+        "count": 512,
+        "nodes": 16,
+        "state": "visits",
+        "width": 4
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.14893116598250344,
+          "build_seconds": 0.00012083299225196242,
+          "cpu_seconds": 0.1469149999999999,
+          "gc_collections": 259,
+          "prepare_seconds": 0.0014072080084588379,
+          "execute_seconds": 0.14740312498179264,
+          "nodes_per_second": 55005.27673947307,
+          "execute_nodes_per_second": 55575.48390518778,
+          "latency_p50_ms": 143.49175000097603,
+          "latency_p95_ms": 147.01099999365397,
+          "latency_p99_ms": 147.30908398632891,
+          "loop_lag_max_ms": 6.700208003167063,
+          "loop_lag_p95_ms": 6.67079200502485,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.15096233299118467,
+          "build_seconds": 0.00012004200834780931,
+          "cpu_seconds": 0.14890299999999979,
+          "gc_collections": 259,
+          "prepare_seconds": 0.0014206659980118275,
+          "execute_seconds": 0.14942162498482503,
+          "nodes_per_second": 54265.19210244562,
+          "execute_nodes_per_second": 54824.72835395789,
+          "latency_p50_ms": 145.41437500156462,
+          "latency_p95_ms": 149.00887498515658,
+          "latency_p99_ms": 149.32008399046026,
+          "loop_lag_max_ms": 6.927624985110015,
+          "loop_lag_p95_ms": 6.786959012970328,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.151431042002514,
+          "build_seconds": 0.00012708298163488507,
+          "cpu_seconds": 0.14935799999999944,
+          "gc_collections": 259,
+          "prepare_seconds": 0.0014346670068334788,
+          "execute_seconds": 0.14986929201404564,
+          "nodes_per_second": 54097.230605228215,
+          "execute_nodes_per_second": 54660.964163574296,
+          "latency_p50_ms": 145.84045798983425,
+          "latency_p95_ms": 149.456667015329,
+          "latency_p99_ms": 149.76362499874085,
+          "loop_lag_max_ms": 6.8160410155542195,
+          "loop_lag_p95_ms": 6.748250016244128,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.15079300000797957,
+          "build_seconds": 0.00012470799265429378,
+          "cpu_seconds": 0.14872900000000033,
+          "gc_collections": 259,
+          "prepare_seconds": 0.0014153750089462847,
+          "execute_seconds": 0.149252917006379,
+          "nodes_per_second": 54326.12919410384,
+          "execute_nodes_per_second": 54886.699464975136,
+          "latency_p50_ms": 145.307041995693,
+          "latency_p95_ms": 148.8603749894537,
+          "latency_p99_ms": 149.15883299545385,
+          "loop_lag_max_ms": 6.784291996154934,
+          "loop_lag_p95_ms": 6.772959022782743,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.14695170798222534,
+          "build_seconds": 0.00012470799265429378,
+          "cpu_seconds": 0.14487299999999959,
+          "gc_collections": 259,
+          "prepare_seconds": 0.0013988749997224659,
+          "execute_seconds": 0.14542812498984858,
+          "nodes_per_second": 55746.20473952484,
+          "execute_nodes_per_second": 56330.231862453234,
+          "latency_p50_ms": 141.554083005758,
+          "latency_p95_ms": 145.03558300202712,
+          "latency_p99_ms": 145.33462500548922,
+          "loop_lag_max_ms": 6.592083023861051,
+          "loop_lag_p95_ms": 6.538708024891093,
+          "completed": 512,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "graph/independent-parallel": {
+      "workload": {
+        "count": 512,
+        "nodes": 16,
+        "state": "visits",
+        "width": 4,
+        "independent": true
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.21039724998991005,
+          "build_seconds": 0.04289474998950027,
+          "cpu_seconds": 0.20838900000000038,
+          "gc_collections": 462,
+          "prepare_seconds": 0.0016450000111944973,
+          "execute_seconds": 0.16585749998921528,
+          "nodes_per_second": 38935.87012374383,
+          "execute_nodes_per_second": 49391.79717849766,
+          "latency_p50_ms": 161.870749987429,
+          "latency_p95_ms": 165.45329100335948,
+          "latency_p99_ms": 165.76058298232965,
+          "loop_lag_max_ms": 16.013915999792516,
+          "loop_lag_p95_ms": 12.876291002612561,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.21744341601151973,
+          "build_seconds": 0.04492212500190362,
+          "cpu_seconds": 0.21540599999999976,
+          "gc_collections": 462,
+          "prepare_seconds": 0.0017072909977287054,
+          "execute_seconds": 0.1708140000118874,
+          "nodes_per_second": 37674.16898732866,
+          "execute_nodes_per_second": 47958.59823802438,
+          "latency_p50_ms": 166.79975000442937,
+          "latency_p95_ms": 170.4104589880444,
+          "latency_p99_ms": 170.71954198763706,
+          "loop_lag_max_ms": 17.187541030580178,
+          "loop_lag_p95_ms": 12.671708012931049,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.21829854100360535,
+          "build_seconds": 0.044566665979800746,
+          "cpu_seconds": 0.21621999999999986,
+          "gc_collections": 462,
+          "prepare_seconds": 0.0016985000111162663,
+          "execute_seconds": 0.17203337501268834,
+          "nodes_per_second": 37526.59070618664,
+          "execute_nodes_per_second": 47618.66701386169,
+          "latency_p50_ms": 168.05095900781453,
+          "latency_p95_ms": 171.6304589936044,
+          "latency_p99_ms": 171.9360839924775,
+          "loop_lag_max_ms": 16.813708003610373,
+          "loop_lag_p95_ms": 13.80158303072676,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.21499929201672785,
+          "build_seconds": 0.04410895801265724,
+          "cpu_seconds": 0.21296800000000005,
+          "gc_collections": 462,
+          "prepare_seconds": 0.0016689170151948929,
+          "execute_seconds": 0.16922141698887572,
+          "nodes_per_second": 38102.45105068824,
+          "execute_nodes_per_second": 48409.94801821407,
+          "latency_p50_ms": 165.2540829963982,
+          "latency_p95_ms": 168.82224997971207,
+          "latency_p99_ms": 169.127707980806,
+          "loop_lag_max_ms": 17.3413340235129,
+          "loop_lag_p95_ms": 14.090415992541239,
+          "completed": 512,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.21825641600298695,
+          "build_seconds": 0.04510741599369794,
+          "cpu_seconds": 0.21621999999999986,
+          "gc_collections": 462,
+          "prepare_seconds": 0.0017223340109921992,
+          "execute_seconds": 0.1714266659982968,
+          "nodes_per_second": 37533.83359822003,
+          "execute_nodes_per_second": 47787.197821845235,
+          "latency_p50_ms": 167.49737499048933,
+          "latency_p95_ms": 171.02508299285546,
+          "latency_p99_ms": 171.32916598347947,
+          "loop_lag_max_ms": 18.23666601558216,
+          "loop_lag_p95_ms": 14.616333995945752,
+          "completed": 512,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "state/fixed-small": {
+      "workload": {
+        "count": 256,
+        "nodes": 32,
+        "state": "fixed"
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.2231252079945989,
+          "build_seconds": 0.00015212499420158565,
+          "cpu_seconds": 0.2151209999999999,
+          "gc_collections": 511,
+          "prepare_seconds": 0.0007406670192722231,
+          "execute_seconds": 0.2222324159811251,
+          "nodes_per_second": 36714.811713243536,
+          "execute_nodes_per_second": 36862.309055289996,
+          "latency_p50_ms": 221.61874998710118,
+          "latency_p95_ms": 222.16233299695887,
+          "latency_p99_ms": 222.19425000366755,
+          "loop_lag_max_ms": 4.355292010586709,
+          "loop_lag_p95_ms": 0.878125021699816,
+          "completed": 256,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.2206845000036992,
+          "build_seconds": 0.0001378330052830279,
+          "cpu_seconds": 0.21271100000000054,
+          "gc_collections": 511,
+          "prepare_seconds": 0.0007273329829331487,
+          "execute_seconds": 0.21981933401548304,
+          "nodes_per_second": 37120.86711963315,
+          "execute_nodes_per_second": 37266.96760632982,
+          "latency_p50_ms": 219.20679201139137,
+          "latency_p95_ms": 219.74833399872296,
+          "latency_p99_ms": 219.7796670079697,
+          "loop_lag_max_ms": 4.809291014680639,
+          "loop_lag_p95_ms": 0.8639169973321259,
+          "completed": 256,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.2157082080084365,
+          "build_seconds": 0.00017466599820181727,
+          "cpu_seconds": 0.20770599999999995,
+          "gc_collections": 511,
+          "prepare_seconds": 0.0007903340156190097,
+          "execute_seconds": 0.21474320799461566,
+          "nodes_per_second": 37977.22894104987,
+          "execute_nodes_per_second": 38147.88871089884,
+          "latency_p50_ms": 214.13687500171363,
+          "latency_p95_ms": 214.671541005373,
+          "latency_p99_ms": 214.70374998170882,
+          "loop_lag_max_ms": 4.377250006655231,
+          "loop_lag_p95_ms": 0.7993330073077232,
+          "completed": 256,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.21654179197503254,
+          "build_seconds": 0.00014099999680183828,
+          "cpu_seconds": 0.2085429999999997,
+          "gc_collections": 511,
+          "prepare_seconds": 0.0007320829899981618,
+          "execute_seconds": 0.21566870898823254,
+          "nodes_per_second": 37831.034486610995,
+          "execute_nodes_per_second": 37984.18434658955,
+          "latency_p50_ms": 215.0603749905713,
+          "latency_p95_ms": 215.59887498733588,
+          "latency_p99_ms": 215.6300419883337,
+          "loop_lag_max_ms": 4.3127500102855265,
+          "loop_lag_p95_ms": 0.7987499993760139,
+          "completed": 256,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.2243049999815412,
+          "build_seconds": 0.0001479579950682819,
+          "cpu_seconds": 0.21629399999999954,
+          "gc_collections": 511,
+          "prepare_seconds": 0.0007352920074481517,
+          "execute_seconds": 0.22342174997902475,
+          "nodes_per_second": 36521.70036635004,
+          "execute_nodes_per_second": 36666.081081045515,
+          "latency_p50_ms": 222.81441700761206,
+          "latency_p95_ms": 223.34720799699426,
+          "latency_p99_ms": 223.37904199957848,
+          "loop_lag_max_ms": 4.675208998378366,
+          "loop_lag_p95_ms": 0.8441669924650341,
+          "completed": 256,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "state/large-snapshots": {
+      "workload": {
+        "count": 32,
+        "nodes": 16,
+        "state": "fixed",
+        "payload_items": 256
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.20117533300071955,
+          "build_seconds": 0.0001232499780599028,
+          "cpu_seconds": 0.19998700000000014,
+          "gc_collections": 233,
+          "prepare_seconds": 0.005727083014789969,
+          "execute_seconds": 0.19532500000786968,
+          "nodes_per_second": 2545.043631160132,
+          "execute_nodes_per_second": 2621.2722384711196,
+          "latency_p50_ms": 192.48870899900794,
+          "latency_p95_ms": 195.1070420036558,
+          "latency_p99_ms": 195.27683401247486,
+          "loop_lag_max_ms": 14.638249995186925,
+          "loop_lag_p95_ms": 14.638249995186925,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.19799041698570363,
+          "build_seconds": 0.00013012500130571425,
+          "cpu_seconds": 0.19707600000000092,
+          "gc_collections": 233,
+          "prepare_seconds": 0.005740416992921382,
+          "execute_seconds": 0.19211987499147654,
+          "nodes_per_second": 2585.9837450464593,
+          "execute_nodes_per_second": 2665.002775078399,
+          "latency_p50_ms": 189.28737498936243,
+          "latency_p95_ms": 191.90508298925124,
+          "latency_p99_ms": 192.07337498664856,
+          "loop_lag_max_ms": 13.735000015003607,
+          "loop_lag_p95_ms": 13.735000015003607,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.19658712501404807,
+          "build_seconds": 0.00012045801850035787,
+          "cpu_seconds": 0.1956629999999997,
+          "gc_collections": 233,
+          "prepare_seconds": 0.005807791982078925,
+          "execute_seconds": 0.1906588750134688,
+          "nodes_per_second": 2604.4431951655665,
+          "execute_nodes_per_second": 2685.4244260270107,
+          "latency_p50_ms": 187.85270801163279,
+          "latency_p95_ms": 190.44691702583805,
+          "latency_p99_ms": 190.61416701879352,
+          "loop_lag_max_ms": 13.61300001735799,
+          "loop_lag_p95_ms": 13.61300001735799,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.19886450000922196,
+          "build_seconds": 0.00012083401088602841,
+          "cpu_seconds": 0.19791000000000025,
+          "gc_collections": 233,
+          "prepare_seconds": 0.0057888329902198166,
+          "execute_seconds": 0.1929548330081161,
+          "nodes_per_second": 2574.6173901136553,
+          "execute_nodes_per_second": 2653.4707217127034,
+          "latency_p50_ms": 190.17129199346527,
+          "latency_p95_ms": 192.74391699582338,
+          "latency_p99_ms": 192.91083299322054,
+          "loop_lag_max_ms": 14.19187500141561,
+          "loop_lag_p95_ms": 14.19187500141561,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.19690287500270642,
+          "build_seconds": 0.00012612499995157123,
+          "cpu_seconds": 0.19599299999999964,
+          "gc_collections": 233,
+          "prepare_seconds": 0.005744499998399988,
+          "execute_seconds": 0.19103225000435486,
+          "nodes_per_second": 2600.2667558458074,
+          "execute_nodes_per_second": 2680.1757294296026,
+          "latency_p50_ms": 188.21662501432002,
+          "latency_p95_ms": 190.82141600665636,
+          "latency_p99_ms": 190.98954100627452,
+          "loop_lag_max_ms": 13.533417019061744,
+          "loop_lag_p95_ms": 13.533417019061744,
+          "completed": 32,
+          "node_executions": 512
+        }
+      ]
+    },
+    "state/large-no-snapshots": {
+      "workload": {
+        "count": 32,
+        "nodes": 16,
+        "state": "fixed",
+        "payload_items": 256,
+        "no_snapshot": true
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.10664870802429505,
+          "build_seconds": 0.0001085410185623914,
+          "cpu_seconds": 0.10571200000000047,
+          "gc_collections": 42,
+          "prepare_seconds": 0.0056968340068124235,
+          "execute_seconds": 0.10084333299892023,
+          "nodes_per_second": 4800.808274989737,
+          "execute_nodes_per_second": 5077.182445025713,
+          "latency_p50_ms": 98.11979098594747,
+          "latency_p95_ms": 100.63533298671246,
+          "latency_p99_ms": 100.80358298728243,
+          "loop_lag_max_ms": 5.245625012321398,
+          "loop_lag_p95_ms": 5.245625012321398,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.10726687498390675,
+          "build_seconds": 9.508299990557134e-05,
+          "cpu_seconds": 0.10632999999999981,
+          "gc_collections": 42,
+          "prepare_seconds": 0.0057185420009773225,
+          "execute_seconds": 0.10145324998302385,
+          "nodes_per_second": 4773.14175580127,
+          "execute_nodes_per_second": 5046.659422794961,
+          "latency_p50_ms": 98.7239169771783,
+          "latency_p95_ms": 101.24554199865088,
+          "latency_p99_ms": 101.41091697732918,
+          "loop_lag_max_ms": 5.215540993958712,
+          "loop_lag_p95_ms": 5.215540993958712,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.10787895799148828,
+          "build_seconds": 0.00011004199041053653,
+          "cpu_seconds": 0.10693599999999925,
+          "gc_collections": 42,
+          "prepare_seconds": 0.005753041012212634,
+          "execute_seconds": 0.10201587498886511,
+          "nodes_per_second": 4746.059931728272,
+          "execute_nodes_per_second": 5018.826727270477,
+          "latency_p50_ms": 99.28550000768155,
+          "latency_p95_ms": 101.80616698926315,
+          "latency_p99_ms": 101.97366698412225,
+          "loop_lag_max_ms": 5.2919170120731,
+          "loop_lag_p95_ms": 5.2919170120731,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.1083213749807328,
+          "build_seconds": 9.637497714720666e-05,
+          "cpu_seconds": 0.10738199999999942,
+          "gc_collections": 42,
+          "prepare_seconds": 0.005728625023039058,
+          "execute_seconds": 0.10249637498054653,
+          "nodes_per_second": 4726.675599262563,
+          "execute_nodes_per_second": 4995.298615167374,
+          "latency_p50_ms": 99.78112499811687,
+          "latency_p95_ms": 102.28633298538625,
+          "latency_p99_ms": 102.45279199443758,
+          "loop_lag_max_ms": 5.324500001734123,
+          "loop_lag_p95_ms": 5.324500001734123,
+          "completed": 32,
+          "node_executions": 512
+        },
+        {
+          "seconds": 0.10796883300645277,
+          "build_seconds": 9.49160021264106e-05,
+          "cpu_seconds": 0.10701899999999931,
+          "gc_collections": 42,
+          "prepare_seconds": 0.005780416977358982,
+          "execute_seconds": 0.10209350002696738,
+          "nodes_per_second": 4742.109234147231,
+          "execute_nodes_per_second": 5015.010748625116,
+          "latency_p50_ms": 99.38062500441447,
+          "latency_p95_ms": 101.88454200397246,
+          "latency_p99_ms": 102.05208300612867,
+          "loop_lag_max_ms": 5.333167006028816,
+          "loop_lag_p95_ms": 5.333167006028816,
+          "completed": 32,
+          "node_executions": 512
+        }
+      ]
+    },
+    "sleep/capacity-128": {
+      "workload": {
+        "count": 2048,
+        "nodes": 4,
+        "state": "fixed",
+        "sleep": 0.01
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.8891637919878121,
+          "build_seconds": 0.00010637499508447945,
+          "cpu_seconds": 0.3891669999999987,
+          "gc_collections": 494,
+          "prepare_seconds": 0.0061695839976891875,
+          "execute_seconds": 0.8828878329950385,
+          "nodes_per_second": 9213.150685866309,
+          "execute_nodes_per_second": 9278.641854435926,
+          "latency_p50_ms": 873.9371660049073,
+          "latency_p95_ms": 882.5034580077045,
+          "latency_p99_ms": 882.762332999846,
+          "loop_lag_max_ms": 19.033625023439527,
+          "loop_lag_p95_ms": 1.298667019000277,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.7314772910031024,
+          "build_seconds": 0.00010870801634155214,
+          "cpu_seconds": 0.3607119999999995,
+          "gc_collections": 232,
+          "prepare_seconds": 0.006018707994371653,
+          "execute_seconds": 0.7253498749923892,
+          "nodes_per_second": 11199.254031203076,
+          "execute_nodes_per_second": 11293.860083847061,
+          "latency_p50_ms": 716.8845839914866,
+          "latency_p95_ms": 724.7297499852721,
+          "latency_p99_ms": 725.2483750053216,
+          "loop_lag_max_ms": 18.231125024612993,
+          "loop_lag_p95_ms": 0.45416600187309086,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.7187489999923855,
+          "build_seconds": 0.00010437497985549271,
+          "cpu_seconds": 0.3700150000000004,
+          "gc_collections": 214,
+          "prepare_seconds": 0.0060005830018781126,
+          "execute_seconds": 0.7126440420106519,
+          "nodes_per_second": 11397.581075016156,
+          "execute_nodes_per_second": 11495.219937413794,
+          "latency_p50_ms": 704.4022920017596,
+          "latency_p95_ms": 712.0848339982331,
+          "latency_p99_ms": 712.5452090112958,
+          "loop_lag_max_ms": 18.077958025969565,
+          "loop_lag_p95_ms": 0.31812500674277544,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.7190467079926748,
+          "build_seconds": 0.00010729100904427469,
+          "cpu_seconds": 0.37645599999999924,
+          "gc_collections": 217,
+          "prepare_seconds": 0.006228416983503848,
+          "execute_seconds": 0.7127110000001267,
+          "nodes_per_second": 11392.86211721792,
+          "execute_nodes_per_second": 11494.139981000075,
+          "latency_p50_ms": 703.933542012237,
+          "latency_p95_ms": 711.9743750081398,
+          "latency_p99_ms": 712.5985830207355,
+          "loop_lag_max_ms": 18.873458000598475,
+          "loop_lag_p95_ms": 0.34233301994390786,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.8633246249810327,
+          "build_seconds": 0.00010920799104496837,
+          "cpu_seconds": 0.391197,
+          "gc_collections": 450,
+          "prepare_seconds": 0.005999249988235533,
+          "execute_seconds": 0.8572161670017522,
+          "nodes_per_second": 9488.898802324768,
+          "execute_nodes_per_second": 9556.515982022134,
+          "latency_p50_ms": 848.3676250034478,
+          "latency_p95_ms": 856.5196670242585,
+          "latency_p99_ms": 857.1051250037272,
+          "loop_lag_max_ms": 18.332500010728836,
+          "loop_lag_p95_ms": 1.0400830069556832,
+          "completed": 2048,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "sleep/capacity-512": {
+      "workload": {
+        "count": 2048,
+        "nodes": 4,
+        "state": "fixed",
+        "sleep": 0.01
+      },
+      "capacity": 512,
+      "rounds": [
+        {
+          "seconds": 0.3750452079984825,
+          "build_seconds": 0.00010649999603629112,
+          "cpu_seconds": 0.3216450000000002,
+          "gc_collections": 701,
+          "prepare_seconds": 0.006134541996289045,
+          "execute_seconds": 0.3688041660061572,
+          "nodes_per_second": 21842.700093992793,
+          "execute_nodes_per_second": 22212.33043192694,
+          "latency_p50_ms": 360.5778749915771,
+          "latency_p95_ms": 368.3593750174623,
+          "latency_p99_ms": 368.61820801277645,
+          "loop_lag_max_ms": 22.22625000285916,
+          "loop_lag_p95_ms": 5.803000007290393,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.4227391250024084,
+          "build_seconds": 0.00011133399675600231,
+          "cpu_seconds": 0.31510500000000086,
+          "gc_collections": 718,
+          "prepare_seconds": 0.006134333001682535,
+          "execute_seconds": 0.41649345800396986,
+          "nodes_per_second": 19378.38140709907,
+          "execute_nodes_per_second": 19668.97640904102,
+          "latency_p50_ms": 406.4260830054991,
+          "latency_p95_ms": 416.0409579926636,
+          "latency_p99_ms": 416.303208010504,
+          "loop_lag_max_ms": 22.121334011899307,
+          "loop_lag_p95_ms": 5.465082998853177,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.40835058398079127,
+          "build_seconds": 0.0001093749888241291,
+          "cpu_seconds": 0.31079599999999985,
+          "gc_collections": 725,
+          "prepare_seconds": 0.005973958992399275,
+          "execute_seconds": 0.40226724999956787,
+          "nodes_per_second": 20061.193301453317,
+          "execute_nodes_per_second": 20364.57106565051,
+          "latency_p50_ms": 394.7921250073705,
+          "latency_p95_ms": 401.8512080074288,
+          "latency_p99_ms": 402.09954101010226,
+          "loop_lag_max_ms": 21.4397500094492,
+          "loop_lag_p95_ms": 4.982875019777566,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.3735400000005029,
+          "build_seconds": 0.00010179099626839161,
+          "cpu_seconds": 0.30885300000000093,
+          "gc_collections": 711,
+          "prepare_seconds": 0.006030416989233345,
+          "execute_seconds": 0.3674077920150012,
+          "nodes_per_second": 21930.716924530094,
+          "execute_nodes_per_second": 22296.750852974623,
+          "latency_p50_ms": 356.7044170049485,
+          "latency_p95_ms": 367.02579201664776,
+          "latency_p99_ms": 367.28220799705014,
+          "loop_lag_max_ms": 21.529541030758992,
+          "loop_lag_p95_ms": 5.549458001041785,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.42669533402659,
+          "build_seconds": 0.00011037502554245293,
+          "cpu_seconds": 0.31693699999999936,
+          "gc_collections": 741,
+          "prepare_seconds": 0.006013958976836875,
+          "execute_seconds": 0.42057100002421066,
+          "nodes_per_second": 19198.710055473694,
+          "execute_nodes_per_second": 19478.28071723542,
+          "latency_p50_ms": 407.6190000050701,
+          "latency_p95_ms": 420.16395801329054,
+          "latency_p99_ms": 420.4202080145478,
+          "loop_lag_max_ms": 21.585792012047023,
+          "loop_lag_p95_ms": 5.791250034235418,
+          "completed": 2048,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "sleep/capacity-1024": {
+      "workload": {
+        "count": 2048,
+        "nodes": 4,
+        "state": "fixed",
+        "sleep": 0.01
+      },
+      "capacity": 1024,
+      "rounds": [
+        {
+          "seconds": 0.353495416988153,
+          "build_seconds": 0.00010350000229664147,
+          "cpu_seconds": 0.3384830000000001,
+          "gc_collections": 791,
+          "prepare_seconds": 0.006129459012299776,
+          "execute_seconds": 0.3472624579735566,
+          "nodes_per_second": 23174.27498720456,
+          "execute_nodes_per_second": 23590.22638900922,
+          "latency_p50_ms": 338.36566598620266,
+          "latency_p95_ms": 346.73820799798705,
+          "latency_p99_ms": 346.9958749774378,
+          "loop_lag_max_ms": 33.24295801576227,
+          "loop_lag_p95_ms": 16.651666024699807,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.38250537498970516,
+          "build_seconds": 0.00010899998596869409,
+          "cpu_seconds": 0.33405200000000157,
+          "gc_collections": 798,
+          "prepare_seconds": 0.006053250021068379,
+          "execute_seconds": 0.3763431249826681,
+          "nodes_per_second": 21416.692511106496,
+          "execute_nodes_per_second": 21767.369871250525,
+          "latency_p50_ms": 366.66712499572895,
+          "latency_p95_ms": 375.7624999852851,
+          "latency_p99_ms": 376.2247909908183,
+          "loop_lag_max_ms": 32.19091601204127,
+          "loop_lag_p95_ms": 16.908125020563602,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.3805694170005154,
+          "build_seconds": 9.9874974694103e-05,
+          "cpu_seconds": 0.334619,
+          "gc_collections": 799,
+          "prepare_seconds": 0.006115250027505681,
+          "execute_seconds": 0.3743542919983156,
+          "nodes_per_second": 21525.639302721233,
+          "execute_nodes_per_second": 21883.013431663447,
+          "latency_p50_ms": 370.31487497733906,
+          "latency_p95_ms": 373.87029197998345,
+          "latency_p99_ms": 374.25033398903906,
+          "loop_lag_max_ms": 32.22633301629685,
+          "loop_lag_p95_ms": 17.706792015815154,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.36926887501613237,
+          "build_seconds": 0.0001130840100813657,
+          "cpu_seconds": 0.3302289999999992,
+          "gc_collections": 776,
+          "prepare_seconds": 0.006134166003903374,
+          "execute_seconds": 0.36302162500214763,
+          "nodes_per_second": 22184.377168647407,
+          "execute_nodes_per_second": 22566.14877957074,
+          "latency_p50_ms": 345.4019589989912,
+          "latency_p95_ms": 362.57937498157844,
+          "latency_p99_ms": 362.8403339826036,
+          "loop_lag_max_ms": 33.01341598853469,
+          "loop_lag_p95_ms": 19.313708995468915,
+          "completed": 2048,
+          "node_executions": 8192
+        },
+        {
+          "seconds": 0.38002658399636857,
+          "build_seconds": 0.00010199999087490141,
+          "cpu_seconds": 0.3322390000000013,
+          "gc_collections": 797,
+          "prepare_seconds": 0.00613191700540483,
+          "execute_seconds": 0.37379266700008884,
+          "nodes_per_second": 21556.386697616606,
+          "execute_nodes_per_second": 21915.89274809945,
+          "latency_p50_ms": 369.7361669910606,
+          "latency_p95_ms": 373.2674579950981,
+          "latency_p99_ms": 373.6813750001602,
+          "loop_lag_max_ms": 33.243542013224214,
+          "loop_lag_p95_ms": 16.42220900976099,
+          "completed": 2048,
+          "node_executions": 8192
+        }
+      ]
+    },
+    "event/cached-pipe": {
+      "workload": {
+        "events": 16384,
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.12247966701397672,
+          "publish_seconds": 0.048868709011003375,
+          "operations": 16384,
+          "events_per_second": 133769.14225387588
+        },
+        {
+          "seconds": 0.12157241700333543,
+          "publish_seconds": 0.047553125012200326,
+          "operations": 16384,
+          "events_per_second": 134767.41191672196
+        },
+        {
+          "seconds": 0.12231966698891483,
+          "publish_seconds": 0.048717458004830405,
+          "operations": 16384,
+          "events_per_second": 133944.11874490135
+        },
+        {
+          "seconds": 0.12246862502070144,
+          "publish_seconds": 0.04866975001641549,
+          "operations": 16384,
+          "events_per_second": 133781.20312227347
+        },
+        {
+          "seconds": 0.12086166700464673,
+          "publish_seconds": 0.04820941700018011,
+          "operations": 16384,
+          "events_per_second": 135559.93729070516
+        }
+      ]
+    },
+    "event/global-post": {
+      "workload": {
+        "events": 16384,
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.12973499999498017,
+          "publish_seconds": 0.05561583300004713,
+          "operations": 16384,
+          "events_per_second": 126288.202879978
+        },
+        {
+          "seconds": 0.12697004101937637,
+          "publish_seconds": 0.05521266601863317,
+          "operations": 16384,
+          "events_per_second": 129038.31382947814
+        },
+        {
+          "seconds": 0.1260579169902485,
+          "publish_seconds": 0.054306916979840025,
+          "operations": 16384,
+          "events_per_second": 129972.003275823
+        },
+        {
+          "seconds": 0.12658450001617894,
+          "publish_seconds": 0.0543823330081068,
+          "operations": 16384,
+          "events_per_second": 129431.32846364238
+        },
+        {
+          "seconds": 0.1259587500244379,
+          "publish_seconds": 0.05419250001432374,
+          "operations": 16384,
+          "events_per_second": 130074.32986450926
+        }
+      ]
+    },
+    "event/request-reply": {
+      "workload": {
+        "roundtrips": 2048
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.22002854201127775,
+          "operations": 2048,
+          "roundtrips_per_second": 9307.883337676381
+        },
+        {
+          "seconds": 0.22322383301798254,
+          "operations": 2048,
+          "roundtrips_per_second": 9174.64758270241
+        },
+        {
+          "seconds": 0.22096458298619837,
+          "operations": 2048,
+          "roundtrips_per_second": 9268.453669463943
+        },
+        {
+          "seconds": 0.21876004201476462,
+          "operations": 2048,
+          "roundtrips_per_second": 9361.855945619976
+        },
+        {
+          "seconds": 0.22031600002082996,
+          "operations": 2048,
+          "roundtrips_per_second": 9295.738846957871
+        }
+      ]
+    },
+    "event/getter": {
+      "rounds": [
+        {
+          "seconds": 0.037029416009318084,
+          "operations": 200000
+        },
+        {
+          "seconds": 0.03764308398240246,
+          "operations": 200000
+        },
+        {
+          "seconds": 0.03743245798978023,
+          "operations": 200000
+        },
+        {
+          "seconds": 0.03759383401484229,
+          "operations": 200000
+        },
+        {
+          "seconds": 0.03743175001000054,
+          "operations": 200000
+        }
+      ]
+    },
+    "event/mixed-wait-0": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 0,
+        "waiting_listeners": 0,
+        "normal_subscribers": 64,
+        "received_waiters": 0,
+        "processed_waiters": 0,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.03732691699406132,
+          "operations": 512,
+          "events_per_second": 13716.643142037654,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03746654200949706,
+          "operations": 512,
+          "events_per_second": 13665.525894282362,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03745883301598951,
+          "operations": 512,
+          "events_per_second": 13668.338246988365,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03752387501299381,
+          "operations": 512,
+          "events_per_second": 13644.646237167777,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.03736833299626596,
+          "operations": 512,
+          "events_per_second": 13701.440737299192,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 32768,
+        "wait_results": 0,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-25": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 25,
+        "waiting_listeners": 16,
+        "normal_subscribers": 48,
+        "received_waiters": 8,
+        "processed_waiters": 8,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.12053899999591522,
+          "operations": 512,
+          "events_per_second": 4247.587917747372,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.12033354199957103,
+          "operations": 512,
+          "events_per_second": 4254.840267245065,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.12044437500298955,
+          "operations": 512,
+          "events_per_second": 4250.924960068012,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.12059608299750835,
+          "operations": 512,
+          "events_per_second": 4245.577362662588,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.12123487499775365,
+          "operations": 512,
+          "events_per_second": 4223.207224897017,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 24576,
+        "wait_results": 8192,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-50": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 50,
+        "waiting_listeners": 32,
+        "normal_subscribers": 32,
+        "received_waiters": 16,
+        "processed_waiters": 16,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.18097175000002608,
+          "operations": 512,
+          "events_per_second": 2829.1708512512378,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.17844787499052472,
+          "operations": 512,
+          "events_per_second": 2869.185189384779,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.18190483300713822,
+          "operations": 512,
+          "events_per_second": 2814.658585678745,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.18067408399656415,
+          "operations": 512,
+          "events_per_second": 2833.8319955712996,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.17864825000287965,
+          "operations": 512,
+          "events_per_second": 2865.967060924174,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 16384,
+        "wait_results": 16384,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-75": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 75,
+        "waiting_listeners": 48,
+        "normal_subscribers": 16,
+        "received_waiters": 24,
+        "processed_waiters": 24,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.23929629201302305,
+          "operations": 512,
+          "events_per_second": 2139.6069102990355,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.23772604198893532,
+          "operations": 512,
+          "events_per_second": 2153.739639613528,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.2398768329876475,
+          "operations": 512,
+          "events_per_second": 2134.4287133654357,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.23731716600013897,
+          "operations": 512,
+          "events_per_second": 2157.4503379991493,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.23616470900014974,
+          "operations": 512,
+          "events_per_second": 2167.9784510041904,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 8192,
+        "wait_results": 24576,
+        "leftover_waiters": 0
+      }
+    },
+    "event/mixed-wait-100": {
+      "workload": {
+        "events": 512,
+        "total_listeners": 64,
+        "waiting_percent": 100,
+        "waiting_listeners": 64,
+        "normal_subscribers": 0,
+        "received_waiters": 32,
+        "processed_waiters": 32,
+        "matching": "half exact, half glob in each listener category",
+        "normal_registration": "persistent",
+        "wait_registration": "each event",
+        "queue_capacity": 65536
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.31807354200282134,
+          "operations": 512,
+          "events_per_second": 1609.690629330806,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.3207541659940034,
+          "operations": 512,
+          "events_per_second": 1596.2380361088497,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.31825462498818524,
+          "operations": 512,
+          "events_per_second": 1608.774735069466,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.3183561670011841,
+          "operations": 512,
+          "events_per_second": 1608.26160467655,
+          "handler_invocations": 32768
+        },
+        {
+          "seconds": 0.3239476669987198,
+          "operations": 512,
+          "events_per_second": 1580.5021988382566,
+          "handler_invocations": 32768
+        }
+      ],
+      "cache_audit": {
+        "normal_chain_builds": 1,
+        "events": 512,
+        "normal_callbacks": 0,
+        "wait_results": 32768,
+        "leftover_waiters": 0
+      }
+    },
+    "thread/publication-queue-1": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 1,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.17277491601998918,
+          "operations": 2048,
+          "operations_per_second": 11853.572539216611
+        },
+        {
+          "seconds": 0.17175754200434312,
+          "operations": 2048,
+          "operations_per_second": 11923.78498260189
+        },
+        {
+          "seconds": 0.1730811249872204,
+          "operations": 2048,
+          "operations_per_second": 11832.601620489906
+        },
+        {
+          "seconds": 0.1726929580036085,
+          "operations": 2048,
+          "operations_per_second": 11859.19810324406
+        },
+        {
+          "seconds": 0.17173466601525433,
+          "operations": 2048,
+          "operations_per_second": 11925.373295442205
+        }
+      ]
+    },
+    "thread/publication-queue-64": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 64,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.11351191700669006,
+          "operations": 2048,
+          "operations_per_second": 18042.158515209438
+        },
+        {
+          "seconds": 0.115895167022245,
+          "operations": 2048,
+          "operations_per_second": 17671.142400674096
+        },
+        {
+          "seconds": 0.11405574998934753,
+          "operations": 2048,
+          "operations_per_second": 17956.131104229968
+        },
+        {
+          "seconds": 0.11375124999904074,
+          "operations": 2048,
+          "operations_per_second": 18004.197756220445
+        },
+        {
+          "seconds": 0.1127335830242373,
+          "operations": 2048,
+          "operations_per_second": 18166.72499054419
+        }
+      ]
+    },
+    "thread/request-reply-queue-1": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 1,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.5435769589967094,
+          "operations": 2048,
+          "operations_per_second": 3767.635780184711
+        },
+        {
+          "seconds": 0.5436124999832828,
+          "operations": 2048,
+          "operations_per_second": 3767.3894549205183
+        },
+        {
+          "seconds": 0.5432469170191325,
+          "operations": 2048,
+          "operations_per_second": 3769.924753991511
+        },
+        {
+          "seconds": 0.5439953749882989,
+          "operations": 2048,
+          "operations_per_second": 3764.7378896264545
+        },
+        {
+          "seconds": 0.5412978749955073,
+          "operations": 2048,
+          "operations_per_second": 3783.499057735998
+        }
+      ]
+    },
+    "thread/request-reply-queue-64": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 64,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.3986376659886446,
+          "operations": 2048,
+          "operations_per_second": 5137.497468837624
+        },
+        {
+          "seconds": 0.40918779201456346,
+          "operations": 2048,
+          "operations_per_second": 5005.036904735196
+        },
+        {
+          "seconds": 0.4079457499901764,
+          "operations": 2048,
+          "operations_per_second": 5020.275367617673
+        },
+        {
+          "seconds": 0.40493833299842663,
+          "operations": 2048,
+          "operations_per_second": 5057.560208823099
+        },
+        {
+          "seconds": 0.4059774999914225,
+          "operations": 2048,
+          "operations_per_second": 5044.6145415528445
+        }
+      ]
+    },
+    "thread/async-publication-queue-1": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 1,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.14960666600381956,
+          "operations": 2048,
+          "operations_per_second": 13689.229595877187
+        },
+        {
+          "seconds": 0.1474374590034131,
+          "operations": 2048,
+          "operations_per_second": 13890.63548601031
+        },
+        {
+          "seconds": 0.14817724999738857,
+          "operations": 2048,
+          "operations_per_second": 13821.284981575061
+        },
+        {
+          "seconds": 0.14999929099576548,
+          "operations": 2048,
+          "operations_per_second": 13653.397868779364
+        },
+        {
+          "seconds": 0.14893654198385775,
+          "operations": 2048,
+          "operations_per_second": 13750.822818364946
+        }
+      ]
+    },
+    "thread/async-publication-queue-64": {
+      "workload": {
+        "workers": 32,
+        "iterations": 64,
+        "queue_capacity": 64,
+        "event_pipe_capacity": 65536,
+        "includes": "worker pool creation, submissions, dispatch and cleanup",
+        "default_executor_workers_per_worker": 2
+      },
+      "capacity": 128,
+      "rounds": [
+        {
+          "seconds": 0.1715806669963058,
+          "operations": 2048,
+          "operations_per_second": 11936.076691228238
+        },
+        {
+          "seconds": 0.17076045798603445,
+          "operations": 2048,
+          "operations_per_second": 11993.408920041047
+        },
+        {
+          "seconds": 0.17206774998339824,
+          "operations": 2048,
+          "operations_per_second": 11902.288489258439
+        },
+        {
+          "seconds": 0.17155100000672974,
+          "operations": 2048,
+          "operations_per_second": 11938.140843945295
+        },
+        {
+          "seconds": 0.1943035830045119,
+          "operations": 2048,
+          "operations_per_second": 10540.207073548632
+        }
+      ]
+    }
+  },
+  "memory": {
+    "state/large-snapshots": {
+      "peak_python_MiB": 27.47541332244873
+    },
+    "state/large-no-snapshots": {
+      "peak_python_MiB": 3.1958494186401367
+    },
+    "registry/unique-names": {
+      "retained_python_MiB": 2.0289230346679688,
+      "peak_python_MiB": 2.4249048233032227,
+      "retained_names": 8192,
+      "queried_names": 30000
+    }
+  }
+}
