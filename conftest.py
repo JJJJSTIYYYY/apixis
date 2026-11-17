@@ -1,6 +1,8 @@
-"""Repository-wide pytest selection and graph benchmark options."""
+"""Repository-wide runtime requirements, pytest selection and benchmark options."""
 
 import math
+import sys
+import sysconfig
 from time import perf_counter
 
 import pytest
@@ -8,10 +10,27 @@ import pytest
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session):
-    """Start session accounting before collection loads performance fixtures."""
+    """Validate the interpreter and start benchmark accounting before collection."""
+    if session.config.getoption("--require-free-threading"):
+        if sysconfig.get_config_var("Py_GIL_DISABLED") != 1 or sys._is_gil_enabled():
+            raise pytest.UsageError(
+                "--require-free-threading needs a free-threaded Python with the GIL disabled."
+            )
     if session.config.getoption("--run-performance"):
         session.config._graph_session_started = perf_counter()
         session.config._graph_test_durations = {}
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session):
+    """Fail if an extension enabled the GIL after the startup check."""
+    if session.config.getoption("--require-free-threading") and sys._is_gil_enabled():
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        if reporter is not None:
+            reporter.write_sep(
+                "=", "GIL enabled during a required free-threaded test run", red=True,
+            )
 
 
 @pytest.hookimpl(wrapper=True)
@@ -26,6 +45,10 @@ def pytest_runtest_makereport(item, call):
 
 def pytest_addoption(parser):
     threads = parser.getgroup("event threads")
+    threads.addoption(
+        "--require-free-threading", action="store_true", default=False,
+        help="Require a free-threaded build and verify the GIL remains disabled.",
+    )
     threads.addoption("--thread-workers", type=_positive_int, default=None, help="Override stress worker threads.")
     threads.addoption("--thread-iterations", type=_positive_int, default=None, help="Override operations per stress worker.")
     threads.addoption("--thread-queue-size", type=_positive_int, default=64, help="Set both thread stress queue capacities.")

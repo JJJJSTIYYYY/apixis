@@ -64,6 +64,37 @@ uv run --no-sync pytest tests/performance/test_thread_events.py \
 
 去掉 `-k '[1]'` 可验证全部三档派发容量。结束时检查处理结果、许可恢复、临时监听、桥接请求、异步容量等待和 loop callback 错误；这些测试验证推进和清理，不设置吞吐量阈值。线程压力指标写入 `--thread-report` 指定的 JSON，与下文的 Graph 报告分开。
 
+## 无 GIL 稳定性验证
+
+使用 Python 3.14 的 free-threaded 构建，并在隔离环境中运行：
+
+```bash
+PYTHONASYNCIODEBUG=1 uv run --isolated --python 3.14t --extra dev --locked \
+  pytest --require-free-threading -q -o faulthandler_timeout=60
+```
+
+`--require-free-threading` 在收集前检查解释器支持 free threading 且 GIL 已关闭，退出时再次检查，防止依赖导入后重新启用 GIL 导致验证失真。普通解释器仍可运行全部测试，但不能通过此选项的检查。环境变量 `PYTHONASYNCIODEBUG=1` 同时覆盖主线程和工作线程创建的 loop；`faulthandler_timeout` 只输出阻塞线程栈，不会终止进程。
+
+新增 `integration/graph/test_thread_graph_backpressure.py` 默认启动三个真实工作线程，每个 core 编译两张父图和两张子图，每张父图并发调用六次。派发容量和事件／桥接队列容量使用 `{1, 2} × {1, 2}` 的四种组合，并覆盖默认和 eager task factory，共十六组测试。每组先强制耗尽全部派发许可，同时填满事件队列和桥接队列，确认存在异步入队等待者，再恢复运行。
+
+测试校验同名图跨 core 隔离、嵌套图、`ParallelNode`、`invoke/stream`、跨 core 请求及返回来源 core 的嵌套请求、ContextVar 和图上下文归属，以及正常完成／取消／超时／迟到回包后的再次调用。业务状态仅在所属 core 修改，跨 core 请求使用不可变 tuple。每轮结束检查结果、流内容、run ID、成功发布的事件无丢失或重复、临时监听恢复基线、队列和图 context 清空、派发许可归还以及 loop callback 错误。
+
+放大到四个 core、每个 core 八张父图、每张图并发调用三十二次：
+
+```bash
+APIXIS_STRESS_CORES=4 APIXIS_STRESS_GRAPHS=8 APIXIS_STRESS_CALLS=32 \
+APIXIS_STRESS_TIMEOUT=120 PYTHONASYNCIODEBUG=1 \
+uv run --isolated --python 3.14t --extra dev --locked pytest \
+  --require-free-threading -q -o faulthandler_timeout=60 \
+  tests/integration/graph/test_thread_graph_backpressure.py \
+  tests/integration/graph/test_graph_backpressure_stress.py \
+  tests/integration/event/test_backpressure_boundaries.py
+```
+
+新增跨 core 测试每组执行两轮，共 2,048 次父图调用；十六组共 32,768 次，另有嵌套子图和事件往返。`APIXIS_STRESS_CORES` 至少为 2，`APIXIS_STRESS_CALLS` 至少为 3，确保取消、超时、正常完成三类调用均被覆盖。其余两个文件沿用原来的单 core 九档背压矩阵，`GRAPHS/CALLS/TIMEOUT` 环境变量同样控制其规模。
+
+CI 增加独立的 free-threading job，在 Python 3.14t 上运行完整测试、上述压力组合，以及 128 个发布线程、每线程 128 次操作、派发和两条队列容量均为 1 的四组事件压力测试。Linux 中使用进程级 `timeout 300s/600s`，避免死锁阻止取消和清理退出；JUnit XML 保存每组的 core 数、图数、调用数与验证结果，线程压力指标另外保存为 JSON。这些测试不设置吞吐量或线性加速阈值。
+
 ## 跨版本性能对比
 
 `scripts/benchmark_runtime.py` 使用四个独立进程按 `before → after → after → before` 比较。每个场景先预热，再测量；结果和原始轮次分别保存为 JSON，不覆盖现有 Graph 性能报告。

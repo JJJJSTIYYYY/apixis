@@ -240,7 +240,7 @@ if isinstance(result, EventWaiter):
 
 `thread_ids=None` 默认选择主线程已注册的 core，即使主线程显式使用了其他名称。字符串选择一个 core；非空 `list`、`tuple` 或 `set` 选择多个 core，重复 ID 合并。目标必须已完成 `start_core()`。无效 ID、未启动或已停止的目标抛出错误；解析全部目标后才开始提交请求，不会自动向其他线程广播，也不会将收到的事件再次转发。
 
-单个目标的等待和 `post_and_wait_threadsafe()` 返回事件；事件模式为集合时返回按模式索引的事件字典。多个目标始终返回按 thread ID 索引的结果字典，包括只有一个 ID 的集合；多目标等待要收齐所有目标。每个目标的发布都创建独立事件 ID；payload 仍按引用共享，需要独立可变状态时由业务方复制。
+单个目标的等待和 `post_and_wait_threadsafe()` 返回事件；事件模式为集合时返回按模式索引的事件字典。多个目标始终返回按 thread ID 索引的结果字典，包括只有一个 ID 的集合；多目标等待要收齐所有目标。每个目标的发布都创建独立事件 ID；payload 仍按引用共享，修改约束见[共享 payload 与修改归属](#共享-payload-与修改归属)。
 
 ```python
 from apixis import expect_event_threadsafe, post_event_threadsafe
@@ -285,6 +285,20 @@ await unsubscribe_threadsafe(group="observers", thread_ids=["worker-a", "worker-
 `call()` 默认使用 `background=True`，操作开始后允许接收端继续转交后续请求，因此操作中可以再次请求同一 core。这里的 `background` 控制桥接请求的执行方式，与 handler 的后台属性无关。显式使用 `background=False` 时，接收端会等待操作结束再转交下一条请求；该操作不能等待后续桥接请求或事件 handler 完成，否则可能阻塞自身依赖。普通 `post_event_threadsafe()` 只等待事件入队，继续使用串行转交来限制发布 task 的数量；`call_sync()` 也串行执行同步回调，回调必须保持非阻塞。
 
 容量为 1 的回路、跨线程图、多目标清理和压力测试见[测试说明](../../../tests/README.md#跨线程事件验证)。
+
+### 共享 payload 与修改归属
+
+标准发布接口创建的同一事件，其前台和后台 handler 都在目标 core 的 loop 中运行；跨线程发布到多个 core 时，各目标创建独立事件，但 `context` 不会被自动复制。**不同 core 同时修改同一份可变 payload 会产生数据竞争**，即使它们处理的是不同事件、修改都发生在各自线程的 handler 中，也不能保证安全。例如，多个 core 对同一字典执行 `event.context["count"] += 1`，仍可能丢失更新。
+
+业务数据的使用约定：
+
+- 每份可变 payload 明确由一个 core 负责修改，发布者和其他 core 不与其并发写入。跨线程发起修改时，先通过 `subscribe_threadsafe()` 将 handler 注册到数据所属 core，再向该 core 发布请求；本线程可直接使用 `subscribe()`。
+- 多个 core 需要分别修改数据时，由调用方按目标构造独立可变状态并分别发布；多目标发布本身不会隔离 payload 及其可变子对象。
+- 确需多个 core 共享写入时，由业务对象或所属服务提供跨线程同步。`suspend_process()` 只协调框架派发许可，不保护 payload，也不释放业务锁；资源依赖约束见[死锁保证边界](#框架与应用的死锁保证边界)。
+
+等待接口仅用于观测，修改由 handler 完成。等待结果仍是原始事件引用，不是不可变快照；`received` 可以观察处理中状态，`processed` 只表示前台处理链完成，不等待后台 handler 或其他 core 对共享对象的操作。需要一致性快照时，应由数据所属 core 的 handler 生成独立结果。
+
+同样的归属约束适用于回调闭包、绑定的服务实例，以及 `ContextVar` 值中的可变对象。`subscribe_threadsafe()` 对 handler 实例的浅拷贝只隔离注册元数据，回调及其业务对象仍可能共享。这些约束在启用 GIL 时也成立；关闭 GIL 后，各 core 可以真正并行执行，框架不提供共享业务数据的跨 core 事务。
 
 ### 图内发布与监听目标
 

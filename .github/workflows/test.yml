@@ -54,3 +54,49 @@ jobs:
         with:
           name: distributions
           path: dist/*
+
+  free-threading:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONASYNCIODEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Set up free-threaded Python
+        run: uv python install 3.14t
+      - name: Install development dependencies
+        run: uv sync --extra dev --locked --python 3.14t
+      - name: Run all tests with the GIL disabled
+        run: >-
+          timeout 300s uv run --no-sync pytest --require-free-threading
+          -o faulthandler_timeout=60 -o junit_family=xunit1
+          --junitxml=test-results/free-threading-suite.xml
+      - name: Stress bounded queues and concurrent graphs
+        env:
+          APIXIS_STRESS_CORES: '4'
+          APIXIS_STRESS_GRAPHS: '8'
+          APIXIS_STRESS_CALLS: '32'
+          APIXIS_STRESS_TIMEOUT: '120'
+        run: >-
+          timeout 600s uv run --no-sync pytest --require-free-threading
+          tests/integration/graph/test_thread_graph_backpressure.py
+          tests/integration/graph/test_graph_backpressure_stress.py
+          tests/integration/event/test_backpressure_boundaries.py
+          -o faulthandler_timeout=60 -o junit_family=xunit1
+          --junitxml=test-results/free-threading-stress.xml
+      - name: Saturate thread bridge admission and cancellation
+        run: >-
+          timeout 300s uv run --no-sync pytest --require-free-threading
+          tests/performance/test_thread_events.py --run-performance -k '[1]'
+          --thread-workers 128 --thread-iterations 128 --thread-queue-size 1
+          -o faulthandler_timeout=60 -o junit_family=xunit1
+          --thread-report test-results/free-threading-threads.json
+          --junitxml=test-results/free-threading-threads.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: free-threading-results
+          path: |
+            test-results/free-threading-*.xml
+            test-results/free-threading-*.json
