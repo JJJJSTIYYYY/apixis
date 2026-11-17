@@ -118,7 +118,7 @@ async def test_cleanup_failure_cannot_hide_cancellation_or_skip_other_subscriber
              on_error=on_error, time_out=0.01 if failure == "timeout" else None)
     tail_cleanup = AsyncMock()
     register(registry, "tail", AsyncMock(), on_cancelled=tail_cleanup)
-    with patch("apixis.core.event.base.handler.logger") as logger:
+    with patch("apixis.core.event.base.handler.Logger") as logger:
         task = asyncio.create_task(runtime._dispatch_event(event, [registry.registry["broken"], registry.registry["tail"]]))
         with pytest.raises(asyncio.CancelledError, match="original cancellation"):
             # Dispatch overrides the handler timeout with a five-second cleanup limit.
@@ -207,7 +207,7 @@ async def test_repeated_dispatch_cancellation_preserves_later_notifications():
              on_error=on_error, time_out=None)
     register(registry, "tail", tail_core, on_cancelled=tail_cleanup,
              on_error=on_error, time_out=None)
-    with patch("apixis.core.event.base.handler.logger") as logger:
+    with patch("apixis.core.event.base.handler.Logger") as logger:
         task = asyncio.create_task(runtime._dispatch_event(event, [registry.registry["first"], registry.registry["tail"]]))
         try:
             await asyncio.wait_for(entered[0].wait(), 1)

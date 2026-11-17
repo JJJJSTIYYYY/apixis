@@ -1,53 +1,108 @@
-"""Level-filtered ANSI-colored console output through module-level functions."""
+"""Forward runtime logs to application-provided callables."""
 
-from datetime import datetime
-import sys
-import traceback
-
-from apixis.core.config import core_config
+from collections.abc import Callable
+from typing import ClassVar
 
 
-__all__ = ["debug", "info", "success", "warning", "error", "exception"]
-
-_LEVELS = {"DEBUG": 10, "INFO": 20, "SUCCESS": 25, "WARNING": 30, "ERROR": 40, "NONE": 50}
+__all__ = ["Logger"]
 
 
-def _write(level: str, color: str, message: object, *args: object) -> bool:
-    if _LEVELS[level] < _LEVELS[core_config.LOG_LEVEL]:
-        return False
-    text = str(message) % args if args else str(message)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    stream = sys.stderr if level == "ERROR" else sys.stdout
-    print(f"\033[{color}m{timestamp} [APIXIS] [{level}] {text}\033[0m", file=stream)
-    return True
+class Logger:
+    """Configure process-wide logging callbacks independently for each level.
 
+    All callbacks default to None, so logging is silent until configured.
+    Each set_{level}(logger) replaces that level's callback; pass None to
+    disable it again. Runtime cores on all threads share these callbacks.
 
-def debug(message: object, *args: object) -> None:
-    """Print a cyan DEBUG message to stdout; args use percent formatting."""
-    _write("DEBUG", "96", message, *args)
+    Log methods forward the message, positional arguments and keyword arguments
+    unchanged. The application logger owns formatting, filtering, output and
+    exception details. Callback return values are ignored and callback errors
+    propagate to the caller. Use synchronous callables; callbacks are not awaited.
 
+    Example:
+        import logging
 
-def info(message: object, *args: object) -> None:
-    """Print a gray INFO message to stdout; args use percent formatting."""
-    _write("INFO", "37", message, *args)
+        application_logger = logging.getLogger("application")
+        Logger.set_info(application_logger.info)
+        Logger.set_error(application_logger.error)
+        Logger.info("Job %s completed", "example")
+        Logger.set_info(None)
+    """
+    _debug: ClassVar[Callable[..., object] | None] = None
+    _info: ClassVar[Callable[..., object] | None] = None
+    _success: ClassVar[Callable[..., object] | None] = None
+    _warning: ClassVar[Callable[..., object] | None] = None
+    _error: ClassVar[Callable[..., object] | None] = None
+    _exception: ClassVar[Callable[..., object] | None] = None
 
+    @classmethod
+    def set_debug(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the debug callback; None disables this level."""
+        cls._debug = logger
 
-def success(message: object, *args: object) -> None:
-    """Print a green SUCCESS message to stdout; args use percent formatting."""
-    _write("SUCCESS", "92", message, *args)
+    @classmethod
+    def debug(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the debug callback, if configured."""
+        logger = cls._debug
+        if logger is not None:
+            logger(message, *args, **kwargs)
 
+    @classmethod
+    def set_info(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the info callback; None disables this level."""
+        cls._info = logger
 
-def warning(message: object, *args: object) -> None:
-    """Print a yellow WARNING message to stdout; args use percent formatting."""
-    _write("WARNING", "93", message, *args)
+    @classmethod
+    def info(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the info callback, if configured."""
+        logger = cls._info
+        if logger is not None:
+            logger(message, *args, **kwargs)
 
+    @classmethod
+    def set_success(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the success callback; None disables this level."""
+        cls._success = logger
 
-def error(message: object, *args: object) -> None:
-    """Print a red ERROR message to stderr; args use percent formatting."""
-    _write("ERROR", "91", message, *args)
+    @classmethod
+    def success(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the success callback, if configured."""
+        logger = cls._success
+        if logger is not None:
+            logger(message, *args, **kwargs)
 
+    @classmethod
+    def set_warning(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the warning callback; None disables this level."""
+        cls._warning = logger
 
-def exception(message: object, *args: object) -> None:
-    """Print an error and the current exception's traceback, if any, to stderr."""
-    if _write("ERROR", "91", message, *args) and sys.exception() is not None:
-        traceback.print_exc()
+    @classmethod
+    def warning(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the warning callback, if configured."""
+        logger = cls._warning
+        if logger is not None:
+            logger(message, *args, **kwargs)
+
+    @classmethod
+    def set_error(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the error callback; None disables this level."""
+        cls._error = logger
+
+    @classmethod
+    def error(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the error callback, if configured."""
+        logger = cls._error
+        if logger is not None:
+            logger(message, *args, **kwargs)
+
+    @classmethod
+    def set_exception(cls, logger: Callable[..., object] | None) -> None:
+        """Replace the exception callback; None disables this level."""
+        cls._exception = logger
+
+    @classmethod
+    def exception(cls, message: object, *args: object, **kwargs: object) -> None:
+        """Forward arguments unchanged to the exception callback, if configured."""
+        logger = cls._exception
+        if logger is not None:
+            logger(message, *args, **kwargs)

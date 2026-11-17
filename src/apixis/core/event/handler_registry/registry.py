@@ -11,7 +11,7 @@ from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.handler_registry.matching import is_glob_pattern, matches_handler
 from apixis.core.event.handler_registry.waiter_cache import WaiterHandlerCache
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 from apixis.core.utils.validation import validate_int, validate_non_empty_string, validate_number
 from apixis.core.utils.exception import (
     EventHandlerAlreadyRegisteredError,
@@ -392,7 +392,7 @@ class ApixHandlerRegistry:
         self._invalidate_matching_chains(handler_entry)
         self._register_order += 1
 
-        logger.debug(
+        Logger.debug(
             f"Registered handler `{handler_entry.name}`, "
             f"group={handler_entry.group}, "
             f"priority={handler_entry.priority}, "
@@ -420,7 +420,7 @@ class ApixHandlerRegistry:
         if not members:
             del self._group_handlers[group]
         del self.registry[handler_name]
-        logger.debug(f"Unregistered handler {handler_name}.")
+        Logger.debug(f"Unregistered handler {handler_name}.")
 
     def unregister_group(self, group: str, *, missing_ok: bool = False) -> None:
         """Remove indexed group members, preserving already captured chains."""

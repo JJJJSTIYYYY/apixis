@@ -25,7 +25,7 @@ from apixis.core.graph import (
     get_stream_writer,
 )
 from apixis.core.graph.context import get_graph_context
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 
 
 _request = ContextVar("graph_backpressure_stress_request", default=None)
@@ -59,9 +59,7 @@ async def stress_runtime(cleanup_event_runtime, monkeypatch):
     loop = asyncio.get_running_loop()
     previous_handler = loop.get_exception_handler()
     loop.set_exception_handler(lambda _, context: callbacks.append(context))
-    for name in ("debug", "info", "success", "warning"):
-        monkeypatch.setattr(logger, name, lambda *args, **kwargs: None)
-    monkeypatch.setattr(logger, "error", lambda *args: failures.append(args))
+    Logger.set_error(lambda *args: failures.append(args))
     monkeypatch.setattr(
         "apixis.core.event.event_loop.SHOW_EVENT_DISPATCH", False,
     )
@@ -70,6 +68,7 @@ async def stress_runtime(cleanup_event_runtime, monkeypatch):
         assert not failures, failures[:5]
         assert not callbacks, callbacks[:5]
     finally:
+        Logger.set_error(None)
         loop.set_exception_handler(previous_handler)
 
 

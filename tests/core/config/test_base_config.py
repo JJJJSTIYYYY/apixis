@@ -98,7 +98,6 @@ def test_legacy_categories_are_not_read(monkeypatch):
             })
             importlib.reload(core_config)
             assert core_config.SHOW_EVENT_DISPATCH is False
-            assert core_config.LOG_LEVEL == "NONE"
             assert core_config.EVENT_PIPE_MAX_LEN == 65536
             assert core_config.EVENT_LOOP_BACKPRESSURE is None
             assert core_config.HANDLER_CHAIN_CACHE_SIZE == 8192
@@ -151,7 +150,7 @@ def test_yaml_import_contract_and_snapshot_default_in_fresh_process(tmp_path):
         "  GRAPH:\n    max_snapshots: 3\n"
         "  EVENT:\n    event_pipe_max_len: 2\n    event_loop_backpressure: 1\n"
         "    handler_chain_cache_size: 7\n    show_event_dispatch: false\n"
-        "  LOG:\n    level: warning\n    show_event_dispatch: true\n"
+        "  LOG:\n    show_event_dispatch: true\n"
         "GRAPH:\n  max_snapshots: 99\nEVENT:\n  event_pipe_max_len: 99\n",
         encoding="utf-8",
     )
@@ -164,10 +163,7 @@ assert core_config.EVENT_PIPE_MAX_LEN == 2
 assert core_config.EVENT_LOOP_BACKPRESSURE == 1
 assert core_config.HANDLER_CHAIN_CACHE_SIZE == 7
 assert core_config.SHOW_EVENT_DISPATCH is True
-assert core_config.LOG_LEVEL == "WARNING"
-from apixis import logger
-logger.info("filtered info")
-logger.warning("visible warning")
+assert not hasattr(core_config, "LOG_LEVEL")
 graph = GraphManager().compile_graph(None)
 assert graph.create_context({}).max_snapshots == 3
 Path("config.yaml").write_text("APIXIS:\\n  GRAPH:\\n    max_snapshots: 5\\n")
@@ -180,38 +176,6 @@ graph.decompose()
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, result.stderr
-    assert "filtered info" not in result.stdout
-    assert "[WARNING] visible warning" in result.stdout
-
-
-@pytest.mark.parametrize("value, expected", [
-    (None, "NONE"),
-    ("debug", "DEBUG"),
-    (" INFO ", "INFO"),
-    ("SUCCESS", "SUCCESS"),
-    ("warning", "WARNING"),
-    ("ERROR", "ERROR"),
-    ("none", "NONE"),
-])
-def test_log_level_normalization(monkeypatch, value, expected):
-    try:
-        with monkeypatch.context() as patch:
-            patch.setattr(base, "_config", {"LOG": {"level": value}})
-            importlib.reload(core_config)
-            assert core_config.LOG_LEVEL == expected
-    finally:
-        importlib.reload(core_config)
-
-
-@pytest.mark.parametrize("value", ["", "VERBOSE", 20, False, [], {}])
-def test_log_level_rejects_invalid_values(monkeypatch, value):
-    try:
-        with monkeypatch.context() as patch:
-            patch.setattr(base, "_config", {"LOG": {"level": value}})
-            with pytest.raises(ValueError if isinstance(value, str) else TypeError, match="APIXIS.LOG.level"):
-                importlib.reload(core_config)
-    finally:
-        importlib.reload(core_config)
 
 
 @pytest.mark.parametrize("show_dispatch", [False, True])

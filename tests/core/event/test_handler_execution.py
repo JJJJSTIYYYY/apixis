@@ -147,7 +147,7 @@ async def test_timeout_is_per_phase_and_background_errors_are_log_only(phase, ba
     handler = ApixEventHandler(**callbacks, time_out=0.01, background=background)
     event = make_event(has_error=phase == "on_has_error", accepted=phase == "on_accepted")
     before = list(event.error_stack)
-    with patch("apixis.core.event.base.handler.logger") as logger:
+    with patch("apixis.core.event.base.handler.Logger") as logger:
         await handler(event)
     assert cleaned.is_set()
     logger.error.assert_called_once()
@@ -295,7 +295,7 @@ async def test_background_failure_before_next_core_is_still_log_only(registry):
     subscribe("contract.*")(ApixEventHandler(last, on_has_error=notified))
     loop = ApixEventLoop(registry, ApixEventPipe(), get_event_registry())
     event = make_event()
-    with patch("apixis.core.event.base.handler.logger") as logger:
+    with patch("apixis.core.event.base.handler.Logger") as logger:
         await asyncio.wait_for(loop._dispatch_event(event, loop._registry.get_handlers_for_event(event.event_name) if event.event_name else []), 1)
         await asyncio.gather(*loop._background_handler_tasks)
     assert core_ran.is_set()
@@ -379,7 +379,7 @@ async def test_failing_on_error_is_not_called_recursively(background, hook_failu
 
     event = make_event()
     handler = ApixEventHandler(core, on_error=on_error, background=background, time_out=0.01)
-    with patch("apixis.core.event.base.handler.logger") as logger:
+    with patch("apixis.core.event.base.handler.Logger") as logger:
         await handler(event)
     assert len(calls) == 1
     assert isinstance(calls[0], ValueError)

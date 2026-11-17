@@ -83,9 +83,17 @@ async def run_worker(args):
     bounded_snapshots = "max_snapshots" in inspect.signature(NodeGraph).parameters
     log_module = importlib.import_module("apixis.core.utils.logger")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
-    log_target = getattr(log_module, "logger", log_module)
-    for name in ("debug", "info", "success", "warning"):
-        setattr(log_target, name, lambda *args, **kwargs: None)
+    if hasattr(log_module, "Logger"):
+        import logging
+
+        application_logger = logging.getLogger("apixis.benchmark")
+        log_module.Logger.set_error(application_logger.error)
+        log_module.Logger.set_exception(application_logger.exception)
+    else:
+        # Historical revisions use module-level logging functions.
+        log_target = getattr(log_module, "logger", log_module)
+        for name in ("debug", "info", "success", "warning"):
+            setattr(log_target, name, lambda *args, **kwargs: None)
     loop_module.SHOW_EVENT_DISPATCH = False
 
     class WorkloadState(TypedDict):

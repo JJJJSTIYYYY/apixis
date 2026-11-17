@@ -12,7 +12,7 @@ from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.thread_bridge import ThreadEndpoint, get_thread_bridge
 from apixis.core.utils.validation import validate_non_empty_string
 from apixis.core.event.base.status import EventRuntimeStatus
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 
 
 @dataclass
@@ -198,7 +198,7 @@ def _on_start_done(task: asyncio.Task[None]) -> None:
     if not task.cancelled():
         error = task.exception()
         if error is not None:
-            logger.error(f"Event core startup failed: {type(error).__name__}: {error}")
+            Logger.error(f"Event core startup failed: {type(error).__name__}: {error}")
 
 
 def get_event_registry() -> ApixEventRegistry:

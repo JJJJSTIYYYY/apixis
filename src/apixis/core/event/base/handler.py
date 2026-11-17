@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from apixis.core.event.base.event import ApixEvent, ApixEventError, EventHandlerFunc, EventHandlerErrorFunc
 from apixis.core.event.base.process import handler_chain_token_context, suspend_process
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 from apixis.core.utils.validation import validate_non_empty_string, validate_timeout
 
 
@@ -157,7 +157,7 @@ class ApixEventHandler:
             )
             if not self.background:
                 event.error_stack.append(error)
-            logger.error(
+            Logger.error(
                 f"Handler failed: event={event.event_name}, "
                 f"handler={self.name}, phase={phase}, "
                 f"error={error.exception_type}: {error.message}\n"
@@ -233,7 +233,7 @@ class ApixEventHandler:
             async with asyncio.timeout(timeout):
                 await self.on_cancelled(event)
         except (Exception, asyncio.CancelledError) as exc:
-            logger.error(
+            Logger.error(
                 f"Cancellation cleanup failed: event={event.event_name}, "
                 f"handler={self.name}, phase=on_cancelled, "
                 f"error={type(exc).__name__}: {exc}\n{traceback.format_exc()}"

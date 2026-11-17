@@ -6,7 +6,7 @@ from typing import Any
 from apixis.core.config.core_config import EVENT_PIPE_MAX_LEN
 from apixis.core.event.base.event import EventType, create_event
 from apixis.core.event.base.process import suspend_process
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 from apixis.core.utils.validation import validate_int
 
 
@@ -96,7 +96,7 @@ class ApixEventPipe:
                 break
             self.task_done()
             count += 1
-        logger.info(f"Cleaned {count} in event pipe.")
+        Logger.info(f"Cleaned {count} in event pipe.")
         return count
 
     async def start(self) -> None:

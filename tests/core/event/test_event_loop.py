@@ -329,7 +329,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.Logger") as mock_logger:
             result = await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -357,7 +357,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.Logger") as mock_logger:
             result = await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -388,7 +388,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger"):
+        with patch("apixis.core.event.base.handler.Logger"):
             await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -419,7 +419,7 @@ class TestDispatchEvent:
 
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger"):
+        with patch("apixis.core.event.base.handler.Logger"):
             await handler._dispatch_event(
                 event,
                 handler._registry.get_handlers_for_event(event.event_name) if event.event_name else [],
@@ -526,7 +526,7 @@ class TestRunBackgroundHandler:
         registry.register_handler(entry)
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.Logger") as mock_logger:
             await handler._run_background_handler(entry, event)
             mock_logger.error.assert_called()
 
@@ -561,7 +561,7 @@ class TestRunBackgroundHandler:
         registry.register_handler(entry)
         event = _make_event()
 
-        with patch("apixis.core.event.base.handler.logger") as mock_logger:
+        with patch("apixis.core.event.base.handler.Logger") as mock_logger:
             await handler._run_background_handler(entry, event)
             mock_logger.error.assert_called()
 
@@ -656,7 +656,7 @@ class TestEventConsumerLoop:
         with (
             patch.object(handler, "_dispatch_event", AsyncMock(side_effect=RuntimeError("dispatch failed"))),
             patch.object(handler._event_pipe, "task_done", wraps=handler._event_pipe.task_done) as task_done,
-            patch("apixis.core.event.event_loop.logger") as logger,
+            patch("apixis.core.event.event_loop.Logger") as logger,
         ):
             await handler.start()
             try:

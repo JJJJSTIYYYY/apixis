@@ -95,7 +95,6 @@ APIXIS:
     event_pipe_max_len: 65536
     event_loop_backpressure: null
   LOG:
-    level: INFO
     show_event_dispatch: false
 ```
 

@@ -14,19 +14,15 @@ APIXIS:
     max_snapshots: 16
   LOG:
     show_event_dispatch: false
-    level: NONE
 ```
 
 ## 事件日志输出
 
 | 路径 | 默认值 | 说明 |
 | --- | --- | --- |
-| `APIXIS.LOG.level` | `NONE` | 最低日志级别：`DEBUG`、`INFO`、`SUCCESS`、`WARNING`、`ERROR`；`NONE` 关闭日志 |
-| `APIXIS.LOG.show_event_dispatch` | `false` | 是否额外打印每次事件分发的信息，独立于日志级别 |
+| `APIXIS.LOG.show_event_dispatch` | `false` | 是否通过 print 打印每次事件分发的信息，独立于 Logger 回调 |
 
-日志只输出不低于所设级别的消息，顺序为 `DEBUG < INFO < SUCCESS < WARNING < ERROR`；`exception()` 按 `ERROR` 过滤，关闭时连同 traceback 一起省略。级别名称忽略大小写及首尾空白，非法名称抛出 `ValueError`，非字符串抛出 `TypeError`；省略或设为 YAML `null` 时使用 `NONE`。
-
-事件分发开关只读取 `APIXIS.LOG.show_event_dispatch`，原 `APIXIS.EVENT.show_event_dispatch` 不再读取。日志函数使用方式见[日志接口](../utils/README.md)。
+事件分发开关只读取 `APIXIS.LOG.show_event_dispatch`，原 `APIXIS.EVENT.show_event_dispatch` 不再读取。日志由应用通过 `Logger.set_{level}()` 接入，默认不输出。使用方式见[日志接口](../utils/README.md)。
 
 ## 队列与并发
 

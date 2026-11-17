@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import logging
 import os
 import platform
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from time import perf_counter
 
 import pytest
 
+from apixis import Logger
 from apixis.core.config.core_config import EVENT_LOOP_BACKPRESSURE, EVENT_PIPE_MAX_LEN
 
 
@@ -52,10 +54,16 @@ def backpressure_settings(request):
 @pytest.fixture(autouse=True)
 def quiet_runtime_logs(monkeypatch):
     """Keep console output out of measurements while preserving error logging."""
-    config_module = importlib.import_module("apixis.core.config.core_config")
     loop_module = importlib.import_module("apixis.core.event.event_loop")
-    monkeypatch.setattr(config_module, "LOG_LEVEL", "ERROR")
     monkeypatch.setattr(loop_module, "SHOW_EVENT_DISPATCH", False)
+    application_logger = logging.getLogger("apixis.performance")
+    Logger.set_error(application_logger.error)
+    Logger.set_exception(application_logger.exception)
+    try:
+        yield
+    finally:
+        Logger.set_error(None)
+        Logger.set_exception(None)
 
 
 @pytest.fixture

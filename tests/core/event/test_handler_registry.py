@@ -578,7 +578,7 @@ async def test_dispatch_keeps_captured_handler_after_unsubscribe():
     unsubscribe("handler")
     event = ApixEvent("event-id", EventType.WORKFLOW, "event.one", None, 0)
     event_loop = ApixEventLoop(get_handler_registry(), ApixEventPipe(), get_event_registry())
-    with patch("apixis.core.event.event_loop.logger") as logger:
+    with patch("apixis.core.event.event_loop.Logger") as logger:
         result = await event_loop._dispatch_event(
             event,
             chain,
@@ -982,7 +982,7 @@ async def test_chain_resolution_failure_acknowledges_event_and_keeps_consuming(r
     pipe, loop = runtime
     with patch.object(get_handler_registry(), "get_subscription_chain_for_event",
                       side_effect=[RuntimeError("resolution failed"), []]) as resolve:
-        with patch("apixis.core.event.event_loop.logger") as logger:
+        with patch("apixis.core.event.event_loop.Logger") as logger:
             await pipe.post_event(event_type=EventType.INFO, event_name="event.one")
             await pipe.post_event(event_type=EventType.INFO, event_name="event.two")
             await wait_for_dispatch(loop)

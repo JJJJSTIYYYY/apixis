@@ -27,12 +27,4 @@ GRAPH_MAX_SNAPSHOTS = validate_int(
     _get_config("GRAPH.max_snapshots", 16), "APIXIS.GRAPH.max_snapshots", minimum=1,
 )
 
-LOG_LEVEL = _get_config("LOG.level", "NONE")
-if not isinstance(LOG_LEVEL, str):
-    raise TypeError("APIXIS.LOG.level must be a string.")
-LOG_LEVEL = LOG_LEVEL.strip().upper()
-if LOG_LEVEL not in ("DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "NONE"):
-    raise ValueError(
-        "APIXIS.LOG.level must be DEBUG, INFO, SUCCESS, WARNING, ERROR, or NONE."
-    )
 SHOW_EVENT_DISPATCH = _get_config("LOG.show_event_dispatch", False)

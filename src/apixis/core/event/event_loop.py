@@ -16,7 +16,7 @@ from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.base.status import EventLoopStatus
-from apixis.core.utils import logger
+from apixis.core.utils.logger import Logger
 from apixis.core.utils.semaphore import ApixisSemaphore
 
 
@@ -68,7 +68,7 @@ class ApixEventLoop:
         )
         self._event_consumer_task.add_done_callback(self._on_consumer_done)
         self._started = True
-        logger.info("Worker started.")
+        Logger.info("Worker started.")
 
     def _on_consumer_done(self, task: asyncio.Task) -> None:
         """Reset startup state when the current consumer exits for any reason."""
@@ -80,7 +80,7 @@ class ApixEventLoop:
         if not task.cancelled():
             error = task.exception()
             if error is not None:
-                logger.error(f"Event consumer failed: {type(error).__name__}: {error}")
+                Logger.error(f"Event consumer failed: {type(error).__name__}: {error}")
 
     async def stop(self) -> None:
         """Pause consumption, preserving queued and pending events.
@@ -108,7 +108,7 @@ class ApixEventLoop:
             ):
                 raise result
 
-        logger.info("Worker stopped.")
+        Logger.info("Worker stopped.")
 
     async def _event_consumer_loop(self) -> None:
         """Dequeue events and launch dispatch when foreground capacity is available."""
@@ -132,7 +132,7 @@ class ApixEventLoop:
                         self._event_pipe.task_done()
                         if not isinstance(exc, Exception):
                             raise
-                        logger.error(
+                        Logger.error(
                             f"Handler chain resolution failed: "
                             f"{type(exc).__name__}: {exc}\n"
                             f"{traceback.format_exc()}"
@@ -187,7 +187,7 @@ class ApixEventLoop:
                     if not isinstance(exc, Exception):
                         raise
 
-                    logger.error(
+                    Logger.error(
                         f"Dispatch preparation failed: "
                         f"{type(exc).__name__}: {exc}\n"
                         f"{traceback.format_exc()}"
@@ -209,7 +209,7 @@ class ApixEventLoop:
                         del task
 
         except asyncio.CancelledError:
-            logger.info("Event loop cancelled.")
+            Logger.info("Event loop cancelled.")
 
     async def _dispatch_event(
         self,
@@ -222,7 +222,7 @@ class ApixEventLoop:
             # Initialize inside the coroutine, before user code, including
             # when an application installs an eager task factory.
             chain.owner = asyncio.current_task()
-        logger.debug(
+        Logger.debug(
             f"Dispatching event `{event.event_name}` "
             f"to {len(handler_chain)} handlers."
         )
@@ -263,7 +263,7 @@ class ApixEventLoop:
             raise
 
         except Exception as exc:
-            logger.error(
+            Logger.error(
                 f"Dispatch failed: {type(exc).__name__}: "
                 f"{exc}\n{traceback.format_exc()}"
             )
@@ -283,7 +283,7 @@ class ApixEventLoop:
         if not task.cancelled():
             error = task.exception()
             if error is not None:
-                logger.error(
+                Logger.error(
                     f"Dispatch task failed: "
                     f"{type(error).__name__}: {error}"
                 )
@@ -298,7 +298,7 @@ class ApixEventLoop:
             await handler.execute(event)
 
         except Exception as exc:
-            logger.error(
+            Logger.error(
                 f"Foreground handler execution failed: "
                 f"{type(exc).__name__}: {exc}\n"
                 f"{traceback.format_exc()}"
@@ -341,7 +341,7 @@ class ApixEventLoop:
         if not task.cancelled():
             error = task.exception()
             if error is not None:
-                logger.error(
+                Logger.error(
                     f"Background task failed: "
                     f"{type(error).__name__}: {error}"
                 )
@@ -367,7 +367,7 @@ class ApixEventLoop:
                 except asyncio.CancelledError:
                     pass
                 except Exception as exc:
-                    logger.error(
+                    Logger.error(
                         f"Background cancellation notification failed: "
                         f"{type(exc).__name__}: {exc}\n"
                         f"{traceback.format_exc()}"
@@ -376,7 +376,7 @@ class ApixEventLoop:
                 raise
 
         except Exception as exc:
-            logger.error(
+            Logger.error(
                 f"Background handler execution failed: "
                 f"{type(exc).__name__}: {exc}\n"
                 f"{traceback.format_exc()}"

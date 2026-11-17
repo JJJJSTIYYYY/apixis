@@ -18,31 +18,39 @@
 
 ## 输出日志
 
-```python
-from apixis import logger
-
-logger.info("Application started")
-logger.warning("A retry is needed")
-logger.error("Operation failed")
-logger.debug("Preparing request")
-
-logger.success("Job %s completed", "example")
-```
-
-`logger` 是模块，`debug/info/success/warning/error/exception` 均为模块级函数；也可直接导入函数：
+应用通过 `Logger.set_{level}(logger)` 为各等级设置同步日志函数：
 
 ```python
-from apixis.core.utils.logger import info
+import logging
+from apixis import Logger
 
-info("Job received")
+logging.basicConfig(level=logging.INFO)
+application_logger = logging.getLogger("application")
+Logger.set_debug(application_logger.debug)
+Logger.set_info(application_logger.info)
+Logger.set_warning(application_logger.warning)
+Logger.set_error(application_logger.error)
+Logger.set_exception(application_logger.exception)
+# 标准 logging 没有 success 等级，可由应用选择映射。
+Logger.set_success(application_logger.info)
+
+Logger.info("Job %s completed", "example")
+Logger.success("Application started")
+
+try:
+    raise ValueError("invalid node")
+except ValueError:
+    Logger.exception("Cannot run graph")
+
+Logger.set_debug(None)  # 停用该等级
 ```
 
-通过 `APIXIS.LOG.level` 设置最低输出级别，默认为 `NONE`（关闭日志）。例如设为 `INFO` 时输出 `info/success/warning/error/exception`，省略 `debug`；级别顺序为 `DEBUG < INFO < SUCCESS < WARNING < ERROR`。
+支持 `debug/info/success/warning/error/exception` 六个等级，分别使用 `set_debug/set_info/set_success/set_warning/set_error/set_exception` 设置。每个回调初始值均为 `None`，未设置时调用对应方法无操作。各等级独立，设置 `error` 不会启用 `exception`。
 
-通过级别过滤的调用立即输出 ANSI 彩色文本，包含时间、`[APIXIS]`、级别和消息。`error()`、`exception()` 写入 stderr，其余写入 stdout。额外的位置参数使用 `%` 格式化，不传参数时保留消息原文。
+所有 core 和线程共享类上的回调，无需实例化 `Logger`。后续设置会替换该等级的回调，传入 `None` 可关闭该等级。建议在启动 core 前统一配置。
 
-在 `except` 分支中调用 `exception()` 会附带当前异常的 traceback；没有正在处理的异常时只输出消息。`exception()` 按 `ERROR` 过滤，`NONE` 会同时关闭错误消息和 traceback。
+消息、额外位置参数和关键字参数原样传给回调。格式化语法、输出目标、时间、颜色、日志过滤和 traceback 均由应用的日志器负责；APIXIS 不再读取 `APIXIS.LOG.level`，也不自行格式化或输出日志。回调应为同步可调用对象，返回值被忽略，异常直接向调用者传播。
 
-日志模块无缓存、后台任务或文件操作。无需实例化日志类，也无需启动、停止或刷新。需要文件持久化时，由应用使用自己的日志设施。
+`APIXIS.LOG.show_event_dispatch` 仍控制事件分发时的直接 `print`，与日志回调独立。
 
 [日志配置](../config/README.md) · [文档首页](../../README.md)
