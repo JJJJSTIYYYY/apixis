@@ -54,10 +54,10 @@ async def test_name_filters_run_before_predicate(cleanup_event_runtime):
     assert called == ["job.reply"]
 
 
-async def test_predicate_preserves_partial_results_through_deferred_timeout(cleanup_event_runtime):
-    waiter = await wait_event(
+async def test_predicate_preserves_first_matches_across_rejected_events(cleanup_event_runtime):
+    waiter = EventWaiter(
         ["job.*", "saved"], predicate=lambda event: event.context["request_id"] == 7,
-        time_out=0, keep_listening=True,
+        time_out=1,
     )
     try:
         for name, request_id, value in (
@@ -137,8 +137,8 @@ async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_erro
 
     async def worker():
         if use_context:
-            async with expect("job.reply", predicate=predicate) as waiter:
-                return await waiter.wait(time_out=3)
+            async with expect("job.reply", predicate=predicate, time_out=3) as waiter:
+                return await waiter.wait()
         return await wait("job.reply", predicate=predicate, time_out=3)
 
     task = asyncio.create_task(

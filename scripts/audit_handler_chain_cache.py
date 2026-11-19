@@ -214,9 +214,9 @@ async def runtime_audit(results):
 
     core.handler_registry.register_handler(handler("respond", ["request.fixed"], callback=respond))
     for _ in range(512):
-        async with expect_event("reply.fixed", point="processed") as waiter:
+        async with expect_event("reply.fixed", point="processed", time_out=10) as waiter:
             await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="request.fixed")
-            await waiter.wait(time_out=10)
+            await waiter.wait()
     await drain(core)
     assert core.handler_registry.builds == {"request.fixed": 1, "reply.fixed": 1}
     results.append({"scenario": "request-reply-with-transient-listeners", "builds_by_name": dict(core.handler_registry.builds), **core.handler_registry.metrics()})

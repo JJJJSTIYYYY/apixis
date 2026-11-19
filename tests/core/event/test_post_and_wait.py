@@ -7,7 +7,7 @@ import importlib
 import pytest
 
 from apixis import (
-    ApixEventPipe, EventType, EventWaiter,
+    ApixEventPipe, EventType,
     post_and_wait, post_and_wait_threadsafe, post_event, post_event_threadsafe, subscribe,
 )
 from apixis.core.event.base import handler_chain_token_context
@@ -73,8 +73,7 @@ async def test_event_name_is_matched_literally(event_name):
 
 
 @pytest.mark.parametrize("state", ["normal", "accepted", "error", "no_handlers"])
-@pytest.mark.parametrize("keep_listening", [False, True])
-async def test_returns_foreground_result_and_preserves_context(state, keep_listening):
+async def test_returns_foreground_result_and_preserves_context(state):
     publisher_context = ContextVar("post_and_wait_context", default=None)
     payload = {}
     observed = []
@@ -94,7 +93,7 @@ async def test_returns_foreground_result_and_preserves_context(state, keep_liste
     try:
         event = await post_and_wait(
             event_type=EventType.TRANSIENT, event_name="job.process",
-            context=payload, time_out=1, keep_listening=keep_listening,
+            context=payload, time_out=1,
         )
         assert publisher_context.get() == "publisher"
     finally:
@@ -125,9 +124,9 @@ async def test_background_handlers_continue_after_return():
         await asyncio.wait_for(finished.wait(), 1)
 
 
-@pytest.mark.parametrize(("cancel", "keep_listening"), [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("cancel", [False, True])
 async def test_abandoning_wait_cleans_listener_without_cancelling_dispatch(
-    cleanup_event_runtime, wait_for_dispatch, cancel, keep_listening,
+    cleanup_event_runtime, wait_for_dispatch, cancel,
 ):
     entered, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
     registry = cleanup_event_runtime.handler_registry
@@ -142,7 +141,6 @@ async def test_abandoning_wait_cleans_listener_without_cancelling_dispatch(
     task = asyncio.create_task(post_and_wait(
         event_type=EventType.INFO, event_name="job.slow",
         time_out=None if cancel else 0.05,
-        keep_listening=keep_listening,
     ))
     try:
         await asyncio.wait_for(entered.wait(), 1)
@@ -158,8 +156,7 @@ async def test_abandoning_wait_cleans_listener_without_cancelling_dispatch(
     assert finished.is_set()
 
 
-@pytest.mark.parametrize("keep_listening", [False, True])
-async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch, keep_listening):
+async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch):
     core = cleanup_event_runtime
     pipe = ApixEventPipe(maxsize=1)
     await pipe.post_event(event_type=EventType.INFO, event_name="queued")
@@ -168,7 +165,6 @@ async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch
     with pytest.raises(TimeoutError):
         await post_and_wait(
             event_type=EventType.INFO, event_name="blocked", time_out=0.01,
-            keep_listening=keep_listening,
         )
     assert pipe.qsize() == 1
     assert pipe.get_nowait().event_name == "queued"
@@ -177,9 +173,8 @@ async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch
 
 
 @pytest.mark.parametrize("event_runtime_capacity", [1], indirect=True)
-@pytest.mark.parametrize("keep_listening", [False, True])
 async def test_nested_publication_lends_and_restores_dispatch_permit(
-    event_runtime_capacity, cleanup_event_runtime, keep_listening,
+    event_runtime_capacity, cleanup_event_runtime,
 ):
     assert cleanup_event_runtime.event_loop._event_semaphore._bounded == 1
     result = []
@@ -193,10 +188,8 @@ async def test_nested_publication_lends_and_restores_dispatch_permit(
     async def parent(event):
         reply = await post_and_wait(
             event_type=EventType.INFO, event_name="job.child", context={},
-            time_out=0 if keep_listening else 1, keep_listening=keep_listening,
+            time_out=1,
         )
-        if isinstance(reply, EventWaiter):
-            reply = await reply.get_result()
         assert handler_chain_token_context.get().held
         result.append(reply.context["result"])
         finished.set()
@@ -204,73 +197,6 @@ async def test_nested_publication_lends_and_restores_dispatch_permit(
     await post_event(event_type=EventType.INFO, event_name="job.parent")
     await asyncio.wait_for(finished.wait(), 2)
     assert result == [42]
-
-
-@pytest.mark.parametrize("resume", ["get_result", "wait", "close"])
-async def test_deferred_waiter_retains_exact_event_and_listener_ownership(
-    cleanup_event_runtime, wait_for_dispatch, resume,
-):
-    core = cleanup_event_runtime
-    entered, release = asyncio.Event(), asyncio.Event()
-    events = []
-
-    @subscribe("job.deferred")
-    async def process(event):
-        events.append(event)
-        if event.context == "target":
-            entered.set()
-            await release.wait()
-
-    registered = set(core.handler_registry.registry)
-    waiter = await post_and_wait(
-        event_name="job.deferred", context="target", time_out=0, keep_listening=True,
-    )
-    assert isinstance(waiter, EventWaiter)
-    try:
-        await asyncio.wait_for(entered.wait(), 1)
-        listeners = set(core.handler_registry.registry) - registered
-        assert len(listeners) == 1
-        unrelated = await post_and_wait(event_name="job.deferred", context="other", time_out=1)
-        assert unrelated.context == "other"
-        assert await waiter.wait(time_out=0) is waiter
-        assert set(core.handler_registry.registry) - registered == listeners
-        if resume == "close":
-            waiter.close()
-            assert set(core.handler_registry.registry) == registered
-        else:
-            release.set()
-            result = await asyncio.wait_for(getattr(waiter, resume)(), 1)
-            assert result is events[0]
-            assert result.event_id != unrelated.event_id
-            assert set(core.handler_registry.registry) == registered
-    finally:
-        waiter.close()
-        release.set()
-        await wait_for_dispatch(core.event_loop)
-
-
-async def test_worker_core_supports_retained_local_waiter(thread_cores):
-    from apixis import get_thread_bridge
-    await thread_cores("deferred")
-
-    async def collect_locally():
-        release = asyncio.Event()
-
-        @subscribe("worker.deferred")
-        async def process(event):
-            await release.wait()
-
-        waiter = await post_and_wait(event_name="worker.deferred", time_out=0, keep_listening=True)
-        assert isinstance(waiter, EventWaiter)
-        try:
-            release.set()
-            return (await waiter.get_result()).event_name
-        finally:
-            waiter.close()
-
-    assert await get_thread_bridge().call(
-        collect_locally, thread_ids="deferred", background=True,
-    ) == "worker.deferred"
 
 
 async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime):
@@ -302,9 +228,8 @@ async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime
         await asyncio.gather(task, return_exceptions=True)
 
 
-@pytest.mark.parametrize("keep_listening", [False, True])
 async def test_result_completed_before_publication_returns_is_preserved(
-    cleanup_event_runtime, wait_for_dispatch, monkeypatch, keep_listening,
+    cleanup_event_runtime, wait_for_dispatch, monkeypatch,
 ):
     core = cleanup_event_runtime
     put = core.event_pipe.put
@@ -316,20 +241,19 @@ async def test_result_completed_before_publication_returns_is_preserved(
         await wait_for_dispatch(core.event_loop)
 
     monkeypatch.setattr(core.event_pipe, "put", publish_and_complete)
-    result = await post_and_wait(event_name="early.result", time_out=1, keep_listening=keep_listening)
+    result = await post_and_wait(event_name="early.result", time_out=1)
     assert result is published[0]
     assert not core.handler_registry.registry
 
 
-@pytest.mark.parametrize("keep_listening", [False, True])
 async def test_cancelling_queue_admission_removes_listener_and_does_not_publish(
-    cleanup_event_runtime, monkeypatch, keep_listening,
+    cleanup_event_runtime, monkeypatch,
 ):
     core = cleanup_event_runtime
     pipe = ApixEventPipe(maxsize=1)
     await pipe.post_event(event_name="occupied")
     monkeypatch.setattr(publication, "get_event_pipe", lambda: pipe)
-    pending = asyncio.create_task(post_and_wait(event_name="blocked", keep_listening=keep_listening))
+    pending = asyncio.create_task(post_and_wait(event_name="blocked"))
     try:
         await asyncio.sleep(0)
         assert core.handler_registry.waiter_count == 1

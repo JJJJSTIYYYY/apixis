@@ -136,10 +136,10 @@ async def test_multitarget_wait_confirms_registration_and_preserves_result_shape
     await thread_cores("a")
     await thread_cores("b")
     ids = ["a", "b", "a"]
-    async with expect_event_threadsafe(event_names, point="processed", thread_ids=ids) as waiter:
+    async with expect_event_threadsafe(event_names, point="processed", thread_ids=ids, time_out=2) as waiter:
         events = await post_and_wait_threadsafe(event_name="reply", thread_ids=ids)
         await post_event_threadsafe(event_name="reply.more", thread_ids=ids)
-        result = await waiter.wait(time_out=2)
+        result = await waiter.wait()
     assert set(result) == {"a", "b"}
     assert events["a"].event_id != events["b"].event_id
     for name in ("a", "b"):
@@ -177,17 +177,58 @@ async def test_completed_remote_waiter_retains_results_after_target_shutdown(
     for target in [targets] if isinstance(targets, str) else targets:
         with pytest.raises(RuntimeError, match="stopped"):
             await get_thread_bridge().call(shutdown, thread_ids=target)
-    assert await waiter.wait(time_out=0) == result
-    assert await waiter.get_result() == result
+    assert await waiter.wait() is result
+    assert await waiter.get_result() is result
     if isinstance(targets, str) and isinstance(patterns, str):
         assert await waiter.wait() is events
+
+
+async def test_multitarget_failure_is_retained_and_cleans_siblings_without_a_reader(thread_cores):
+    await thread_cores("a")
+    await thread_cores("b")
+    failure = ValueError("predicate failed")
+
+    def predicate(event):
+        raise failure
+
+    async with expect_event_threadsafe(
+        "reply", thread_ids=["a", "b"], predicate=predicate, time_out=2,
+    ) as waiter:
+        future = waiter._future
+        await post_event_threadsafe(event_name="reply", thread_ids="b")
+        async with asyncio.timeout(2):
+            while not future.done():
+                await asyncio.sleep(0)
+        assert await get_thread_bridge().call_sync(
+            lambda: get_event_runtime_status().wait_listeners, thread_ids=["a", "b"],
+        ) == {"a": 0, "b": 0}
+        for _ in range(2):
+            with pytest.raises(ValueError) as raised:
+                await waiter.wait()
+            assert raised.value is failure
+        assert waiter._future is future
+
+
+@pytest.mark.parametrize("targets", ["a", ["a", "b"]])
+async def test_remote_future_cancellation_cleans_targets_without_a_reader(thread_cores, targets):
+    await thread_cores("a")
+    await thread_cores("b")
+    async with expect_event_threadsafe("never", thread_ids=targets, time_out=60) as waiter:
+        waiter._future.cancel()
+        async with asyncio.timeout(2):
+            await asyncio.gather(*(target._wait_closed() for target in waiter._targets.values()))
+        assert await get_thread_bridge().call_sync(
+            lambda: get_event_runtime_status().wait_listeners, thread_ids=["a", "b"],
+        ) == {"a": 0, "b": 0}
+        with pytest.raises(asyncio.CancelledError):
+            await waiter.wait()
 
 
 @pytest.mark.parametrize("cancel", [False, True])
 async def test_multitarget_wait_timeout_or_cancellation_cleans_every_core(thread_cores, cancel):
     await thread_cores("a")
     await thread_cores("b")
-    async with expect_event_threadsafe("reply", thread_ids=["a", "b"]) as waiter:
+    async with expect_event_threadsafe("reply", thread_ids=["a", "b"], time_out=None if cancel else 0.1) as waiter:
         await post_event_threadsafe(event_name="reply", thread_ids="a")
         if cancel:
             task = asyncio.create_task(waiter.get_result())
@@ -197,7 +238,7 @@ async def test_multitarget_wait_timeout_or_cancellation_cleans_every_core(thread
                 await task
         else:
             with pytest.raises(TimeoutError):
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
         assert await get_thread_bridge().call_sync(
             lambda: get_event_runtime_status().wait_listeners, thread_ids=["a", "b"],
         ) == {"a": 0, "b": 0}

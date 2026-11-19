@@ -209,21 +209,11 @@ if event.has_error:
     print(event.error_stack)
 ```
 
-`post_and_wait(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None, keep_listening=False)` 先注册完成监听，再发布事件，通过本次事件的 **`event_id`** 精确匹配结果。同名事件并发发布时，各自返回自己的原始 `ApixEvent`，可以读取 handler 对 `context` 的修改及 `accepted`、`error_stack` 等处理状态。没有普通订阅者时同样正常返回。
+`post_and_wait(*, event_type=EventType.DEFAULT, event_name, context=None, time_out=None)` 先注册完成监听，再发布事件，通过本次事件的 **`event_id`** 精确匹配结果。同名事件并发发布时，各自返回自己的原始 `ApixEvent`，可以读取 handler 对 `context` 的修改及 `accepted`、`error_stack` 等处理状态。没有普通订阅者时同样正常返回。
 
 完成位置与 `point="processed"` 一致：等待该事件的前台处理链结束，后台 handler 以及 handler 发布的后续事件独立继续执行。需要业务回包时，仍通过 `expect_event()` 订阅对应的结果事件。
 
-`time_out` 在当前线程开始执行时计时，覆盖入队和处理过程，省略或传入 `None` 表示无限等待。默认超时抛出 `TimeoutError` 并清理完成监听；`keep_listening=True` 时，已入队事件的处理超时会返回仍在监听的 `EventWaiter`，完成时仍返回事件。使用 `await waiter.get_result()` 或再次 `await waiter.wait()` 继续等待，放弃时调用 `waiter.close()`：
-
-```python
-from apixis import EventWaiter, post_and_wait
-
-result = await post_and_wait(event_name="job.created", time_out=1, keep_listening=True)
-if isinstance(result, EventWaiter):
-    result = await result.get_result()
-```
-
-入队超时表示事件尚未发布，无论 `keep_listening` 如何设置都会抛出 `TimeoutError` 并清理监听。取消始终清理监听；已入队的事件继续处理。在 handler 内调用时，发布和等待期间自动借出当前线程的调度许可。工作线程中的普通调用同样操作本地 core，支持 `keep_listening=True`。跨线程使用 `post_and_wait_threadsafe()`，不返回远程 waiter。
+`time_out` 在当前线程开始执行时计时，覆盖入队和处理过程，省略或传入 `None` 表示无限等待。入队或处理超时都会抛出 `TimeoutError` 并清理完成监听。取消也会清理监听，已入队的事件继续处理。在 handler 内调用时，发布和等待期间自动借出当前线程的调度许可。跨线程使用 `post_and_wait_threadsafe()`。
 
 ## 跨线程发布与等待
 
@@ -247,13 +237,13 @@ from apixis import expect_event_threadsafe, post_event_threadsafe
 
 # 先在两个已运行的 core 上确认监听，再发布。
 async with expect_event_threadsafe(
-    "job.reply", point="processed", thread_ids=["worker-a", "worker-b"],
+    "job.reply", point="processed", thread_ids=["worker-a", "worker-b"], time_out=30,
 ) as waiter:
     await post_event_threadsafe(
         event_name="job.request", context={"value": 21},
         thread_ids=["worker-a", "worker-b"],
     )
-    replies = await waiter.wait(time_out=30)
+    replies = await waiter.wait()
     print(replies["worker-a"].context, replies["worker-b"].context)
 ```
 
@@ -272,7 +262,7 @@ await unsubscribe_threadsafe(group="observers", thread_ids=["worker-a", "worker-
 
 `expect_event_threadsafe()` 进入完成表示所有目标的监听已注册；提前到达的结果会保留。`wait_event_threadsafe()` 从协程实际运行时提交监听，`create_task()` 本身不保证注册完成。`predicate` 在每个目标的 loop 同步执行。`received` 在普通前台 handler 之前收集，`processed` 在之后收集，不等待后台处理。
 
-`time_out` 从各目标开始注册计时，不包含桥接队列准入等待。`waiter.wait(time_out=...)` 重设各目标的期限，省略或传 `None` 清除期限；`get_result()` 沿用现有期限。跨线程不返回保留监听的远程 `EventWaiter`；需要 `keep_listening=True` 时在所属线程使用普通等待接口。
+`time_out` 从各目标开始注册计时，桥接准入时间另计。每个目标的期限在注册时固定，`wait()` 和 `get_result()` 都等待同一个 Future。超时、取消或上下文退出后，目标线程清理相应监听。
 
 每个目标拥有独立的有界桥接队列，容量与其本地 `event_pipe_max_len` 相同。队列满时异步等待容量通知，不占用线程池，也不阻塞调用方 loop。转交发布串行执行，等待结果的请求独立收集。多目标调用并发提交，任一目标失败、超时或调用方取消时，取消并等待其他未完成请求清理。已生效的注册、移除和已入队事件不会回滚；多目标操作不提供跨线程事务。
 
@@ -368,12 +358,12 @@ async def observe_job(event):
 **正例：使用 `expect_event`，先订阅，再发布。**
 
 ```python
-async with expect_event(reply) as waiter:
+async with expect_event(reply, time_out=40) as waiter:
     await pipe.post_event(
         event_name="job.start",
         context={"reply": reply},
     )
-    event = await waiter.wait(time_out=40)
+    event = await waiter.wait()
 ```
 
 进入上下文时订阅已注册；即使回包在 `.wait()` 前到达，也会保留结果。
@@ -400,12 +390,12 @@ events = await wait_event(["job.validated", "job.saved"], time_out=40)
 
 # 当前代码需要发起任务：先注册两个订阅，再发布请求。
 async with expect_event(
-    ["job.validated", "job.saved"], point="processed",
+    ["job.validated", "job.saved"], point="processed", time_out=40,
 ) as waiter:
     await get_event_pipe().post_event(
         event_name="job.start",
     )
-    events = await waiter.wait(time_out=40)
+    events = await waiter.wait()
     validated = events["job.validated"]
     saved = events["job.saved"]
 ```
@@ -422,14 +412,15 @@ async with expect_event(
     "job.reply",
     point="processed",
     predicate=lambda event: event.context["request_id"] == request_id,
+    time_out=30,
 ) as waiter:
     await post_event(event_name="job.request", context={"request_id": request_id})
-    reply = await waiter.wait(time_out=30)
+    reply = await waiter.wait()
 ```
 
 事件名与 `filter` 先完成筛选，谓词随后在所选 `point` 执行，所以 `processed` 的谓词可以读取前台 handler 更新后的内容。谓词在监听所属 core 的 loop 同步执行，必须快速返回，不支持异步函数。重叠模式可能对同一事件多次调用谓词，建议使用无副作用的判断。
 
-谓词抛出的普通异常会结束对应等待并注销全部监听，等待方收到原异常；事件本身和其他监听继续处理，不写入该事件的 `error_stack`。谓词不改变原有截止时间、延迟收集及取消规则。等待器仍为一次收集，不支持完成后重新注册复用。
+谓词抛出的普通异常会结束对应等待并注销全部监听，等待方收到原异常；事件本身和其他监听继续处理，不写入该事件的 `error_stack`。谓词遵循注册时固定的截止时间。每个等待器对应一次收集。
 
 ### 共同参数与超时
 
@@ -439,41 +430,21 @@ point: Literal["received", "processed"] = "received"
 filter: list[str] | str | None = None
 predicate: EventPredicate | None = None
 time_out: float | None = None
-keep_listening: bool = False
 ```
 
 `event_name` 支持大小写敏感的 glob 模式；`filter` 排除匹配的事件名。`point="received"` 在普通前台 handler 之前取得事件；`point="processed"` 在普通前台 handler 完成后取得事件，不等待后台 handler。事件被 accept、发生前台错误或事件分发被取消时，适用的通知回调同样可以返回该事件；调用方可检查 `accepted`、`has_error` 和 `error_stack`。返回的是原始、可变的事件对象，不是内容快照，后续 handler 仍可能修改它。
 
-`time_out=None` 表示没有截止时间，非正值表示立即超时。`wait_event(time_out=...)` 限制这次等待；`expect_event(time_out=...)` 从注册完成开始计时，包括调用 `.wait()` 前的工作。每次 `.wait(time_out=...)` 都会替换当前截止时间，从本次调用计时；省略或传入 `None` 则取消尚未到期的截止时间，无限等待。已经超时关闭的监听不会恢复。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时，不返回部分结果。
+`time_out=None` 表示没有截止时间，非正值表示立即超时。超时在创建 `EventWaiter` 或进入 `expect_event()` 时固定，包含调用 `.wait()` 前的工作。所有等待项都需要在同一截止时间前到达所选 `point`，只收到部分事件也会超时。
 
-**截止时间不会中断 `expect_event` 的上下文主体**：默认超时使等待结果失效，随后 `.wait()` 抛出 `TimeoutError`；若所有结果已在截止时间前收齐，之后调用 `.wait()` 仍能取到。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
+截止时间到达时，Future 记录 `TimeoutError` 并注销监听，上下文主体继续执行，随后 `.wait()` 抛出原异常。如需限制整个上下文主体，可在外层使用 `asyncio.timeout()`。
 
-超时抛出 `TimeoutError`，取消或退出上下文会清理尚未完成的等待。监听由所属 core 的 `EventWaiter` 管理，收齐结果或普通超时后立即注销，不必等到上下文退出。已有完整结果时，退出上下文后再次调用 `wait()` 或 `get_result()` 会直接返回保留的结果，不因上下文已退出而抛错，也不会重新注册监听或设置期限。字符串模式返回同一事件对象，模式集合返回保留的结果字典。
+`wait()` 与 `get_result()` 是同一个读取接口，共享 Future 及其固定期限。Future 成功、失败或取消后，监听和计时器随之清理。成功结果或异常保留供后续读取，字符串模式返回同一事件，模式集合返回同一结果字典。取消任一进行中的读取、显式调用 `close()` 或退出未完成的上下文，都会取消该 Future；之后读取抛出 `CancelledError`。多个读取者共享这个终态。新的收集需要创建新的 waiter。
 
-普通接口的 `EventWaiter` 和跨线程接口的 `ThreadEventWaiter` 均支持退出后读取完整结果；跨线程已完成结果的读取不再访问目标 core，目标停止后仍可读取。未完成就退出的等待仍会关闭，不返回部分结果；原有超时或谓词异常仍会传播。其他跨线程等待语义见[跨线程发布与等待](#跨线程发布与等待)。
+本地 `EventWaiter` 和跨线程 `ThreadEventWaiter` 的上下文均为一次性。跨线程多目标只聚合一次，结果或首个失败保存在调用端 Future 中。跨线程已有完整结果时，即使目标 core 随后停止，调用端仍可读取。其他跨线程等待语义见[跨线程发布与等待](#跨线程发布与等待)。
 
 多模式等待在收齐所有结果后统一注销全部监听；部分结果到达时保留监听与路由缓存。每个模式只保留首次结果，同一事件可以同时满足重叠模式。无效的 `point`、模式和超时参数在注册前拒绝；超时必须是有限数字，布尔值不属于数字。
 
 在 handler 内，两种接口都在实际等待结果时通过 `suspend_process()` 借出当前处理链的调度许可，结束等待时恢复。`expect_event` 的上下文进入本身不借出许可；上下文主体中的 `pipe.post_event()` 继续使用其自身的许可借出逻辑。
-
-### 超时后继续收集结果
-
-默认超时会结束监听。任意本地 core 都支持设置 `keep_listening=True`，超时返回 `EventWaiter`，后续通过 `await waiter.get_result()` 等待完整结果；跨线程不支持此选项：
-
-```python
-from apixis import EventWaiter, wait_event
-
-result = await wait_event("job.finished", time_out=1, keep_listening=True)
-if isinstance(result, EventWaiter):
-    # 首次等待已超时，监听仍在；这里可以先处理其他工作。
-    result = await result.get_result()
-```
-
-请求／回包场景仍用原来的 `async with expect_event(...)`；将等待改为 `await waiter.wait(time_out=1, keep_listening=True)` 即可。每次 `.wait()` 都只使用本次传入的等待时长：数字表示从本次调用计时，省略或传入 `None` 均无限等待，首次调用也相同。`keep_listening` 省略时沿用等待器配置。同一等待器的并发等待共享这个预算与策略。已有结果会直接返回，只有尚未收齐且超时才返回等待器；已经按默认策略超时关闭的等待器不能恢复，应在超时前启用该选项。
-
-超时拿到等待器后，也可以再次 `await waiter.wait()` 无限等待直到收齐，或通过 `await waiter.wait(time_out=5)` 指定新的等待时长；期间已收到的事件会保留，监听不会重复注册。若再次超时且继续监听，仍返回同一个等待器。
-
-实际发生延迟返回后，正常退出上下文也会保留监听。`get_result()` 不重启已用完的等待预算，会继续等到收齐后返回原有的单事件／字典结构，并自动注销监听。若决定放弃，调用幂等的 `waiter.close()`；取消正在执行的 `.wait()`、`get_result()` 或上下文主体抛出异常，也会清理监听。仅设置 `keep_listening=True` 而未发生延迟返回，不会让监听在退出上下文后残留。
 
 ## 取消订阅与检查
 

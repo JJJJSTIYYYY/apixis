@@ -246,7 +246,7 @@ async def test_completed_waiter_retains_results_after_context_exit(
         if read_before_exit:
             await waiter.wait()
 
-    result = await waiter.wait(time_out=0, keep_listening=True)
+    result = await waiter.wait()
     assert await waiter.wait() is result
     assert await waiter.get_result() is result
     if isinstance(patterns, str):
@@ -261,7 +261,7 @@ async def test_exited_incomplete_waiter_keeps_no_partial_result(wait_for_dispatc
     async with expect_event(["job.first", "job.second"]) as waiter:
         await post_event(event_name="job.first")
         await wait_for_dispatch(get_event_loop())
-    with pytest.raises(RuntimeError, match="closed"):
+    with pytest.raises(asyncio.CancelledError):
         await waiter.wait()
 
 
@@ -373,7 +373,7 @@ async def test_expect_event_rejects_reply_after_deadline(wait_for_dispatch):
 async def test_expect_event_nonpositive_timeout_expires_immediately(time_out):
     async with expect_event("job.never", time_out=time_out) as waiter:
         with pytest.raises(TimeoutError):
-            await waiter.wait(time_out=time_out)
+            await waiter.wait()
 
 
 @pytest.mark.parametrize("exit_mode", ["unused", "error", "timeout", "cancelled"])
@@ -386,7 +386,7 @@ async def test_expect_event_exit_always_removes_subscription(exit_mode):
             if exit_mode == "error":
                 raise ValueError("publication failed")
             if exit_mode == "timeout":
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
             if exit_mode == "cancelled":
                 asyncio.current_task().cancel()
                 await waiter.wait()
@@ -428,7 +428,7 @@ async def test_expect_event_does_not_replay_previously_consumed_events(
     await wait_for_dispatch(get_event_loop())
     async with expect_event("job.finished", time_out=0.01) as waiter:
         with pytest.raises(TimeoutError):
-            await waiter.wait(time_out=0.01)
+            await waiter.wait()
 
 
 @pytest.mark.parametrize("event_runtime_capacity", [1], indirect=True)
@@ -627,7 +627,7 @@ async def test_expect_event_partial_collection_cleanup(exit_mode, wait_for_dispa
             if exit_mode == "error":
                 raise ValueError("publication failed")
             if exit_mode == "timeout":
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
             if exit_mode == "cancelled":
                 asyncio.current_task().cancel()
                 await waiter.wait()

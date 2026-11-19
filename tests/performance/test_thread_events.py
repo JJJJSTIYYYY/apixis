@@ -175,7 +175,7 @@ async def test_thread_request_reply_stress(thread_runtime, request):
                     event_type=EventType.TRANSIENT, event_name="thread.request",
                     context={"reply": reply, "producer": producer, "sequence": sequence},
                 )
-                event = await waiter.wait(time_out=60)
+                event = await waiter.wait()
                 assert event.event_name == reply
                 assert event.context["producer"] == producer
                 assert event.context["sequence"] == sequence
@@ -199,7 +199,7 @@ async def test_thread_broadcast_and_cancellation_storm(thread_runtime, request):
                 await post_event_threadsafe(
                     event_type=EventType.TRANSIENT, event_name="thread.broadcast", context=42,
                 )
-            event = await waiter.wait(time_out=60)
+            event = await waiter.wait()
             assert event.context == 42
         for _ in range(cancellations):
             task = asyncio.create_task(wait_event_threadsafe("never"))

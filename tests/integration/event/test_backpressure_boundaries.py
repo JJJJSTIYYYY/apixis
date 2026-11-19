@@ -9,7 +9,6 @@ from apixis.core.event import (
     ApixEventHandler,
     ApixEventPipe,
     EventType,
-    wait_event,
     subscribe,
     unsubscribe,
     expect_event,
@@ -858,7 +857,7 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
             ) as active_waiter:
                 waiter = active_waiter
                 waiting.set()
-                await waiter.wait(time_out=60)
+                await waiter.wait()
         except TimeoutError:
             assert chain.held
             recovered.set()
@@ -884,78 +883,19 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
             # Expire through the actual timer callback without a wall-clock
             # readiness delay. The task resumes before this added callback.
             waiter._future.add_done_callback(lambda _: expired.set())
-            waiter._timeout_handle.cancel()
-            waiter._start_timeout(0)
+            asyncio.get_running_loop().call_soon(waiter._expire)
             await expired.wait()
+            assert not waiter._handlers
+            assert waiter._timeout_handle is None
+            assert core.handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
             assert chain.suspended == 0
             assert chain.resume_lock.locked()
             assert not recovered.is_set()
             release_holders.set()
             await recovered.wait()
             await wait_for_dispatch(core.event_loop)
-        assert waiter._closed
+        assert waiter._future.done()
         assert not any(name.startswith("resolve_future-") for name in core.handler_registry.registry)
         assert core.handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
     finally:
         release_holders.set()
-
-
-@pytest.mark.parametrize("interface", ["wait", "wait_event"])
-@pytest.mark.parametrize("point", ["received", "processed"])
-@pytest.mark.parametrize("resume", ["wait", "get_result"])
-async def test_deferred_results_release_and_restore_saturated_parent_permits(
-    boundary_runtime, wait_for_dispatch, interface, point, resume,
-):
-    """Detached collectors finish with every parent slot and a bounded queue."""
-    core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
-    parents_ready = asyncio.Barrier(capacity)
-    done = asyncio.Queue()
-
-    @subscribe("boundary.deferred.request")
-    async def worker(event):
-        prefix = event.context
-        for suffix in ("item.first", "item.duplicate", "saved"):
-            await core.event_pipe.post_event(
-                event_type=EventType.TRANSIENT, event_name=f"{prefix}.{suffix}",
-            )
-
-    @subscribe("boundary.deferred.parent")
-    async def parent(event):
-        chain = handler_chain_token_context.get()
-        prefix = f"boundary.result.{event.context}"
-        names = [f"{prefix}.item.*", f"{prefix}.saved"]
-        waiter = None
-        try:
-            await parents_ready.wait()
-            if interface == "wait":
-                async with expect_event(names, point=point) as waiter:
-                    assert await waiter.wait(time_out=0, keep_listening=True) is waiter
-            else:
-                waiter = await wait_event(names, point=point, time_out=0, keep_listening=True)
-            assert chain.held
-            await core.event_pipe.post_event(
-                event_type=EventType.TRANSIENT,
-                event_name="boundary.deferred.request", context=prefix,
-            )
-            result = (
-                await waiter.wait(time_out=2) if resume == "wait"
-                else await waiter.get_result()
-            )
-            assert chain.held
-            assert result[f"{prefix}.item.*"].event_name == f"{prefix}.item.first"
-            assert result[f"{prefix}.saved"].event_name == f"{prefix}.saved"
-            done.put_nowait(event.context)
-        finally:
-            if waiter is not None:
-                waiter.close()
-
-    async with asyncio.timeout(3):
-        for index in range(capacity):
-            await core.event_pipe.post_event(
-                event_type=EventType.TRANSIENT,
-                event_name="boundary.deferred.parent", context=index,
-            )
-        assert sorted([await done.get() for _ in range(capacity)]) == list(range(capacity))
-        await wait_for_dispatch(core.event_loop)
-    assert not any(name.startswith("resolve_future-") for name in core.handler_registry.registry)

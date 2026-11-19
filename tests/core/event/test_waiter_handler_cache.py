@@ -45,25 +45,22 @@ async def test_repeated_waits_preserve_ordinary_cache(pattern, point, wait_for_d
     assert not registry._waiter_cache._chains
 
 
-@pytest.mark.parametrize("outcome", ["close", "timeout", "cancel", "defer"])
+@pytest.mark.parametrize("outcome", ["close", "timeout", "cancel"])
 async def test_wait_cleanup_never_invalidates_normal_cache(outcome):
     registry = get_handler_registry()
     normal = registry.get_subscription_chain_for_event("reply.fixed")
-    waiter = EventWaiter("reply.*")
+    waiter = EventWaiter("reply.*", time_out=0 if outcome == "timeout" else None)
     try:
         assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
         if outcome == "timeout":
             with pytest.raises(TimeoutError):
-                await waiter.wait(time_out=0)
+                await waiter.wait()
         elif outcome == "cancel":
             task = asyncio.create_task(waiter.wait())
             await asyncio.sleep(0)
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task
-        elif outcome == "defer":
-            assert await waiter.wait(time_out=0, keep_listening=True) is waiter
-            assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
     finally:
         waiter.close()
     assert registry.get_subscription_chain_for_event("reply.fixed") is normal

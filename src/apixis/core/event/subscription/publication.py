@@ -9,7 +9,7 @@ from apixis.core.event.base.event import ApixEvent, EventType, create_event
 from apixis.core.event.base.process import suspend_process
 from apixis.core.event.factory import get_event_pipe
 from apixis.core.event.thread_bridge import ThreadIds, get_thread_bridge
-from apixis.core.event.subscription.waiter import EventWaiter, expect_event
+from apixis.core.event.subscription.waiter import expect_event
 from apixis.core.utils.validation import validate_number
 
 
@@ -45,8 +45,7 @@ async def post_and_wait(
     event_name: str,
     context: Any = None,
     time_out: float | None = None,
-    keep_listening: bool = False,
-) -> ApixEvent | EventWaiter:
+) -> ApixEvent:
     """Publish one event and return it after its foreground handlers finish.
 
     The event category defaults to ``EventType.DEFAULT``.
@@ -57,15 +56,12 @@ async def post_and_wait(
     in the returned event's ``error_stack``.
 
     ``time_out`` bounds queue admission and processing together, starting on
-    the owner loop. ``None`` waits indefinitely. With ``keep_listening=True``,
-    processing timeout returns the waiter while collection continues; use
-    ``await waiter.get_result()`` to resume or ``waiter.close()`` to abandon it.
-    Otherwise expiry raises ``TimeoutError`` and removes the listener. Queue
-    admission timeout always raises because the event has not been published.
+    the owner loop. ``None`` waits indefinitely. Expiry raises ``TimeoutError``
+    and removes the listener, including while waiting for queue admission.
     Cancellation removes the listener. Neither timeout nor cancellation retracts
     an admitted event or cancels its handlers. Managed callers lend their dispatch
     permit throughout publication and waiting. Publication and collection
-    stay on the current thread, including keep_listening on worker cores.
+    stay on the current thread, including worker cores.
     """
     if time_out is not None:
         time_out = validate_number(time_out, "time_out")
@@ -75,14 +71,13 @@ async def post_and_wait(
     loop = asyncio.get_running_loop()
     deadline = None if time_out is None else loop.time() + time_out
     async with expect_event(
-        escape(event_name), point="processed", keep_listening=keep_listening,
+        escape(event_name), point="processed", time_out=time_out,
         predicate=lambda event: event.event_id == event_id,
     ) as waiter:
         async with suspend_process():
             async with asyncio.timeout_at(deadline):
                 await pipe.put(event)
-            remaining = None if deadline is None else deadline - loop.time()
-            return await waiter.wait(time_out=remaining)
+            return await waiter.wait()
 
 
 async def post_and_wait_threadsafe(

@@ -57,18 +57,18 @@ async def test_publication_and_listener_core_must_match(
 
     async def collect():
         context = (
-            expect_event("routing.message", point=point)
+            expect_event("routing.message", point=point, time_out=2 if should_receive else 0.1)
             if listening_target is None else
-            expect_event_threadsafe("routing.message", point=point, thread_ids=listening_target)
+            expect_event_threadsafe("routing.message", point=point, thread_ids=listening_target, time_out=2 if should_receive else 0.1)
         )
         async with context as waiter:
             ready.set_result(None)
             # Publish before testing the negative case's deadline.
             await asyncio.wrap_future(published)
             if should_receive:
-                return await waiter.wait(time_out=2)
+                return await waiter.wait()
             with pytest.raises(TimeoutError):
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
 
     collection = asyncio.create_task(get_thread_bridge().call(
         collect, thread_ids=caller, background=True,
@@ -103,11 +103,11 @@ async def test_remote_request_and_local_reply_wait_at_capacity_one(thread_cores,
     def setup_client():
         @subscribe("routing.trigger")
         async def request(event):
-            async with expect_event("routing.reply", point=point) as waiter:
+            async with expect_event("routing.reply", point=point, time_out=2) as waiter:
                 await post_event_threadsafe(
                     event_name="routing.request", context=event.context, thread_ids="service",
                 )
-                reply = await waiter.wait(time_out=2)
+                reply = await waiter.wait()
             event.context = reply.context
 
     def setup_service():

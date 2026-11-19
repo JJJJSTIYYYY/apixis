@@ -32,7 +32,6 @@ async def _submit_collection(event_name, **kwargs):
     ), background=True)).result
 
 
-
 @pytest.mark.parametrize("module_name", [
     "apixis",
     "apixis.core",
@@ -107,12 +106,12 @@ async def test_roundtrip_and_thread_context_snapshot(runtime, expect):
         publisher_context.set("worker-context")
         handler_chain_token_context.set(marker)
         payload = {"id": 42}
-        async with expect("thread.reply", point="processed") as waiter:
+        async with expect("thread.reply", point="processed", time_out=3) as waiter:
             await post_event_threadsafe(
                 event_name="thread.request", context=payload,
             )
             publisher_context.set("changed")
-            reply = await waiter.wait(time_out=3)
+            reply = await waiter.wait()
             assert processed.is_set()
             assert reply.context is payload
             assert reply.context["processed"] is True
@@ -257,7 +256,7 @@ async def test_validation_and_timeout_clean_up(runtime, use_context, options, er
         with pytest.raises(error):
             if use_context:
                 async with expect(**options) as waiter:
-                    await waiter.wait(time_out=options.get("time_out"))
+                    await waiter.wait()
             else:
                 await wait(**options)
 
@@ -266,11 +265,11 @@ async def test_validation_and_timeout_clean_up(runtime, use_context, options, er
     assert not runtime.handler_registry.registry
 
 
-async def test_wait_call_timeout_cleans_listeners_before_return(runtime):
+async def test_registration_timeout_cleans_listeners_before_return(runtime):
     async def worker():
-        async with expect_event_threadsafe("never") as waiter:
+        async with expect_event_threadsafe("never", time_out=0.01) as waiter:
             with pytest.raises(TimeoutError):
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
         with pytest.raises(RuntimeError, match="already been entered"):
             async with waiter:
                 pass
@@ -280,7 +279,7 @@ async def test_wait_call_timeout_cleans_listeners_before_return(runtime):
 
 
 @pytest.mark.parametrize("expect", [expect_event_threadsafe])
-async def test_wait_deadline_update_progresses_behind_blocked_publication(runtime, monkeypatch, expect):
+async def test_fixed_deadline_expires_behind_blocked_publication(runtime, monkeypatch, expect):
     registered, start_wait = Event(), Event()
     publishing, release = asyncio.Event(), asyncio.Event()
 
@@ -289,12 +288,12 @@ async def test_wait_deadline_update_progresses_behind_blocked_publication(runtim
         await release.wait()
 
     async def worker():
-        async with expect("never") as waiter:
+        async with expect("never", time_out=0.1) as waiter:
             registered.set()
             while not start_wait.is_set():
                 await asyncio.sleep(0)
             with pytest.raises(TimeoutError):
-                await waiter.wait(time_out=0.01)
+                await waiter.wait()
 
     task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
     await until(registered.is_set)
@@ -310,46 +309,6 @@ async def test_wait_deadline_update_progresses_behind_blocked_publication(runtim
         start_wait.set()
         release.set()
         await asyncio.gather(task, asyncio.wrap_future(publication), return_exceptions=True)
-
-
-async def test_invalid_wait_deadline_preserves_registered_collection(runtime):
-    async def worker():
-        async with expect_event_threadsafe("reply") as waiter:
-            with pytest.raises(ValueError, match="finite"):
-                await waiter.wait(time_out=float("nan"))
-            await post_event_threadsafe(event_name="reply", context=42)
-            assert (await waiter.get_result()).context == 42
-
-    await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 3)
-    assert not runtime.handler_registry.registry
-
-
-async def test_cancel_before_deadline_update_does_not_reactivate_collection(runtime, monkeypatch):
-    loop = asyncio.get_running_loop()
-    schedule = loop.call_soon_threadsafe
-    pending = []
-
-    def delay_update(callback, *args, **kwargs):
-        if callback.__qualname__ == "EventWaiter.reset_timeout":
-            pending.append(partial(callback, *args))
-            return schedule(lambda: None)
-        return schedule(callback, *args, **kwargs)
-
-    monkeypatch.setattr(loop, "call_soon_threadsafe", delay_update)
-
-    async def worker():
-        async with expect_event_threadsafe("never") as waiter:
-            task = asyncio.create_task(waiter.wait(time_out=30))
-            while not pending:
-                await asyncio.sleep(0)
-            task.cancel()
-            with pytest.raises(asyncio.CancelledError):
-                await task
-
-    await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 3)
-    pending[0]()
-    assert not runtime.handler_registry.registry
-    assert not runtime.endpoint._active
 
 
 @pytest.mark.parametrize("expect", [expect_event_threadsafe])
@@ -479,29 +438,21 @@ async def test_shutdown_unblocks_context_entry_and_wait(runtime, monkeypatch):
 
 
 async def test_main_loop_can_use_async_thread_context(runtime):
-    async with ThreadEventWaiter("main.reply") as waiter:
+    async with ThreadEventWaiter("main.reply", time_out=1) as waiter:
         await post_event_threadsafe(event_name="main.reply")
-        assert (await waiter.wait(time_out=1)).event_name == "main.reply"
+        assert (await waiter.wait()).event_name == "main.reply"
     assert not runtime.handler_registry.registry
 
 
-async def test_thread_context_wait_replaces_registration_deadline(runtime):
-    entered = Event()
-    waiters = []
-
+async def test_thread_context_wait_preserves_registration_deadline(runtime):
     async def worker():
-        async with expect_event_threadsafe("deadline.reply", time_out=0.05) as waiter:
-            waiters.append(waiter)
-            entered.set()
-            return await waiter.wait()
+        async with expect_event_threadsafe("deadline.reply", time_out=0.01) as waiter:
+            with pytest.raises(TimeoutError):
+                await waiter.wait()
+            with pytest.raises(TimeoutError):
+                await waiter.get_result()
 
-    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(worker())))
-    await until(entered.is_set)
-    await until(lambda: waiters[0]._targets["main"]._waiter._deadline is None)
-    await asyncio.sleep(0.06)
-    assert not task.done()
-    await post_event_threadsafe(event_name="deadline.reply")
-    assert (await asyncio.wait_for(task, 1)).event_name == "deadline.reply"
+    await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(worker())), 3)
     assert not runtime.handler_registry.registry
 
 
@@ -589,9 +540,9 @@ async def test_threadsafe_awaits_lend_managed_caller_permit(runtime):
     @subscribe("managed.parent")
     async def parent(event):
         child_event = await post_and_wait_threadsafe(event_name="managed.child", context={}, time_out=1)
-        async with expect_event_threadsafe("managed.reply") as waiter:
+        async with expect_event_threadsafe("managed.reply", time_out=1) as waiter:
             await post_event_threadsafe(event_name="managed.reply")
-            reply = await waiter.wait(time_out=1)
+            reply = await waiter.wait()
         assert handler_chain_token_context.get().held
         results.append((child_event.context["processed"], reply.event_name))
         finished.set()
