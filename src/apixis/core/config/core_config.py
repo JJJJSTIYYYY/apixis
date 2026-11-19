@@ -22,9 +22,4 @@ if EVENT_LOOP_BACKPRESSURE is not None:
         "APIXIS.EVENT.event_loop_backpressure", minimum=1,
     )
 
-# Keep only the most recent checkpoints of each invocation.
-GRAPH_MAX_SNAPSHOTS = validate_int(
-    _get_config("GRAPH.max_snapshots", 16), "APIXIS.GRAPH.max_snapshots", minimum=1,
-)
-
 SHOW_EVENT_DISPATCH = _get_config("LOG.show_event_dispatch", False)

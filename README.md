@@ -6,7 +6,7 @@
 
 中文 | [English](#english)
 
-面向 Python asyncio 应用的事件驱动图编排。
+面向 Python asyncio 应用的异步事件系统。
 
 [![PyPI](https://img.shields.io/pypi/v/apixis.svg)](https://pypi.org/project/apixis/)
 [![Python](https://img.shields.io/pypi/pyversions/apixis.svg)](https://pypi.org/project/apixis/)
@@ -14,15 +14,11 @@
 
 [源码](https://github.com/JJJJSTIYYYY/Apixis) ·
 [问题](https://github.com/JJJJSTIYYYY/Apixis/issues) ·
-[API 参考](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md) ·
-[示例](https://github.com/JJJJSTIYYYY/apixis-example)
+[API 参考](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
 
 </div>
 
-APIXIS 提供两个可组合的运行时：
-
-- 一个异步事件系统，支持通配符订阅、有序处理器、背压、线程独立的事件核心和跨线程异步订阅／发布／等待；
-- 一个有状态图运行时，支持命令驱动的步骤、并行节点、快照、流式处理以及中断/恢复工作流。
+APIXIS 支持通配符订阅、有序处理器、背压、线程独立的事件核心，以及跨线程异步订阅、发布和等待。
 
 > 需要 Python 3.12+。运行时 API 专为 `asyncio` 设计。
 
@@ -64,37 +60,30 @@ pyproject.toml  # 构建、依赖和工具配置
 ```python
 import asyncio
 
-from apixis import GraphManager
+from apixis import post_and_wait, stop_core, subscribe
 
 
-def increment(state: dict) -> dict:
-    return {"value": state["value"] + 1}
+async def main() -> None:
+    @subscribe("counter.increment")
+    async def increment(event):
+        event.context["value"] += 1
 
-
-async def master() -> None:
-    graph = (
-        GraphManager()
-        .add_node(increment)
-        .compile_graph(entry_point="increment")
-    )
     try:
-        result = await graph.invoke({"value": 1})
-        print(result)  # {'value': 2}
+        event = await post_and_wait(event_name="counter.increment", context={"value": 1})
+        print(event.context)  # {'value': 2}
     finally:
-        graph.decompose()
+        await stop_core()
 
 
-asyncio.run(master())
+asyncio.run(main())
 ```
 
 ## 文档
 
 - [API 参考](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
 - [事件 API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/event/README.md)
-- [图 API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/README.md)
-- [状态与命令](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/state.md)
 - [工具与异常](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/utils/README.md)
-- **[使用示例](https://github.com/JJJJSTIYYYY/apixis-example)**
+- [快速开始](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/quickstart.md)
 
 ## 许可证
 
@@ -110,7 +99,7 @@ asyncio.run(master())
 
 English | [中文](#chinese)
 
-Event-driven graph orchestration for Python asyncio applications.
+An asynchronous event system for Python asyncio applications.
 
 [![PyPI](https://img.shields.io/pypi/v/apixis.svg)](https://pypi.org/project/apixis/)
 [![Python](https://img.shields.io/pypi/pyversions/apixis.svg)](https://pypi.org/project/apixis/)
@@ -120,15 +109,11 @@ Event-driven graph orchestration for Python asyncio applications.
 
 [Source](https://github.com/JJJJSTIYYYY/Apixis) ·
 [Issues](https://github.com/JJJJSTIYYYY/Apixis/issues) ·
-[API Reference](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md) ·
-[Example](https://github.com/JJJJSTIYYYY/apixis-example)
+[API Reference](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
 
 </div>
 
-APIXIS provides two composable runtimes:
-
-- an asynchronous event system with wildcard subscriptions, ordered handlers, backpressure, independent per-thread cores, and explicitly routed asynchronous subscriptions, publication and waiting across threads;
-- a stateful graph runtime with Command-driven steps, parallel nodes, snapshots, streaming, and interruption/resume workflows.
+APIXIS supports wildcard subscriptions, ordered handlers, backpressure, independent per-thread cores, and explicitly routed subscriptions, publication, and waiting across threads.
 
 > Python 3.12+ is required. Runtime APIs are designed for `asyncio`.
 
@@ -164,37 +149,30 @@ Run development commands from the repository root.
 ```python
 import asyncio
 
-from apixis import GraphManager
+from apixis import post_and_wait, stop_core, subscribe
 
 
-def increment(state: dict) -> dict:
-    return {"value": state["value"] + 1}
+async def main() -> None:
+    @subscribe("counter.increment")
+    async def increment(event):
+        event.context["value"] += 1
 
-
-async def master() -> None:
-    graph = (
-        GraphManager()
-        .add_node(increment)
-        .compile_graph(entry_point="increment")
-    )
     try:
-        result = await graph.invoke({"value": 1})
-        print(result)  # {'value': 2}
+        event = await post_and_wait(event_name="counter.increment", context={"value": 1})
+        print(event.context)  # {'value': 2}
     finally:
-        graph.decompose()
+        await stop_core()
 
 
-asyncio.run(master())
+asyncio.run(main())
 ```
 
 ## Documentation
 
 - [API reference](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
 - [Event API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/event/README.md)
-- [Graph API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/README.md)
-- [State and commands](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/state.md)
 - [Utilities and exceptions](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/utils/README.md)
-- **[Example](https://github.com/JJJJSTIYYYY/apixis-example)**
+- [Quick start](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/quickstart.md)
 
 ## License
 

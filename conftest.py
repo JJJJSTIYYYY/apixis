@@ -1,24 +1,19 @@
 """Repository-wide runtime requirements, pytest selection and benchmark options."""
 
-import math
 import sys
 import sysconfig
-from time import perf_counter
 
 import pytest
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session):
-    """Validate the interpreter and start benchmark accounting before collection."""
+    """Validate the interpreter before collection."""
     if session.config.getoption("--require-free-threading"):
         if sysconfig.get_config_var("Py_GIL_DISABLED") != 1 or sys._is_gil_enabled():
             raise pytest.UsageError(
                 "--require-free-threading needs a free-threaded Python with the GIL disabled."
             )
-    if session.config.getoption("--run-performance"):
-        session.config._graph_session_started = perf_counter()
-        session.config._graph_test_durations = {}
 
 
 @pytest.hookimpl(trylast=True)
@@ -31,16 +26,6 @@ def pytest_sessionfinish(session):
             reporter.write_sep(
                 "=", "GIL enabled during a required free-threaded test run", red=True,
             )
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_makereport(item, call):
-    """Use pytest's phase durations, including setup and final cleanup."""
-    report = yield
-    if item.config.getoption("--run-performance"):
-        phases = item.config._graph_test_durations.setdefault(item.nodeid, {})
-        phases[report.when] = report.duration
-    return report
 
 
 def pytest_addoption(parser):
@@ -56,36 +41,16 @@ def pytest_addoption(parser):
         "--thread-report", default=None,
         help="Write cross-thread stress metrics to a JSON file.",
     )
-    group = parser.getgroup("graph performance")
-    group.addoption(
+    threads.addoption(
         "--run-performance", action="store_true", default=False,
-        help="Collect the opt-in graph performance suite.",
+        help="Collect the opt-in event performance suite.",
     )
-    for option, default, help_text in (
-        ("--graph-count", None, "Override concurrent invocations in all graph workloads, including the capacity sweep."),
-        ("--graph-nodes", None, "Override nodes per invocation in all graph workloads, including the capacity sweep."),
-        ("--graph-width", 4, "Maximum nodes per concurrent graph step."),
-        ("--graph-repeats", 3, "Measured rounds; every round includes fresh graph construction."),
-    ):
-        group.addoption(option, type=_positive_int, default=default, help=help_text)
-    group.addoption(
-        "--graph-timeout", type=_positive_float, default=120.0,
-        help="Deadline in seconds for each entire build-and-run round.",
-    )
-    group.addoption("--graph-report", default=None, help="Write benchmark metrics to a JSON file.")
 
 
 def _positive_int(value):
     number = int(value)
     if number <= 0:
         raise ValueError("must be a positive integer")
-    return number
-
-
-def _positive_float(value):
-    number = float(value)
-    if not math.isfinite(number) or number <= 0:
-        raise ValueError("must be a finite positive number")
     return number
 
 

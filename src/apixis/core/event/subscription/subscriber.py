@@ -47,8 +47,8 @@ def subscribe(
             Duplicate patterns are removed while preserving their first
             occurrence. At least one non-empty pattern is required.
 
-            Matching is case-sensitive. For example, ``"Graph.*"`` matches
-            ``"Graph.Start"`` but does not match ``"graph.start"``.
+            Matching is case-sensitive. For example, ``"Job.*"`` matches
+            ``"Job.Start"`` but does not match ``"job.start"``.
 
         exist_ok:
             If ``True``, replace an existing same-name entry with this handler
@@ -156,14 +156,14 @@ def subscribe(
             Example::
 
                 @subscribe(
-                    "graph.*",
-                    filter_event=["graph.internal.*"],
+                    "job.*",
+                    filter_event=["job.internal.*"],
                 )
-                async def public_graph_handler(event):
+                async def public_job_handler(event):
                     ...
 
-            The example receives ``"graph.started"`` but not
-            ``"graph.internal.snapshot"``.
+            The example receives ``"job.started"`` but not
+            ``"job.internal.snapshot"``.
 
         stop_when_error:
             If ``True``, skip this handler's core function when the event has
@@ -208,21 +208,21 @@ def subscribe(
     Examples:
         Register handlers by priority::
 
-            @subscribe("graph.*", priority=10)
-            async def validate_graph_event(event):
+            @subscribe("job.*", priority=10)
+            async def validate_job_event(event):
                 ...
 
-            @subscribe("graph.*", priority=1)
-            async def persist_graph_event(event):
+            @subscribe("job.*", priority=1)
+            async def persist_job_event(event):
                 ...
 
         Insert a handler before an existing handler::
 
             @subscribe(
-                "graph.*",
-                between_handlers=(None, "persist_graph_event"),
+                "job.*",
+                between_handlers=(None, "persist_job_event"),
             )
-            async def enrich_graph_event(event):
+            async def enrich_job_event(event):
                 ...
 
     Returns:

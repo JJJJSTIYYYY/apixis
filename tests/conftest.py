@@ -10,7 +10,6 @@ import pytest
 import pytest_asyncio
 
 from apixis.core.event import factory
-from apixis.core.graph.base import get_namespace_graphs
 
 
 @pytest_asyncio.fixture
@@ -31,8 +30,6 @@ async def thread_cores():
                 ready.set_result(SimpleNamespace(name=name, loop=asyncio.get_running_loop(), stop=stop))
                 await stop.wait()
             finally:
-                for graph in tuple(get_namespace_graphs().values()):
-                    graph.decompose(force=True)
                 await factory.stop_core()
                 tasks = tuple(core.event_loop._dispatch_tasks | core.event_loop._background_handler_tasks)
                 for task in tasks:
@@ -77,9 +74,6 @@ async def thread_cores():
 
 def _clear_registries(core) -> None:
     """Reset test-owned registrations only after their tasks have stopped."""
-    for graph in tuple(get_namespace_graphs().values()):
-        graph.decompose()
-    get_namespace_graphs().clear()
     core.handler_registry.clear()
     core.event_registry.clear()
 
@@ -105,9 +99,6 @@ async def cleanup_event_runtime(event_runtime_capacity, monkeypatch):
     try:
         yield core
     finally:
-        # Graph decomposition can schedule startup through public getters.
-        for graph in tuple(get_namespace_graphs().values()):
-            graph.decompose()
         if core.start_task is not None:
             await asyncio.gather(core.start_task, return_exceptions=True)
         loop, pipe = core.event_loop, core.event_pipe

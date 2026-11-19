@@ -6237,6 +6237,7 @@
       "unpaired_scenarios": [],
       "id": "2026-11-17-thread-reply-sleep128-recheck",
       "raw_results": "2026-11-17/reply-optimization-sleep128-recheck.json",
+      "raw_results_git_revision": "058dc4b",
       "processes": [
         {
           "label": "before",

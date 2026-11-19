@@ -6,7 +6,7 @@ import pytest
 
 from apixis import (
     ApixEventHandler, ApixEventLoop, ApixEventPipe, ApixEventRegistry,
-    ApixHandlerRegistry, Node, subscribe,
+    ApixHandlerRegistry, subscribe,
 )
 from apixis.core.utils.validation import validate_int, validate_number, validate_timeout
 
@@ -64,7 +64,6 @@ def test_execution_and_priority_apis_reject_invalid_numbers(value, error):
 
     for operation in (
         lambda: ApixEventHandler(receive, time_out=value),
-        lambda: Node(lambda state: {}, timeout=value),
         lambda: subscribe("reply", priority=value),
     ):
         with pytest.raises(error):

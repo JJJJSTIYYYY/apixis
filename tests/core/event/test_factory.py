@@ -363,21 +363,6 @@ async def test_getters_share_one_startup_attempt(fresh_core, monkeypatch, wait_f
         release.set()
 
 
-async def test_graph_invocation_starts_core_through_getters(fresh_core):
-    """Graph invocation and restart require no explicit runtime startup."""
-    from apixis.core.graph import NodeGraph
-
-    graph = NodeGraph({}, None)
-    try:
-        assert await asyncio.wait_for(graph.invoke({"value": 1}), 1) == {"value": 1}
-        core = factory._local.core
-        await core.event_loop.stop()
-        await core.event_pipe.stop()
-        assert await asyncio.wait_for(graph.invoke({"value": 2}), 1) == {"value": 2}
-    finally:
-        graph.decompose()
-
-
 async def test_explicit_start_returns_when_restart_has_signalled_started(fresh_core, monkeypatch, wait_for_dispatch):
     """Startup is a signal, not a barrier for every ongoing startup task."""
     await start_core()

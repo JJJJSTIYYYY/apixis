@@ -199,9 +199,8 @@ class ApixEventLoop:
                     self._event_pipe.task_done()
 
                 finally:
-                    # The dispatch task owns these references now. An idle
-                    # consumer must not retain handlers (or their bound graphs)
-                    # from the previous event after that dispatch completes.
+                    # The dispatch task owns these references. Drop the
+                    # consumer's copies before the next dequeue.
                     with suppress(Exception):
                         del event
                         del handler_chain

@@ -17,7 +17,7 @@ from apixis.core.utils.logger import Logger
 
 @dataclass
 class EventCore:
-    """Keep one complete dependency graph and serialize asynchronous startup."""
+    """Own the thread's runtime components and serialize asynchronous startup."""
 
     event_registry: ApixEventRegistry
     event_pipe: ApixEventPipe

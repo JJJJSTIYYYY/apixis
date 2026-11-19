@@ -6,43 +6,7 @@
 pip install apixis
 ```
 
-运行环境为 Python 3.12+ 和 `asyncio`。事件发布和图执行均在当前进程内运行。
-
-## 执行一个图
-
-将下面代码保存为 `graph_demo.py`，运行 `python graph_demo.py`：
-
-```python
-import asyncio
-
-from apixis import Command, GraphManager
-
-
-def increment(state: dict) -> Command:
-    return Command(update={"value": state["value"] + 1}, goto="double")
-
-
-def double(state: dict) -> dict:
-    return {"value": state["value"] * 2}
-
-
-async def main() -> None:
-    graph = (
-        GraphManager()
-        .add_nodes([increment, double])
-        .compile_graph(entry_point="increment")
-    )
-    with graph:
-        result = await graph.invoke({"value": 1})
-        print(result)  # {'value': 4}
-
-
-asyncio.run(main())
-```
-
-`Command.update` 更新状态，`Command.goto` 指定下一步。返回普通字典只更新状态并结束当前分支。`with graph` 在退出时释放图的注册资源。
-
-继续阅读：[构图与执行](./core/graph/README.md)、[状态与下一跳](./core/graph/state.md)。
+运行环境为 Python 3.12+ 和 `asyncio`。事件发布、处理与跨线程通信均在当前进程内运行。
 
 ## 发布和处理事件
 

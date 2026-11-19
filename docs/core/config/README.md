@@ -10,8 +10,6 @@ APIXIS:
     event_pipe_max_len: 65536
     event_loop_backpressure: null
     handler_chain_cache_size: 8192
-  GRAPH:
-    max_snapshots: 16
   LOG:
     show_event_dispatch: false
 ```
@@ -36,14 +34,6 @@ APIXIS:
 
 每个线程的 core 独立维护派发背压。设为 `1` 时，每个线程各有一个前台许可；本地等待和跨线程请求期间仅借出调用方当前处理链的本地许可。每个目标的跨线程接收队列与事件队列相互独立，均使用 `event_pipe_max_len`；接收队列满时，调用方协程异步等待容量通知，不占用默认线程池。
 
-## 图快照
-
-| 路径 | 默认值 | 说明 |
-| --- | --- | --- |
-| `APIXIS.GRAPH.max_snapshots` | `16` | 每个 context 保留的最近快照数量，必须为正整数；超出时删除最旧记录 |
-
-`compile_graph(..., max_snapshots=...)` 或 `NodeGraph(..., max_snapshots=...)` 可覆盖此默认值。自动和手动快照、恢复的历史均遵循该上限。
-
-容量与条数不接受布尔值、浮点数、数字字符串、NaN 或无穷大。类型错误抛出 `TypeError`，超出数值范围抛出 `ValueError`。省略或设为 YAML `null` 时沿用配置加载器的默认值。
+容量与并发配置项接受正整数，省略或设为 YAML `null` 时使用默认值。类型错误抛出 `TypeError`，超出数值范围抛出 `ValueError`。
 
 [返回文档首页](../../README.md)

@@ -6,13 +6,8 @@
 
 | 异常 | 含义 |
 | --- | --- |
-| `BlockHookNotRegisteredError` | 图发生中断，但没有可执行的中断处理器 |
-| `BlockNotResolvedError` | 中断处理器返回时，Block 既未完成也未被接管 |
 | `EventHandlerAlreadyRegisteredError` | 禁止覆盖时注册了同名处理器 |
 | `EventHandlerNotRegisteredError` | 所需处理器尚未注册 |
-| `GraphNodeError` | 图节点执行错误 |
-| `InvalidContextError` | 图执行上下文不合法 |
-| `InvalidNodeReturnsError` | 节点返回值不符合要求 |
 
 参数校验还可能抛出 `ValueError` 或 `TypeError`。异步取消使用 `asyncio.CancelledError`，不属于普通 `Exception`。
 
@@ -38,9 +33,9 @@ Logger.info("Job %s completed", "example")
 Logger.success("Application started")
 
 try:
-    raise ValueError("invalid node")
+    raise ValueError("invalid event payload")
 except ValueError:
-    Logger.exception("Cannot run graph")
+    Logger.exception("Cannot handle event")
 
 Logger.set_debug(None)  # 停用该等级
 ```

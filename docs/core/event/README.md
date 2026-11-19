@@ -284,7 +284,7 @@ await unsubscribe_threadsafe(group="observers", thread_ids=["worker-a", "worker-
 
 `call()` 默认使用 `background=True`，操作开始后允许接收端继续转交后续请求，因此操作中可以再次请求同一 core。这里的 `background` 控制桥接请求的执行方式，与 handler 的后台属性无关。显式使用 `background=False` 时，接收端会等待操作结束再转交下一条请求；该操作不能等待后续桥接请求或事件 handler 完成，否则可能阻塞自身依赖。普通 `post_event_threadsafe()` 只等待事件入队，继续使用串行转交来限制发布 task 的数量；`call_sync()` 也串行执行同步回调，回调必须保持非阻塞。
 
-容量为 1 的回路、跨线程图、多目标清理和压力测试见[测试说明](../../../tests/README.md#跨线程事件验证)。
+容量为 1 的回路、多目标清理和压力测试见[测试说明](../../../tests/README.md#跨线程事件验证)。
 
 ### 共享 payload 与修改归属
 
@@ -300,11 +300,11 @@ await unsubscribe_threadsafe(group="observers", thread_ids=["worker-a", "worker-
 
 同样的归属约束适用于回调闭包、绑定的服务实例，以及 `ContextVar` 值中的可变对象。`subscribe_threadsafe()` 对 handler 实例的浅拷贝只隔离注册元数据，回调及其业务对象仍可能共享。这些约束在启用 GIL 时也成立；关闭 GIL 后，各 core 可以真正并行执行，框架不提供共享业务数据的跨 core 事务。
 
-### 图内发布与监听目标
+### 发布与监听目标
 
-图节点中的普通事件接口使用图所属线程的 core；图的 namespace 不改变线程路由。判断能否收到事件，要比较**发布到的 core 和监听的 core**，调用等待接口的线程可以与它们不同。假设图在工作线程 A，另有工作线程 B 和 C，监听均在发布前完成注册，名称和谓词也匹配：
+普通事件接口使用调用线程的 core。能否收到事件取决于**发布目标和注册监听的 core**。以下示例假设 A、B、C 是三个工作线程，监听已在发布前注册，名称和谓词均匹配。
 
-| 图内发布 | 等待调用位置和方式 | 是否收到 |
+| 发布方式 | 等待调用位置和方式 | 是否收到 |
 | --- | --- | --- |
 | A 中 `post_event(...)`，进入 A | B 中 `expect_event_threadsafe(..., thread_ids="A")` | 是 |
 | A 中 `post_event_threadsafe(..., thread_ids="B")`，进入 B | B 中 `expect_event(...)` | 是 |
@@ -312,7 +312,7 @@ await unsubscribe_threadsafe(group="observers", thread_ids=["worker-a", "worker-
 | 同上 | B 中 `expect_event_threadsafe(..., thread_ids="A")` | 否 |
 | 同上 | B 中 `expect_event_threadsafe(..., thread_ids="C")` | 否 |
 
-`thread_ids` 省略或传 `None` 始终选择主线程 core，不代表“当前图线程”或“等待调用方线程”。没有匹配事件时，等待会持续到超时或取消；框架不会跨 core 搜索同名事件。`received` 和 `processed` 都遵循这个线程选择规则，区别仅在目标处理链中的通知时点。
+`thread_ids` 省略或传 `None` 始终选择主线程 core。等待器只匹配已选目标中的事件，直到匹配、超时或取消。`received` 和 `processed` 使用相同的目标选择规则，通知时点分别位于目标前台处理的前后。
 
 ## `ApixEventPipe` 常用接口
 
@@ -370,7 +370,6 @@ async def observe_job(event):
 ```python
 async with expect_event(reply) as waiter:
     await pipe.post_event(
-        event_type=EventType.WORKFLOW,
         event_name="job.start",
         context={"reply": reply},
     )
@@ -383,7 +382,6 @@ async with expect_event(reply) as waiter:
 
 ```python
 await pipe.post_event(
-    event_type=EventType.WORKFLOW,
     event_name="job.start",
     context={"reply": reply},
 )
@@ -405,7 +403,6 @@ async with expect_event(
     ["job.validated", "job.saved"], point="processed",
 ) as waiter:
     await get_event_pipe().post_event(
-        event_type=EventType.WORKFLOW,
         event_name="job.start",
     )
     events = await waiter.wait(time_out=40)
@@ -535,7 +532,7 @@ registry.clear()
 
 `event_loop_backpressure` 默认为 `null`（Python `None`），此时只维护许可计数，不限制分发并发；设为正整数时启用派发背压。事件队列仍受 `event_pipe_max_len` 限制。配置的有效范围见[配置文档](../config/README.md#队列与并发)。
 
-派发背压不是全部 task 的数量上限。同一处理链内的并行节点或子任务共享许可，后台 handler 不持有前台许可，挂起等待的 task 也仍然存活。因此它既不等于单个 HTTP／数据库资源的精确并发限制，也不保证整体在途请求数和内存占用有界。整体过载保护还需要在外部请求入口限制接纳数量，并在具体资源所属位置控制并发。
+同一处理链内的并行子任务共享许可，后台 handler 独立运行，挂起等待的 task 仍然存活。派发背压限制的是前台处理链执行并发。整体过载保护还需要在外部请求入口限制接纳数量，并在具体资源所属位置控制并发。
 
 ### 挂起为什么要借出许可
 
@@ -556,7 +553,6 @@ handler 等待的工作有时也需要事件循环继续分发。如果等待方
 - 等待事件使用 `wait_event()`、`expect_event()` 或 `EventWaiter.wait()` / `get_result()`，它们在实际等待结果时借出许可。`expect_event` 的上下文进入只注册监听，不借出许可。
 - 请求／回包流程使用 `expect_event()`，按“注册监听 → 发布请求 → 等待结果”的顺序执行，避免漏掉提前到达的回包。
 - 前台 handler 中使用线程安全接口时，同样协调派发许可；`expect_event_threadsafe()` 的进入需要异步确认注册，因此进入期间也借出许可。调用方只借出自己线程的许可，目标使用自身线程的许可。
-- 图中的嵌套 `invoke()` 和 `interrupt()` 已协调相应的等待，见[图 API](../graph/README.md)。
 
 如果自行等待应用的 `Future`、`Event` 等信号，且其完成依赖另一个事件 handler，框架无法自动识别这项依赖。应改用上述事件等待接口，或将后续逻辑放到结果事件的订阅处理器中，避免持有许可等待依赖方。
 
@@ -566,7 +562,7 @@ handler 等待的工作有时也需要事件循环继续分发。如果等待方
 
 | 路径 | 框架提供的保证 | 应用需要保证 |
 | --- | --- | --- |
-| 本地发布、事件等待及嵌套图调用 | 托管处理链在相应等待期间借出自己的许可；同一处理链的并行分支共享一次释放和恢复 | 不用直接 `pipe.put()`、自建 Future 或其他信号替代接口后仍假设框架会识别依赖 |
+| 本地发布与事件等待 | 托管处理链在等待期间借出自己的许可，同一处理链的并行分支共享一次释放和恢复 | 使用本文列出的接口处理依赖其他事件派发的等待 |
 | A→B→A 往返 | 每次线程安全调用只协调来源 core 的许可，目标使用自己的许可；容量为 1 也可推进 | 业务最终会产生回包，不形成只等待彼此结果、没有生产者的依赖环 |
 | 先监听再发布 | `expect_event_threadsafe()` 进入后，所有目标监听均已完成注册 | 选择正确的发布/监听 core，并在注册后发布；历史事件不重放 |
 | 满队列、取消和目标停止 | 容量通知不占线程池；取消等待目标监听清理；单个目标失败会清理其他未完成目标 | loop 不被同步 I/O、`thread.join()`、阻塞锁或 `Future.result()` 阻塞；自定义操作不吞掉取消后无限等待 |

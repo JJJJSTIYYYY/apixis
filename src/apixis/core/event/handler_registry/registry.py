@@ -267,7 +267,6 @@ class ApixHandlerRegistry:
         """Register an internal single-pattern listener outside priority buckets.
 
         Waiting APIs validate the pattern, filters and point before calling.
-        Internal terminal handlers may also use the processed position.
         """
         if handler.name in self.registry:
             raise EventHandlerAlreadyRegisteredError(

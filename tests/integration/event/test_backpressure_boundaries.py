@@ -16,7 +16,6 @@ from apixis.core.event import (
 )
 from apixis.core.event import factory
 from apixis.core.event.base import handler_chain_token_context, suspend_process
-from apixis.core.graph import GraphManager
 
 
 pytestmark = pytest.mark.parametrize(
@@ -253,17 +252,17 @@ async def test_captured_handlers_survive_eviction_and_registration_with_a_full_q
 
 
 @pytest.mark.parametrize("point", ["received", "processed"])
-async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
+async def test_parallel_request_reply_drain_a_full_queue(
     boundary_runtime, monkeypatch, wait_for_dispatch, point,
 ):
-    """Child graph waits and temporary reply listeners share the smallest slots."""
+    """A handler's concurrent reply waits share the smallest dispatch slots."""
     core = boundary_runtime
     capacity = core.event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     captured = _observe_capture(monkeypatch, core, "boundary.pending")
     requests = []
-    tasks = []
+    replies = {}
 
     @subscribe("boundary.tool.request")
     async def tool(event):
@@ -273,8 +272,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
             event_name=f"boundary.tool.reply.{event.context}", context=event.context,
         )
 
-    async def leaf(state):
-        key = state["key"]
+    async def request(key):
         async with expect_event(
             f"boundary.tool.reply.{key}", point=point, time_out=2,
         ) as waiter:
@@ -282,49 +280,33 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
                 event_type=EventType.TRANSIENT, event_name="boundary.tool.request", context=key,
             )
             reply = await waiter.wait()
-        return {"value": reply.context}
+        return reply.context
 
-    leaf_graph = GraphManager().add_node(leaf).compile_graph("leaf")
-
-    async def left(state):
-        result = await leaf_graph.invoke({"key": f"{state['run']}.left"})
-        return {"left": result["value"]}
-
-    async def right(state):
-        result = await leaf_graph.invoke({"key": f"{state['run']}.right"})
-        return {"right": result["value"]}
-
-    parallel_graph = GraphManager().add_node(left).add_node(right).compile_graph(["left", "right"])
-
-    async def parent(state):
+    @subscribe("boundary.parent")
+    async def parent(event):
         await parents_ready.wait()
         await release.wait()
-        return await parallel_graph.invoke(state)
+        index = event.context
+        async with asyncio.TaskGroup() as group:
+            left = group.create_task(request(f"{index}.left"))
+            right = group.create_task(request(f"{index}.right"))
+        replies[index] = (left.result(), right.result())
 
-    parent_graph = GraphManager().add_node(parent).compile_graph("parent")
     try:
         async with asyncio.timeout(3):
             for index in range(capacity):
-                tasks.append(asyncio.create_task(parent_graph.invoke({"run": index})))
+                await core.event_pipe.post_event(event_name="boundary.parent", context=index)
             await parents_ready.wait()
             await _fill_waiting_queue(core, captured)
             release.set()
-            results = await asyncio.gather(*tasks)
             await wait_for_dispatch(core.event_loop)
-        assert results == [
-            {"run": index, "left": f"{index}.left", "right": f"{index}.right"}
-            for index in range(capacity)
-        ]
+        assert replies == {index: (f"{index}.left", f"{index}.right") for index in range(capacity)}
         assert sorted(requests) == sorted(
             f"{index}.{branch}" for index in range(capacity) for branch in ("left", "right")
         )
         assert not any(name.startswith("resolve_future-") for name in core.handler_registry.registry)
     finally:
         release.set()
-        await _cancel(tasks)
-        parent_graph.decompose(force=True)
-        parallel_graph.decompose(force=True)
-        leaf_graph.decompose(force=True)
 
 
 @pytest.mark.parametrize("cancel_at", ["suspended", "reacquiring"])

@@ -28,10 +28,10 @@ jobs:
         run: uv run --no-sync ruff check .
       - name: Run tests
         run: uv run --no-sync pytest
-      - name: Check graph performance workloads at a small scale
+      - name: Check event performance workloads at a small scale
         run: >-
-          uv run --no-sync pytest tests/performance --run-performance
-          --graph-count 32 --graph-nodes 8 --graph-repeats 1
+          uv run --no-sync pytest tests/performance/test_thread_events.py
+          --run-performance --thread-workers 8 --thread-iterations 8
       - name: Build wheel and source distribution
         run: uv run --no-sync python -m build
       - name: Check distribution metadata
@@ -72,17 +72,11 @@ jobs:
           timeout 300s uv run --no-sync pytest --require-free-threading
           -o faulthandler_timeout=60 -o junit_family=xunit1
           --junitxml=test-results/free-threading-suite.xml
-      - name: Stress bounded queues and concurrent graphs
-        env:
-          APIXIS_STRESS_CORES: '4'
-          APIXIS_STRESS_GRAPHS: '8'
-          APIXIS_STRESS_CALLS: '32'
-          APIXIS_STRESS_TIMEOUT: '120'
+      - name: Stress bounded event queues
         run: >-
           timeout 600s uv run --no-sync pytest --require-free-threading
-          tests/integration/graph/test_thread_graph_backpressure.py
-          tests/integration/graph/test_graph_backpressure_stress.py
           tests/integration/event/test_backpressure_boundaries.py
+          tests/integration/event/test_thread_event_routing.py
           -o faulthandler_timeout=60 -o junit_family=xunit1
           --junitxml=test-results/free-threading-stress.xml
       - name: Saturate thread bridge admission and cancellation

@@ -1,8 +1,8 @@
 # 性能测试记录
 
-更新于 2026-11-17。本页记录跨线程等待路径优化、线程 core 重构前后的配对对比，以及 `78684a2` 的单版性能测试，并保留此前的对比和原始数据。当前结果与历史比较分开记录，不将跨日期耗时差异解释为版本收益。
+本页归档 3.0.0 之前的历史测量。3.0.0 的基准驱动覆盖事件发布、等待、路由和线程压力。历史配对测量保留当时的工作量与结果。
 
-## 当前跨线程实现
+## 跨线程实现
 
 - 每个线程的 `ApixEventPipe` 使用独立的有界 `asyncio.Queue`；该线程的跨线程接收队列具有相同容量，各 core 独立管理派发许可。
 - 桥接入队通过异步容量通知推进，不使用默认线程池，也不保留同步阻塞提交路径。
@@ -13,7 +13,7 @@
 
 ## 2026-11-17 跨线程等待路径优化
 
-针对上轮跨线程请求／回复的回退，保留命名 core、路由锁、有界队列、监听就绪屏障、结果 Future 与清理确认，仅减少无须执行的上下文及单目标包装。生产代码改动限于 `base/process.py` 和 `subscription/waiter.py`，尚未提交。
+针对上轮跨线程请求／回复的回退，保留命名 core、路由锁、有界队列、监听就绪屏障、结果 Future 与清理确认，仅减少无须执行的上下文及单目标包装。当时的生产代码改动限于 `base/process.py` 和 `subscription/waiter.py`。
 
 ### 改动与收益
 
@@ -73,26 +73,15 @@
 
 - 全量 **1711 passed**；asyncio debug 边界回归 **452 passed**；32 个工作线程、每线程 32 次操作、两条队列容量均为 1 的 debug 压力 **12 passed**。覆盖默认／eager 调度、源许可借出与恢复、单／多目标、超时、取消、停止和图内跨线程等待。性能计时与这些验证分开执行。
 - [三版本原始报告及六份内嵌进程数据](data/2026-11-17/reply-optimization-comparison.json)
-- [背压 128 独立复核：全部 72 个正式样本](data/2026-11-17/reply-optimization-sleep128-recheck.json)
+- 背压 128 独立复核的 72 个原始样本可从 `058dc4b` 读取。
 - [生产代码补丁，应用于 78684a2](data/2026-11-17/reply-optimization.patch)
-- [三版本运行脚本](data/2026-11-17/benchmark_reply_optimization.py)；各版本源码与驱动 SHA256 均保留在进程记录中。当前优化后源码指纹为 `b6cce2820e9f229af44f7104ddf8110898a9a1618172b4e7750fafff3fe03faa`。
+- [三版本运行脚本](data/2026-11-17/benchmark_reply_optimization.py)；各版本源码与驱动 SHA256 均保留在进程记录中。当时优化后源码指纹为 `b6cce2820e9f229af44f7104ddf8110898a9a1618172b4e7750fafff3fe03faa`。
 
-```bash
-.venv/bin/python docs/performance/data/2026-11-17/benchmark_reply_optimization.py \
-  --pre-refactor-source /tmp/apixis-perf-baseline-33022f6/src \
-  --before-source /tmp/apixis-perf-before-reply-optimization/src
-
-.venv/bin/python scripts/benchmark_runtime.py \
-  --baseline-source /tmp/apixis-perf-before-reply-optimization/src \
-  --output docs/performance/data/2026-11-17/reply-optimization-sleep128-recheck.json \
-  --repeats 18 --scenario sleep/capacity-128
-```
-
-两个基线目录分别由 `git archive 33022f6 src`、`git archive 78684a2 src` 提取；优化后由驱动读取当前工作区。历史总览第 10 列展示相对优化前的 28 项变化，第 9 列重构结果保留。
+复现时使用历史版本的驱动和源码。两个基线分别由 `git archive 33022f6 src` 和 `git archive 78684a2 src` 提取，优化后源码由原始补丁重建。历史总览第 10 列展示相对优化前的 28 项变化。
 
 ## 2026-11-17 线程 core 重构前后对比
 
-本轮补做 **`33022f6`（重构前，1.4.1）→ `78684a2`（重构后，2.0.0）** 的同场 ABBA。覆盖 28 个场景，四个独立进程按 `before → after → after → before` 执行；每进程每场景预热 1 轮、测量 9 轮，每版本每场景 18 个正式样本，总计 **1,008 个正式计时样本**。两版均使用同一份当前基准驱动，结果和清理断言均通过，没有未配对场景。
+本轮补做 **`33022f6`（重构前，1.4.1）→ `78684a2`（重构后，2.0.0）** 的同场 ABBA。覆盖 28 个场景，四个独立进程按 `before → after → after → before` 执行；每进程每场景预热 1 轮、测量 9 轮，每版本每场景 18 个正式样本，总计 **1,008 个正式计时样本**。两版均使用同一份当时的基准驱动，结果和清理断言均通过，没有未配对场景。
 
 ### 回退与改善
 
@@ -167,54 +156,18 @@
 
 历史总览已加入这轮数据：第 9 列为本次重构，第 10 列蓝色区域为本次优化，新增混合负载和跨线程面板此前没有展示的数据留空。每个点仍相对各轮自己的基线，折线不表示累计版本收益。
 
-复现时先用 `git archive 33022f6 src` 提取未修改的基线，再运行：
-
-```bash
-.venv/bin/python scripts/benchmark_runtime.py \
-  --baseline-source /tmp/apixis-perf-baseline-33022f6/src \
-  --output docs/performance/data/2026-11-17/refactor-abba.json --repeats 9
-```
+复现整组数据需从对应历史提交获取基准驱动和源码，并核对比较元数据中的指纹。
 
 ## 2026-11-17 优化前单版性能测试（78684a2）
 
-本轮在提交 `78684a2`（2.0.0）上运行全部 **25 组性能测试，全部通过**：13 组图调度、12 组跨线程压力。测试会话耗时 **239.952 秒**。本轮测量当前版本，没有运行配对基线或 ABBA；与下方历史记录的跨日期耗时差异不作为版本优化或回退的证据。
+本轮在提交 `78684a2`（2.0.0）上运行 **25 组性能测试**，13 组图调度和 12 组跨线程压力均通过。测试会话耗时 **239.952 秒**。本节保留该次跨线程测量。独立的图调度数据保留在 3.0.0 之前的 Git 历史中。
 
 ### 环境与计时口径
 
 - 本地日期为 2026-11-17（Asia/Shanghai）；Python 3.12.12，macOS 27.2 / arm64。普通日志与派发打印关闭，保留 ERROR；GC 开启，未开启 asyncio debug，未固定 CPU 核心。
-- 常规图负载使用实际派发容量 128、事件队列容量 65,536。每组预热 1 轮、正式测量 3 轮，共 39 个正式计时样本；每轮重新建图。计时包含建图、context 准备、调度和全部调用完成，不包含结果校验与图分解。
-- 50 ms 等待负载在同一进程内依次测试背压 128、512、1024，各档重新创建 core；其余参数保持一致。操作系统调度、温度和测试顺序仍会影响结果。
 - 跨线程负载沿用默认工作量，每组单次测量、无独立预热，两个队列容量均为 64。耗时包含线程池创建、操作、剩余派发和清理确认；不将其当作稳定的版本性能排名。
 - 跨线程场景为多个工作线程向主 core 转交请求，未测多个命名 core 并行处理的扩展性。`workers` 是生产者线程参数，额外 executor 线程不计入该参数。
 - 源码与测试驱动 SHA256、完整运行命令、UTC 起止时间见 [environment.json](data/2026-11-17/environment.json)。
-
-### 图调度结果
-
-下面三轮耗时和吞吐量分别取各自中位数；范围为全部正式轮次的最小–最大值，没有剔除慢样本。批量完成延迟从共同的建图起点计时，P95 列为各轮 P95 的中位数，不表示线上单请求延迟。并行宽度为 4。
-
-| 场景 | 调用数 × 节点数/次 | 背压 | 单轮中位数/s | 最小–最大/s | 吞吐中位数/节点·s⁻¹ | 批量完成 P95/ms |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 独立图／串行 | 1,000 × 16 | 128 | 0.988 | 0.943–1.010 | 16,188.4 | 987.5 |
-| 共享图／串行 | 1,000 × 16 | 128 | 0.661 | 0.655–0.682 | 24,190.3 | 660.6 |
-| 独立图／并行 | 1,000 × 16 | 128 | 0.527 | 0.521–0.565 | 30,337.5 | 526.7 |
-| 共享图／并行 | 1,000 × 16 | 128 | 0.315 | 0.314–0.321 | 50,722.9 | 314.7 |
-| 独立图／串行 | 3,000 × 32 | 128 | 6.907 | 6.835–6.942 | 13,898.0 | 6,903.4 |
-| 共享图／串行 | 3,000 × 32 | 128 | 5.904 | 5.876–5.990 | 16,260.7 | 5,900.0 |
-| 独立图／并行 | 3,000 × 32 | 128 | 4.299 | 4.195–4.316 | 22,330.9 | 4,295.4 |
-| 共享图／并行 | 3,000 × 32 | 128 | 3.211 | 2.967–3.342 | 29,894.7 | 3,207.8 |
-| 共享图／串行／等待 1 ms | 1,000 × 16 | 128 | 0.934 | 0.934–0.936 | 17,127.3 | 933.6 |
-| 共享图／串行／等待 1 ms | 3,000 × 32 | 128 | 6.828 | 6.756–6.863 | 14,059.1 | 6,824.4 |
-| 共享图／串行／等待 50 ms | 8,192 × 4 | 128 | 14.570 | 14.317–14.638 | 2,249.0 | 14,566.1 |
-| 共享图／串行／等待 50 ms | 8,192 × 4 | 512 | 5.138 | 5.057–5.220 | 6,378.1 | 5,133.4 |
-| 共享图／串行／等待 50 ms | 8,192 × 4 | 1024 | 3.517 | 3.465–3.634 | 9,315.8 | 3,514.8 |
-
-1 ms 场景每次调用的第 1、5、9……个节点等待：16 节点时等待 4 次，32 节点时等待 8 次；50 ms 场景全部 4 个节点都等待。默认 state 复制、AutoMerge 和快照均保留。
-
-![当前版本图调度三轮耗时及背压变化折线图](data/2026-11-17/graph-performance.png)
-
-图的上半部分按两档工作量分别展示三轮实测耗时；下半部分展示同一 50 ms 等待负载在三档背压下的耗时与吞吐中位数。它们不是跨版本趋势。
-
-本轮 50 ms 异步等待负载中，背压 128／512／1024 的耗时中位数为 **14.570／5.138／3.517 秒**，节点吞吐为 **2,249.0／6,378.1／9,315.8 节点/秒**。该负载在更高容量下能容纳更多重叠的异步等待，结果不外推为 CPU 负载或所有业务都应提高背压。
 
 ### 跨线程结果
 
@@ -227,7 +180,7 @@
 | 广播与取消风暴 | 256 | 1 个事件广播给 256 个等待方，取消 8,192 次等待 | 1.202 | 1.279 | 1.274 |
 | 工作线程并发发布 | 16 | 2,048 个事件，每线程并发 128 次 | 0.252 | 0.231 | 0.241 |
 
-![当前版本跨线程负载在三档派发容量下的耗时折线图](data/2026-11-17/thread-performance.png)
+![78684a2 跨线程负载在三档派发容量下的耗时折线图](data/2026-11-17/thread-performance.png)
 
 横轴按容量设置分类排列，“无限制”不表示数值轴上的某个有限容量。线程发布在本轮三档下耗时接近；请求／回复在容量 1 下的单次耗时较低。每组只有一个样本，不能据此认定容量 1 普遍更快。
 
@@ -235,16 +188,14 @@
 
 ### 原始数据与复现
 
-- [图调度：13 组、三轮完整指标](data/2026-11-17/graph.json)
 - [跨线程压力：12 组完整指标](data/2026-11-17/thread.json)
 - [环境、提交与源码/驱动指纹](data/2026-11-17/environment.json)
 - [文件清单及 SHA256](data/2026-11-17/manifest.json)
-- [绘图脚本](data/2026-11-17/plot_results.py)、[图调度 SVG](data/2026-11-17/graph-performance.svg)、[跨线程 SVG](data/2026-11-17/thread-performance.svg)
+- [绘图脚本](data/2026-11-17/plot_results.py)、[跨线程 SVG](data/2026-11-17/thread-performance.svg)
 
 ```bash
-.venv/bin/python -m pytest tests/performance --run-performance -q \
-  --graph-report=docs/performance/data/2026-11-17/graph.json \
-  --thread-report=docs/performance/data/2026-11-17/thread.json
+.venv/bin/python -m pytest tests/performance/test_thread_events.py --run-performance -q \
+  --thread-report=test-results/thread-performance.json
 ```
 
 图表使用 Matplotlib 3.11.2 和显式加载的 `Arial Unicode MS` 中文字体；文本和 JSON 均以 UTF-8 读写，设置 `axes.unicode_minus=False`，并在渲染时检查缺失字形。PNG 已栅格化，SVG 文字已转路径，查看端无需另装字体。绘图依赖安装在临时目录，没有修改项目依赖。
@@ -461,7 +412,7 @@ python docs/performance/data/2026-11-17/plot_results.py --history \
   --scenario event/mixed-wait-100 --output test-results/current-waiter-hotpath.json
 .venv/bin/python scripts/benchmark_runtime.py \
   --baseline-source /tmp/apixis-before/src --repeats 9 \
-  --scenario registry/hot --scenario graph/shared-chain \
+  --scenario registry/hot \
   --scenario event/cached-pipe --scenario event/global-post \
   --scenario event/request-reply --output test-results/current-waiter-controls.json
 ```

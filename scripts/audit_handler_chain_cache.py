@@ -15,8 +15,8 @@ from pathlib import Path
 import platform
 
 from apixis import (
-    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
-    Node, NodeGraph, post_event_threadsafe, start_core, stop_core, expect_event,
+    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, EventType,
+    expect_event, post_event_threadsafe, start_core, stop_core,
 )
 from apixis.core.event import factory
 
@@ -206,24 +206,6 @@ async def runtime_audit(results):
     assert core.handler_registry.get_handlers_chain_for_event("old") == []
     assert core.handler_registry.get_handlers_chain_for_event("new") == ["worker"]
     results.append({"scenario": "public-instance-reregistration", **core.handler_registry.metrics()})
-
-    core = await fresh_runtime()
-    nodes = {}
-    for index in range(16):
-        def work(state, next_node=f"node.{index + 1}" if index < 15 else None):
-            return Command(update={"steps": state["steps"] + 1}, goto=next_node)
-        nodes[f"node.{index}"] = Node(work, f"node.{index}")
-    graph = NodeGraph(nodes, "node.0", max_steps=16)
-    try:
-        outcomes = await asyncio.gather(*(graph.invoke({"steps": 0}) for _ in range(128)))
-        assert outcomes == [{"steps": 16}] * 128
-        await drain(core)
-        assert core.handler_registry.builds[graph.dispatch_name] == 1
-        results.append({"scenario": "shared-graph-128-invocations-16-nodes", "node_executions": 2048,
-                        "dispatch_lookups": core.handler_registry.lookups[graph.dispatch_name],
-                        **core.handler_registry.metrics()})
-    finally:
-        graph.decompose()
 
     core = await fresh_runtime()
 

@@ -1,6 +1,6 @@
 # APIXIS 使用文档
 
-APIXIS 为 Python `asyncio` 应用提供事件处理和图执行能力。应用可以单独使用事件系统，也可以通过图组织多步、并发和可中断的任务。
+APIXIS 为 Python `asyncio` 应用提供事件订阅、发布、等待和跨线程通信。
 
 要求 Python 3.12 或更高版本。安装后，推荐直接从 `apixis` 导入公开接口：
 
@@ -10,9 +10,9 @@ pip install apixis
 
 ## 从这里开始
 
-1. [快速开始](./quickstart.md)：运行第一个图和事件订阅示例。
-2. [接口概览](./core/README.md)：选择事件、图或工具接口。
-3. [配置](./core/config/README.md)：调整队列容量、并发限制、日志。
+1. 运行第一个事件订阅和发布示例。[快速开始](./quickstart.md)
+2. 查找事件与工具接口。[接口概览](./core/README.md)
+3. 调整队列容量、并发限制和日志。[配置](./core/config/README.md)
 
 ## 按任务查阅
 
@@ -24,8 +24,6 @@ pip install apixis
 | 工作线程订阅或取消订阅、发布事件、等待处理结果或业务回包 | [跨线程发布与等待](./core/event/README.md#跨线程发布与等待) |
 | 订阅、排序、替换 handler，处理错误与取消 | [事件处理器](./core/event/handlers.md) |
 | 使用本地事件队列 | [事件队列](./core/event/channels.md) |
-| 构建图、执行、流式输出、快照恢复和中断 | [图 API](./core/graph/README.md) |
-| 更新状态、选择下一跳和组织并发分支 | [图状态与 Command](./core/graph/state.md) |
 | 捕获框架异常、输出日志 | [异常与日志](./core/utils/README.md) |
 
 ## 阅读约定
