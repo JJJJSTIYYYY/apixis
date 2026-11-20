@@ -81,8 +81,9 @@ def main():
     report = {
         "started_at": started, "completed_at": datetime.now(timezone.utc).isoformat(),
         "order": ORDER, "repeats_per_worker": args.repeats,
-        "commits": {"pre-refactor": "33022f6", "before-optimization": "78684a2",
-                    "optimized": "working tree based on 78684a2"},
+        "commits": {"pre-refactor": "caller-provided single-core source",
+                    "before-optimization": "caller-provided single-core source",
+                    "optimized": "working tree"},
         "driver_sha256": hashlib.sha256(driver.read_bytes()).hexdigest(),
         "summary": aggregate(workers), "workers": workers,
     }

@@ -1,6 +1,6 @@
 {
   "date": "2026-11-08",
-  "scope": "Latest waiting-hotpath comparison: both ABBA suites and all eight independent workers, profile, patch, 24 stress measurements and validation summaries.",
+  "scope": "Historical waiting-hotpath comparisons, independent workers, profile, patch, and validation summaries. Pure thread benchmarks removed.",
   "files": [
     {
       "file": "2026-11-08-waiter-hotpath-1-before.json",
@@ -63,19 +63,10 @@
       "sha256": "eb7740ce85a99dbf229df87b25c502097aecef94cad6daca0aeda8b86c463c45"
     },
     {
-      "file": "thread-events-waiter-hotpath-2026-11-08.json",
-      "bytes": 5292,
-      "sha256": "17c8e68df0cf0288cddd420fa1f3d208d9316805608d0e35e0a23530ebcddbbf"
-    },
-    {
-      "file": "thread-events-waiter-hotpath-capacity-one-2026-11-08.json",
-      "bytes": 5237,
-      "sha256": "74493d91d6a28186bafdfcc6fcc9a65c2f4db3b5838dfe3ce0308be0f7cdb288"
-    },
-    {
       "file": "validation.json",
       "bytes": 895,
       "sha256": "44c891377b34d22a13e477c50bd06642cd54627dbdfcde14707ced0a193f16f0"
     }
-  ]
+  ],
+  "archive_note": "Historical measurements, not results for the rebuilt runtime. Pure cross-thread workloads removed; original artifacts remain in git revision 612d5d0. Current helper hashes are separate from historical measurement driver hashes."
 }

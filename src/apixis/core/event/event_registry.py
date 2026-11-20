@@ -1,4 +1,4 @@
-"""Owner-thread registry of exact event names observed at runtime."""
+"""Local registry of exact event names observed at runtime."""
 
 from apixis.core.event.base.event import ApixEvent, EventType
 
@@ -12,9 +12,8 @@ class ApixEventRegistry:
     unhashable. Exact names can be used for diagnostics and subscription
     analysis.
 
-    Each instance owns its observations and is accessed on its core's thread.
-    Use ThreadBridge.call_sync to query another core rather than sharing its
-    registry. Standalone instances require caller synchronization if shared.
+    Each instance owns its observations. Runtime access stays on the shared
+    event loop, so recording and querying do not require thread synchronization.
     """
 
     def __init__(self) -> None:

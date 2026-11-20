@@ -1,0 +1,731 @@
+{
+  "worker_order": [
+    "c838c16",
+    "7b05584",
+    "7b05584",
+    "c838c16"
+  ],
+  "method": "Serial ABBA independent workers; one warmup then five measured rounds of 2048 roundtrips, debug disabled.",
+  "summary_ms": {
+    "c838c16": 216.86895849416032,
+    "7b05584": 178.23341698385775
+  },
+  "workers": [
+    {
+      "label": "c838c16",
+      "mode": "reply",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "bda5c2982e4921fd0522c72b53de3446b5540a79d3d19f36b6fddbafe83e7fcd",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "6c2c62d91898bf03e4287d785598360594430cd96146f773300e4b40a8a78448"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.21685037499992177,
+          0.21638487500604242,
+          0.21996862499509007,
+          0.21813733398448676,
+          0.2165388340363279
+        ]
+      }
+    },
+    {
+      "label": "7b05584",
+      "mode": "reply",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "5d69afd39fba127b8f2480d922deb45ce9306c2656111ff05ffbdea54cf1bf99",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "72969c426d51fce0717af8f1956ec503026a47a0d5a3f5adfdf3a5af29718c6a"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.17565987503621727,
+          0.1764286250108853,
+          0.17781941697467119,
+          0.17778199998429045,
+          0.179817708034534
+        ]
+      }
+    },
+    {
+      "label": "7b05584",
+      "mode": "reply",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "5d69afd39fba127b8f2480d922deb45ce9306c2656111ff05ffbdea54cf1bf99",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "92cb6f337930ec5cb393fa70efa6a3039c70853d20af28ea9f6a9bae498cf87e"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.1820130409905687,
+          0.17864741699304432,
+          0.17632779199630022,
+          0.180955708026886,
+          0.18114495801273733
+        ]
+      }
+    },
+    {
+      "label": "c838c16",
+      "mode": "reply",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "bda5c2982e4921fd0522c72b53de3446b5540a79d3d19f36b6fddbafe83e7fcd",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "a6d59e21ee1b4b6e81a8b3f5fe50761a7e663d72c974854e54ee544183247b6c"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.21657783299451694,
+          0.2151435409905389,
+          0.21688754198839888,
+          0.21851279097609222,
+          0.22147874999791384
+        ]
+      }
+    }
+  ]
+}

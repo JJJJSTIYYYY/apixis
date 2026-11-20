@@ -1,16 +1,28 @@
 {
   "files": {
     "benchmark_reply_optimization.py": {
-      "bytes": 4429,
-      "sha256": "2606b71004f56b8663c94037800fc021c3e7196c00e07a476527d4aa2eacbfd0"
+      "bytes": 4486,
+      "sha256": "c7e0440a4f5a0d1ffd68c845af81961fd1a9ed1e3fcb13b5b2d66f6705d7b82a"
     },
     "environment.json": {
       "bytes": 1680,
       "sha256": "3ee0a4606652eef5dd63f72d315b9d1cabf88b96f0cb7a1d5f4303bfddd64874"
     },
+    "graph-performance.png": {
+      "bytes": 265855,
+      "sha256": "cd2c518553d3fe42ae1e466b996a46f20ee9fe8f93028a123c456b67aea97d9a"
+    },
+    "graph-performance.svg": {
+      "bytes": 115044,
+      "sha256": "4649904755506f578a1f574972d7d540b6fb161b817ad273b980c55bb95814bd"
+    },
+    "graph.json": {
+      "bytes": 35040,
+      "sha256": "73a28e513264494fd10e9de36c411c9eb43edfa0f854ee8203739ae70349fbf0"
+    },
     "plot_results.py": {
-      "bytes": 5715,
-      "sha256": "2a3070a7316fd2fd1abff17523310e455fc5a04aebee288dbd306f8e6c1f53e2"
+      "bytes": 6565,
+      "sha256": "e51954a1b9fb91763166913f3f497c16abd48db6a9a68363ba1c42a09827d0ab"
     },
     "refactor-abba-1-before.json": {
       "bytes": 96786,
@@ -64,25 +76,33 @@
       "bytes": 457486,
       "sha256": "ad84b98c829b1d3a72b4aca376b0d5537cab797ce25c0e052d1d054a6a610729"
     },
+    "reply-optimization-sleep128-recheck-1-before.json": {
+      "bytes": 13215,
+      "sha256": "87efd1b195dd728b376e2e30b6a61e921477aa0b57a1c1a4c56b4736434b5ce8"
+    },
+    "reply-optimization-sleep128-recheck-2-after.json": {
+      "bytes": 13211,
+      "sha256": "696710e0325fb61cb6e1b676b1fef90e2e797e0010d16505dea4058340c918af"
+    },
+    "reply-optimization-sleep128-recheck-3-after.json": {
+      "bytes": 13253,
+      "sha256": "f348744d1bb11aa4dcbc07435ab02cc6c6dcca06bb5be67544fdf00a78f0c837"
+    },
+    "reply-optimization-sleep128-recheck-4-before.json": {
+      "bytes": 13229,
+      "sha256": "d77585b981d1ddcc5816f937562aed8be915c11ce124406c1a278fa1edb00fef"
+    },
+    "reply-optimization-sleep128-recheck.json": {
+      "bytes": 63197,
+      "sha256": "16629d99d46cef9428af584f1b79f00545f7bd38a27937bcdb69ff4b14d0cb8a"
+    },
     "reply-optimization.patch": {
       "bytes": 4428,
       "sha256": "a66b3a752b66082c1b259da3f8c6eb3de1e62a620f56a3ca9c2f7d9b8bc9579a"
     },
-    "thread-performance.png": {
-      "bytes": 110467,
-      "sha256": "ca22c3ba36674638322a29c054849710a131125a489ca5a9e56ff2ba8b431739"
-    },
-    "thread-performance.svg": {
-      "bytes": 76963,
-      "sha256": "18f7bf5e4b7e3492b4006911ebfb3fc0fa8444b65ada8bb2ef22d77e50b9514e"
-    },
-    "thread.json": {
-      "bytes": 5293,
-      "sha256": "33d306e5d6b40b66a01bb18d28952f9d7de43dedae7f477a38de23cb79a76e3a"
-    },
     "../history.json": {
-      "bytes": 265898,
-      "sha256": "c6faa0fed1535ef96356593d61ca1dbed919c76703b16638368e1d334fa41b8f"
+      "bytes": 265853,
+      "sha256": "1a9a9c48fc7dfb562f27a5d2d66b5a6428b81fcbe506725fdc2c3f4795368d1c"
     },
     "../performance-history.png": {
       "bytes": 744095,
@@ -92,5 +112,6 @@
       "bytes": 297650,
       "sha256": "0244f4db5ee3b6e4f4946aa20989526506fbcce00892176e449b5560a1cacdf3"
     }
-  }
+  },
+  "archive_note": "Historical measurements, not results for the rebuilt runtime. Pure cross-thread workloads removed; original artifacts remain in git revision 612d5d0. Current helper hashes are separate from historical measurement driver hashes."
 }

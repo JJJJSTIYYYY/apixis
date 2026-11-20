@@ -28,10 +28,10 @@ jobs:
         run: uv run --no-sync ruff check .
       - name: Run tests
         run: uv run --no-sync pytest
-      - name: Check event performance workloads at a small scale
+      - name: Check graph performance workloads at a small scale
         run: >-
-          uv run --no-sync pytest tests/performance/test_thread_events.py
-          --run-performance --thread-workers 8 --thread-iterations 8
+          uv run --no-sync pytest tests/performance --run-performance
+          --graph-count 32 --graph-nodes 8 --graph-repeats 1
       - name: Build wheel and source distribution
         run: uv run --no-sync python -m build
       - name: Check distribution metadata
@@ -54,43 +54,3 @@ jobs:
         with:
           name: distributions
           path: dist/*
-
-  free-threading:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      PYTHONASYNCIODEBUG: '1'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Set up free-threaded Python
-        run: uv python install 3.14t
-      - name: Install development dependencies
-        run: uv sync --extra dev --locked --python 3.14t
-      - name: Run all tests with the GIL disabled
-        run: >-
-          timeout 300s uv run --no-sync pytest --require-free-threading
-          -o faulthandler_timeout=60 -o junit_family=xunit1
-          --junitxml=test-results/free-threading-suite.xml
-      - name: Stress bounded event queues
-        run: >-
-          timeout 600s uv run --no-sync pytest --require-free-threading
-          tests/integration/event/test_backpressure_boundaries.py
-          tests/integration/event/test_thread_event_routing.py
-          -o faulthandler_timeout=60 -o junit_family=xunit1
-          --junitxml=test-results/free-threading-stress.xml
-      - name: Saturate thread bridge admission and cancellation
-        run: >-
-          timeout 300s uv run --no-sync pytest --require-free-threading
-          tests/performance/test_thread_events.py --run-performance -k '[1]'
-          --thread-workers 128 --thread-iterations 128 --thread-queue-size 1
-          -o faulthandler_timeout=60 -o junit_family=xunit1
-          --thread-report test-results/free-threading-threads.json
-          --junitxml=test-results/free-threading-threads.xml
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: free-threading-results
-          path: |
-            test-results/free-threading-*.xml
-            test-results/free-threading-*.json

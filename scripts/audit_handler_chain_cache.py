@@ -8,15 +8,14 @@ No runtime source is modified.
 import argparse
 import asyncio
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
 import platform
 
 from apixis import (
-    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, EventType,
-    expect_event, post_event_threadsafe, start_core, stop_core,
+    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
+    Node, NodeGraph, start_core, stop_core, expect_event,
 )
 from apixis.core.event import factory
 
@@ -147,12 +146,12 @@ async def drain(core):
 
 
 async def fresh_runtime():
-    if factory._local.core is not None:
-        await drain(factory._local.core)
+    if factory._core is not None:
+        await drain(factory._core)
         await stop_core()
-    factory._local.core = None
+    factory._core = None
     await start_core()
-    return factory._local.core
+    return factory._core
 
 
 async def runtime_audit(results):
@@ -172,31 +171,13 @@ async def runtime_audit(results):
     assert set(core.handler_registry.builds.values()) == {1}
     results.append({"scenario": "real-dispatch-32768-events-32-names", **core.handler_registry.metrics()})
 
-    core = await fresh_runtime()
-    received.clear()
-    core.handler_registry.register_handler(handler("receiver", ["thread.hot"], callback=receive))
-
-    async def publish():
-        for _ in range(256):
-            await post_event_threadsafe(event_type=EventType.TRANSIENT, event_name="thread.hot")
-
-    def workers():
-        with ThreadPoolExecutor(max_workers=32) as pool:
-            list(pool.map(lambda _: asyncio.run(publish()), range(32)))
-
-    await asyncio.wait_for(asyncio.to_thread(workers), 30)
-    await drain(core)
-    assert received == {"thread.hot": 8192}
-    assert core.handler_registry.builds == {"thread.hot": 1}
-    results.append({"scenario": "thread-publication-32-workers-8192-events", **core.handler_registry.metrics()})
-
-    original = core.handler_registry.cached_chain["thread.hot"]
+    original = core.handler_registry.cached_chain["runtime.0"]
     await stop_core()
     await start_core()
-    await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="thread.hot")
+    await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="runtime.0")
     await drain(core)
-    assert core.handler_registry.cached_chain["thread.hot"] is original
-    assert core.handler_registry.builds["thread.hot"] == 1
+    assert core.handler_registry.cached_chain["runtime.0"] is original
+    assert core.handler_registry.builds["runtime.0"] == 1
     results.append({"scenario": "stop-restart-retains-chain", **core.handler_registry.metrics()})
 
     core = await fresh_runtime()
@@ -206,6 +187,24 @@ async def runtime_audit(results):
     assert core.handler_registry.get_handlers_chain_for_event("old") == []
     assert core.handler_registry.get_handlers_chain_for_event("new") == ["worker"]
     results.append({"scenario": "public-instance-reregistration", **core.handler_registry.metrics()})
+
+    core = await fresh_runtime()
+    nodes = {}
+    for index in range(16):
+        def work(state, next_node=f"node.{index + 1}" if index < 15 else None):
+            return Command(update={"steps": state["steps"] + 1}, goto=next_node)
+        nodes[f"node.{index}"] = Node(work, f"node.{index}")
+    graph = NodeGraph(nodes, "node.0", max_steps=16)
+    try:
+        outcomes = await asyncio.gather(*(graph.invoke({"steps": 0}) for _ in range(128)))
+        assert outcomes == [{"steps": 16}] * 128
+        await drain(core)
+        assert core.handler_registry.builds[graph.dispatch_name] == 1
+        results.append({"scenario": "shared-graph-128-invocations-16-nodes", "node_executions": 2048,
+                        "dispatch_lookups": core.handler_registry.lookups[graph.dispatch_name],
+                        **core.handler_registry.metrics()})
+    finally:
+        graph.decompose()
 
     core = await fresh_runtime()
 

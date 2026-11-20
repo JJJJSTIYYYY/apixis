@@ -71,7 +71,8 @@ def test_yaml_reads_only_apixis_namespace(tmp_path):
 @pytest.mark.parametrize("content", [
     "APIXIS: null\n",
     "APIXIS: {}\n",
-    "LOG:\n  show_event_dispatch: false\nPIPELINE:\n  event_pipe_max_len: 1\n",
+    "LOG:\n  show_event_dispatch: false\nPIPELINE:\n  event_pipe_max_len: 1\n"
+    "GRAPH:\n  max_snapshots: 3\n",
 ])
 def test_yaml_missing_or_null_namespace_ignores_other_settings(tmp_path, content):
     path = tmp_path / "config.yaml"
@@ -104,16 +105,17 @@ def test_legacy_categories_are_not_read(monkeypatch):
         importlib.reload(core_config)
 
 
-@pytest.mark.parametrize("key", [
-    "event_pipe_max_len",
-    "event_loop_backpressure",
-    "handler_chain_cache_size",
+@pytest.mark.parametrize("section, key", [
+    ("EVENT", "event_pipe_max_len"),
+    ("EVENT", "event_loop_backpressure"),
+    ("EVENT", "handler_chain_cache_size"),
+    ("GRAPH", "max_snapshots"),
 ])
 @pytest.mark.parametrize("value", [0, -1, True, False, 1.5, "2", float("nan"), float("inf")])
-def test_all_numeric_configuration_rejects_invalid_capacities(monkeypatch, key, value):
+def test_all_numeric_configuration_rejects_invalid_capacities(monkeypatch, section, key, value):
     try:
         with monkeypatch.context() as patch:
-            patch.setattr(base, "_config", {"EVENT": {key: value}})
+            patch.setattr(base, "_config", {section: {key: value}})
             with pytest.raises(ValueError if type(value) is int else TypeError, match=key):
                 importlib.reload(core_config)
     finally:
@@ -138,29 +140,35 @@ def test_optional_dispatch_backpressure(monkeypatch, settings, expected):
         importlib.reload(core_config)
 
 
-def test_yaml_import_contract_in_fresh_process(tmp_path):
+def test_yaml_import_contract_and_snapshot_default_in_fresh_process(tmp_path):
     import subprocess
     import sys
     from pathlib import Path
 
     (tmp_path / "config.yaml").write_text(
         "APIXIS:\n"
+        "  GRAPH:\n    max_snapshots: 3\n"
         "  EVENT:\n    event_pipe_max_len: 2\n    event_loop_backpressure: 1\n"
         "    handler_chain_cache_size: 7\n    show_event_dispatch: false\n"
         "  LOG:\n    show_event_dispatch: true\n"
-        "EVENT:\n  event_pipe_max_len: 99\n",
+        "GRAPH:\n  max_snapshots: 99\nEVENT:\n  event_pipe_max_len: 99\n",
         encoding="utf-8",
     )
     script = '''
 from pathlib import Path
 from apixis.core.config import core_config
+from apixis import GraphManager
+assert core_config.GRAPH_MAX_SNAPSHOTS == 3
 assert core_config.EVENT_PIPE_MAX_LEN == 2
 assert core_config.EVENT_LOOP_BACKPRESSURE == 1
 assert core_config.HANDLER_CHAIN_CACHE_SIZE == 7
 assert core_config.SHOW_EVENT_DISPATCH is True
 assert not hasattr(core_config, "LOG_LEVEL")
-Path("config.yaml").write_text("APIXIS:\\n  EVENT:\\n    event_pipe_max_len: 5\\n")
-assert core_config.EVENT_PIPE_MAX_LEN == 2
+graph = GraphManager().compile_graph(None)
+assert graph.create_context({}).max_snapshots == 3
+Path("config.yaml").write_text("APIXIS:\\n  GRAPH:\\n    max_snapshots: 5\\n")
+assert core_config.GRAPH_MAX_SNAPSHOTS == 3
+graph.decompose()
 '''
     result = subprocess.run(
         [sys.executable, "-c", script], cwd=tmp_path,

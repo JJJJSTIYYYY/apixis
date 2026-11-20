@@ -1,0 +1,72 @@
+{
+  "files": {
+    "benchmark_handler_queries.py": {
+      "bytes": 4271,
+      "sha256": "d85f713ebc1eaffe0ca19451bc6de88e23159b95f1a656f770478b166d409088"
+    },
+    "diagnose_registry.py": {
+      "bytes": 2787,
+      "sha256": "33265ee2ddd15620c9986cdf32d5f2f475911bae11f464c7f78cb215b4f96233"
+    },
+    "driver.py": {
+      "bytes": 29053,
+      "sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63"
+    },
+    "global-publication.json": {
+      "bytes": 24786,
+      "sha256": "52efb886fefdb340c9f80c3711f44483a95cf45e6a55db1d9e3e971a7670c604"
+    },
+    "handler-query-ablation.json": {
+      "bytes": 24430,
+      "sha256": "f0aec5a761607bc690e79c2c1b49f23a0cc44652f707b5fdef58e866fdacfac7"
+    },
+    "handler-query-history.json": {
+      "bytes": 43184,
+      "sha256": "0bd410110d708c72818716a33ca7267fb5c3267fe9d9061be365a393e1ae66d0"
+    },
+    "handler-query-optimization-proof.json": {
+      "bytes": 1161,
+      "sha256": "8f2d2f571de124e1ddbc4e8a7f3d9e7db364e4b4bb23d1b1ffd7adb87c809b33"
+    },
+    "handler-query-optimization-waiters.json": {
+      "bytes": 9435,
+      "sha256": "3e57312b31230948489b5062f58396c6c7dd26192975746770c506e033258682"
+    },
+    "handler-query-optimization.json": {
+      "bytes": 90875,
+      "sha256": "9e58aca4be6b3ddec584d9a91ff212179abd02e85698709f3b8f3d8177de5a09"
+    },
+    "handler-query-optimization.patch": {
+      "bytes": 439,
+      "sha256": "c008ebc77b5172725f53138aa5fa793a1a87f60ff366d75c0acacc79f250c331"
+    },
+    "handler-query-reply.json": {
+      "bytes": 14587,
+      "sha256": "3fed3f1f265850937fa657bc75e79a9181a876cfd77040a8de571c965e8e6ae2"
+    },
+    "handler-query-source-proof.json": {
+      "bytes": 3517,
+      "sha256": "71f8977c1caec7fb01e65a3b2ac0816fbe59c8594c4d21ada47a28a0a7262fa5"
+    },
+    "handler_query_probe.py": {
+      "bytes": 11843,
+      "sha256": "c9a8e005bd823f4c3514f45192c36971ac20bcdc610efde0a3e5434064cf9e04"
+    },
+    "main.json": {
+      "bytes": 258850,
+      "sha256": "2b09232e1fbb76feb46bbd6dfe778bd92fe9a4d0b3891cb1322cd79e36022f2b"
+    },
+    "metadata.json": {
+      "bytes": 2478,
+      "sha256": "dc14ba733781b010c4537599b025dc776484cf64d69268cbcd4931c15647f8df"
+    },
+    "registry-diagnosis.json": {
+      "bytes": 1158,
+      "sha256": "23a8731222d3147aacff31f6c64972b1c6226059b6bef3416450362ddba2875e"
+    },
+    "registry-long.json": {
+      "bytes": 19170,
+      "sha256": "b93d7e843b3aaa6547b00301ac7ae7148d4aa61c23d6e47d72246ef258a0301d"
+    }
+  }
+}

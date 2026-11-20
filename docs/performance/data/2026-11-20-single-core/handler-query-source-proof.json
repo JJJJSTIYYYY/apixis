@@ -1,0 +1,47 @@
+{
+  "get_handlers_chain_for_event->get_subscription_chain_for_event": true,
+  "_resolve_handler_chain->_resolve_handler_chain": true,
+  "introduced_by": "9227e95",
+  "registry_blob_before": "56e59bb170f0905b002b410743b0d586bf38536a",
+  "registry_blob_51f7bea": "56e59bb170f0905b002b410743b0d586bf38536a",
+  "normalization": "Ignore function name and docstrings; retain all executable AST nodes. Locations are excluded.",
+  "ordinary_method_names": {
+    "f8e885d": "get_handlers_chain_for_event",
+    "51f7bea": "get_handlers_chain_for_event",
+    "9227e95": "get_subscription_chain_for_event",
+    "current": "get_subscription_chain_for_event"
+  },
+  "ordinary_lookup_equals_f8e885d": {
+    "f8e885d": true,
+    "51f7bea": true,
+    "9227e95": true,
+    "current": true
+  },
+  "resolver_equals_f8e885d": {
+    "f8e885d": true,
+    "51f7bea": true,
+    "9227e95": true,
+    "current": true
+  },
+  "get_handlers_for_event_9227e95_equals_current": true,
+  "public_source": {
+    "f8e885d": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture the current matching handlers in dispatch order.\"\"\"\n    return [self.registry[name] for name in self.get_handlers_chain_for_event(event_name)]",
+    "51f7bea": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture the current matching handlers in dispatch order.\"\"\"\n    return [self.registry[name] for name in self.get_handlers_chain_for_event(event_name)]",
+    "9227e95": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n        Only the resulting reference list is copied. Its order and membership\n        survive listener cleanup and registration changes during dispatch.\n        \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if not self._waiter_cache.positions:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend((self.registry[name] for name in chain))\n    handlers.extend(processed)\n    return handlers",
+    "current": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n        Only the resulting reference list is copied. Its order and membership\n        survive listener cleanup and registration changes during dispatch.\n        \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if not self._waiter_cache.positions:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend((self.registry[name] for name in chain))\n    handlers.extend(processed)\n    return handlers"
+  },
+  "ordinary_lookup_normalized_ast_sha256": {
+    "f8e885d": "5add1509ae1436aefeaa7dfe12b6aea38358d9e58961e280035da0049857d241",
+    "51f7bea": "5add1509ae1436aefeaa7dfe12b6aea38358d9e58961e280035da0049857d241",
+    "9227e95": "5add1509ae1436aefeaa7dfe12b6aea38358d9e58961e280035da0049857d241",
+    "current": "5add1509ae1436aefeaa7dfe12b6aea38358d9e58961e280035da0049857d241"
+  },
+  "cold_query_path_counts_all_workers_equal": {
+    "get": 100000,
+    "resolve": 100000,
+    "move_to_end": 100000,
+    "popitem": 91808,
+    "retained": 8192,
+    "waiter_cache_get": 0
+  }
+}

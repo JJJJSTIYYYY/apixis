@@ -1,0 +1,72 @@
+{
+  "baseline": "f8e885d",
+  "supplemental_baseline": "5049c7d",
+  "head": "7b055843e79d6f8b0a5ecb7c9612be08699c7a26",
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "cpu_count": 10,
+  "load_at_start": [
+    2.2509765625,
+    2.6015625,
+    2.7568359375
+  ],
+  "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+  "source_fingerprints_excluding_version": {
+    "main/before": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+    "main/after": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+    "registry-long/before": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+    "registry-long/after": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+    "global-publication/before": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+    "global-publication/after": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7"
+  },
+  "comparisons": {
+    "main": {
+      "baseline": "f8e885d",
+      "repeats_per_worker": 5,
+      "graph_count": 512,
+      "nodes": 16,
+      "events": 32768,
+      "mixed_events": 512,
+      "mixed_listeners": 64,
+      "paired_scenarios": 21,
+      "scenarios": [
+        "registry/cold",
+        "registry/hot",
+        "registry/mutation",
+        "graph/shared-chain",
+        "graph/independent-chain",
+        "graph/shared-parallel",
+        "graph/independent-parallel",
+        "state/fixed-small",
+        "state/large-snapshots",
+        "state/large-no-snapshots",
+        "sleep/capacity-128",
+        "sleep/capacity-512",
+        "sleep/capacity-1024",
+        "event/cached-pipe",
+        "event/request-reply",
+        "event/getter",
+        "event/mixed-wait-0",
+        "event/mixed-wait-25",
+        "event/mixed-wait-50",
+        "event/mixed-wait-75",
+        "event/mixed-wait-100"
+      ],
+      "excluded_current_only": [
+        "event/global-post"
+      ]
+    },
+    "registry-long": {
+      "baseline": "f8e885d",
+      "repeats_per_worker": 15,
+      "hot_queries_per_round": 1000000,
+      "cold_queries_per_round": 100000
+    },
+    "global-publication": {
+      "baseline": "5049c7d",
+      "repeats_per_worker": 10,
+      "events_per_round": 65536
+    }
+  },
+  "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+  "note": "Each comparison embeds all raw worker samples. Original worker filenames are stage identifiers; no duplicate raw files are required."
+}

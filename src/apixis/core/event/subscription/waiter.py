@@ -1,10 +1,8 @@
-"""Event collection, readiness, deadlines, and cleanup across caller threads."""
+"""Local event collection, fixed deadlines, and single-Future cleanup."""
 
 import asyncio
 from collections.abc import AsyncIterator
-from concurrent.futures import Future
-from contextlib import AsyncExitStack, asynccontextmanager
-from contextvars import Context
+from contextlib import asynccontextmanager
 from functools import partial
 from inspect import iscoroutinefunction
 from typing import Literal, Self, cast
@@ -13,15 +11,10 @@ from apixis.core.event.base.event import ApixEvent, EventPredicate
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.base.process import suspend_process
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.event.thread_bridge import (
-    ThreadEndpoint, ThreadIds, ThreadSubmission, complete_future, get_thread_bridge,
-)
-from apixis.core.utils.tasks import gather_results
 from apixis.core.utils.validation import validate_number
 
 
 type _EventMatches = ApixEvent | dict[str, ApixEvent]
-type _ThreadEventMatches = _EventMatches | dict[str, _EventMatches]
 
 
 class EventWaiter:
@@ -193,202 +186,6 @@ class EventWaiter:
             future.exception()
 
 
-class _TargetEventWaiter:
-    """Async waiting context that confirms owner-loop registration on entry.
-
-    Use ``async with`` and ``await waiter.get_result()``. The target Future
-    retains its registration deadline. ``close()`` requests
-    cancellation without blocking; context exit waits for owner-loop cleanup.
-    A context is single-use. Asyncio state is accessed only on the owner loop.
-    The enclosing ThreadEventWaiter owns caller-permit suspension.
-    """
-
-    def __init__(
-        self, endpoint: ThreadEndpoint, event_name: str | list[str] | set[str], *,
-        point: Literal['received', 'processed'] = 'received',
-        filter: list[str] | str | None = None,
-        predicate: EventPredicate | None = None,
-        time_out: float | None = None,
-    ) -> None:
-        self._make_waiter = partial(
-            EventWaiter, event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
-        )
-        self._submission: ThreadSubmission[ApixEvent | dict[str, ApixEvent]] | None = None
-        self._bridge = endpoint
-        self._entered = False
-
-    async def __aenter__(self) -> Self:
-        if self._entered:
-            raise RuntimeError("The thread event waiter context has already been entered.")
-        self._entered = True
-        ready: Future[None] = Future()
-
-        async def collect() -> ApixEvent | dict[str, ApixEvent]:
-            waiter = self._make_waiter()
-            try:
-                complete_future(ready)
-                return await waiter.get_result()
-            finally:
-                waiter.close()
-
-        def on_done(future: Future) -> None:
-            if not ready.done():
-                error = (
-                    RuntimeError("Event collection was cancelled before registration.")
-                    if future.cancelled() else future.exception()
-                )
-                complete_future(ready, error=error)
-
-        try:
-            self._submission = await self._bridge.asubmit(collect, background=True)
-            self._submission.result.add_done_callback(on_done)
-            await asyncio.wrap_future(ready)
-        except BaseException:
-            self.close()
-            await self._wait_closed()
-            raise
-        return self
-
-    async def __aexit__(self, exc_type, exc, traceback) -> None:
-        self.close()
-        await self._wait_closed()
-
-    async def get_result(self) -> ApixEvent | dict[str, ApixEvent]:
-        """Await the result with the target's registration deadline."""
-        if self._submission is None:
-            raise RuntimeError("Enter the thread event waiter context before waiting.")
-        result = self._submission.result
-        if result.done() and not result.cancelled():
-            return result.result()
-        try:
-            return await asyncio.wrap_future(self._submission.result)
-        except asyncio.CancelledError:
-            self.close()
-            await self._wait_closed()
-            raise
-
-    def close(self) -> None:
-        """Request cancellation; async context exit waits for listener cleanup."""
-        if self._submission is not None:
-            self._submission.result.cancel()
-
-    async def _wait_closed(self) -> None:
-        if self._submission is not None and not self._submission.closed.done():
-            await asyncio.shield(asyncio.wrap_future(self._submission.closed))
-
-
-class ThreadEventWaiter:
-    """Collect events from explicitly selected cores with confirmed registration.
-
-    None selects the main core. A string returns that core's event or pattern
-    dictionary; a non-empty collection returns a dictionary keyed by thread ID.
-    Enter with async with, publish only after entry, and await wait/get_result.
-    Every target owns its listeners and deadline. Context exit or cancellation
-    awaits cleanup on all targets. One caller-side Future retains the complete
-    result or failure. Payloads are shared references, not copies.
-    """
-
-    def __init__(
-        self, event_name: str | list[str] | set[str], *,
-        point: Literal['received', 'processed'] = 'received',
-        filter: list[str] | str | None = None,
-        predicate: EventPredicate | None = None,
-        time_out: float | None = None,
-        thread_ids: ThreadIds = None,
-    ) -> None:
-        self._make_target = partial(
-            _TargetEventWaiter, event_name=event_name, point=point,
-            filter=filter, predicate=predicate, time_out=time_out,
-        )
-        self._thread_ids = thread_ids
-        self._single = thread_ids is None or isinstance(thread_ids, str)
-        self._targets: dict[str, _TargetEventWaiter] = {}
-        self._stack = None if self._single else AsyncExitStack()
-        self._entered = False
-        self._future: asyncio.Future[_ThreadEventMatches] | None = None
-
-    async def __aenter__(self) -> Self:
-        if self._entered:
-            raise RuntimeError("The thread event waiter context has already been entered.")
-        self._entered = True
-        targets = get_thread_bridge().targets(self._thread_ids)
-        try:
-            async with suspend_process():
-                for thread_id, endpoint in targets.items():
-                    target = self._make_target(endpoint=endpoint)
-                    self._targets[thread_id] = target
-                    if self._single:
-                        await target.__aenter__()
-                    else:
-                        await self._stack.enter_async_context(target)
-                if self._single:
-                    target = next(iter(self._targets.values()))
-                    self._future = asyncio.wrap_future(target._submission.result)
-                else:
-                    self._future = asyncio.create_task(self._collect(), context=Context())
-                self._future.add_done_callback(self._on_done)
-        except BaseException:
-            await self.__aexit__(None, None, None)
-            raise
-        return self
-
-    async def __aexit__(self, exc_type, exc, traceback) -> None:
-        self.close()
-        if self._single:
-            for target in self._targets.values():
-                await target._wait_closed()
-        else:
-            await self._stack.aclose()
-        if self._future is not None:
-            await asyncio.gather(self._future, return_exceptions=True)
-
-    async def _collect(self) -> dict[str, _EventMatches]:
-        """Settle one multi-target result and clean up siblings on failure."""
-        try:
-            results = await gather_results(
-                target.get_result() for target in self._targets.values()
-            )
-            return dict(zip(self._targets, results))
-        except BaseException:
-            for target in self._targets.values():
-                target.close()
-            await gather_results(target._wait_closed() for target in self._targets.values())
-            raise
-
-    async def wait(self) -> _ThreadEventMatches:
-        """Await all target Futures with their fixed registration deadlines.
-
-        Any target's timeout or predicate error fails collection and closes
-        unfinished listeners on the other targets. Cancellation cancels the
-        collection and waits for owner-loop cleanup. Completed results remain
-        readable after context exit.
-        """
-        if self._future is None:
-            raise RuntimeError("Enter the thread event waiter context before waiting.")
-        async with suspend_process():
-            try:
-                return await self._future
-            except BaseException:
-                self.close()
-                await gather_results(target._wait_closed() for target in self._targets.values())
-                raise
-
-    get_result = wait
-
-    def close(self) -> None:
-        """Request cancellation on all targets; context exit confirms cleanup."""
-        if self._future is not None:
-            self._future.cancel()
-        for target in self._targets.values():
-            target.close()
-
-    def _on_done(self, future: asyncio.Future[_ThreadEventMatches]) -> None:
-        """Release target collections even when the caller has no active read."""
-        self.close()
-        if not future.cancelled():
-            future.exception()
-
-
 @asynccontextmanager
 async def expect_event(
     event_name: str | list[str] | set[str],
@@ -402,7 +199,7 @@ async def expect_event(
 
     Unlike :func:`wait_event`, this interface separates subscription readiness
     from waiting for the result. Context entry registers synchronously on the
-    calling thread without yielding, including on worker cores.
+    shared runtime without yielding.
     Publish the request inside the context and call
     ``await waiter.wait()`` to get its reply. No task or ``sleep(0)`` is needed;
     a reply received before ``wait()`` is retained.
@@ -437,7 +234,7 @@ async def expect_event(
     without yielding. Completion, timeout, cancellation and context exit
     release every listener and timer. Each context is single-use. Repeated
     reads observe the same Future's terminal state. Waiting lends the current
-    thread's dispatch permit. Local context entry keeps that permit.
+    handler's dispatch permit. Local context entry keeps that permit.
 
     Example::
 
@@ -468,7 +265,7 @@ async def wait_event(
     """Register all patterns and immediately wait for their first matches.
 
     Subscription starts when this coroutine executes. It registers on the
-    current thread's core without yielding before awaiting the result.
+    shared runtime without yielding before awaiting the result.
     Calling ``wait_event(...)`` only creates a coroutine; ``asyncio.create_task(wait_event(...))`` schedules
     it but does not guarantee registration when ``create_task`` returns. Events
     dequeued before registration are not replayed. This is normal subscription
@@ -501,9 +298,6 @@ async def wait_event(
     The waiter owns all handlers and closes them on completion, ordinary timeout
     or cancellation.
 
-    This interface never forwards to another thread. Use wait_event_threadsafe
-    to collect events from explicitly selected remote cores.
-
     Example::
 
         event = await wait_event("job.finished", point="processed", time_out=40)
@@ -516,79 +310,15 @@ async def wait_event(
         return await waiter.wait()
 
 
-async def collect_events(
-    event_name: str | list[str] | set[str], *,
-    point: Literal['received', 'processed'], filter: list[str] | str | None,
-    time_out: float | None, predicate: EventPredicate | None = None,
-) -> ApixEvent | dict[str, ApixEvent]:
-    """Collect on the owner loop using the deadline set at registration."""
-    async with EventWaiter(event_name, point=point, filter=filter, predicate=predicate, time_out=time_out) as waiter:
-        return await waiter.get_result()
-
-
-async def wait_event_threadsafe(
-    event_name: str | list[str] | set[str],
-    *,
-    point: Literal['received', 'processed'] = 'received',
-    filter: list[str] | str | None = None,
-    predicate: EventPredicate | None = None,
-    time_out: float | None = None,
-    thread_ids: ThreadIds = None,
-) -> _ThreadEventMatches:
-    """Await event collection on the owner loop from any caller loop.
-
-    None selects the main core; a string selects one named core, and a
-    collection returns results keyed by target thread ID. Collection waits
-    for every target. Registration starts when each target executes its request. Use
-    ``async with expect_event_threadsafe(...)`` to confirm registration before
-    publishing. Admission waits asynchronously. Cancellation waits for listener
-    cleanup on the owner loop. Results are the original mutable events.
-    A predicate also runs on the owner loop; its exceptions reach the caller.
-    """
-    return await get_thread_bridge().call(partial(
-        collect_events, event_name, point=point, filter=filter, predicate=predicate, time_out=time_out,
-    ), thread_ids=thread_ids, background=True)
-
-
-def expect_event_threadsafe(
-    event_name: str | list[str] | set[str], *,
-    point: Literal['received', 'processed'] = 'received',
-    filter: list[str] | str | None = None,
-    predicate: EventPredicate | None = None,
-    time_out: float | None = None,
-    thread_ids: ThreadIds = None,
-) -> ThreadEventWaiter:
-    """Build an async waiting context; entry confirms owner-loop registration.
-
-    Publish inside ``async with``, then ``await waiter.wait()``. Replies that
-    arrive before waiting are retained. Context exit awaits listener cleanup.
-    None selects the main core; a string selects one target, and a collection
-    waits on all named cores and returns results keyed by thread ID. Each
-    predicate executes on its target loop. Entry confirms every registration;
-    failure, timeout or cancellation closes unfinished collections.
-    """
-    return ThreadEventWaiter(
-        event_name, point=point, filter=filter, predicate=predicate,
-        time_out=time_out, thread_ids=thread_ids,
-    )
-
-
 # Preserve the original public names as aliases.
 wait_for_event = expect_event
 await_for = wait_event
-wait_for_event_threadsafe = expect_event_threadsafe
-await_for_threadsafe = wait_event_threadsafe
 
 
 __all__ = [
     "EventWaiter",
-    "ThreadEventWaiter",
     "expect_event",
     "wait_event",
     "wait_for_event",
     "await_for",
-    "expect_event_threadsafe",
-    "wait_event_threadsafe",
-    "wait_for_event_threadsafe",
-    "await_for_threadsafe",
 ]

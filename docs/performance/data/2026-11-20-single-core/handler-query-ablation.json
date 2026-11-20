@@ -1,0 +1,1063 @@
+{
+  "label": "current",
+  "mode": "ablation",
+  "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+  "gc": true,
+  "source_sha256": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+  "public_code": {
+    "cellvars": [
+      "self"
+    ],
+    "locals": 7,
+    "stacksize": 5,
+    "head": [
+      [
+        "MAKE_CELL",
+        "self"
+      ],
+      [
+        "RESUME",
+        ""
+      ],
+      [
+        "LOAD_DEREF",
+        "self"
+      ],
+      [
+        "LOAD_ATTR",
+        "NULL|self + get_subscription_chain_for_event"
+      ],
+      [
+        "LOAD_FAST",
+        "event_name"
+      ],
+      [
+        "CALL",
+        ""
+      ],
+      [
+        "STORE_FAST",
+        "chain"
+      ],
+      [
+        "LOAD_DEREF",
+        "self"
+      ],
+      [
+        "LOAD_ATTR",
+        "_waiter_cache"
+      ],
+      [
+        "LOAD_ATTR",
+        "positions"
+      ],
+      [
+        "POP_JUMP_IF_TRUE",
+        "to 140"
+      ],
+      [
+        "LOAD_FAST",
+        "chain"
+      ],
+      [
+        "GET_ITER",
+        ""
+      ],
+      [
+        "LOAD_FAST_AND_CLEAR",
+        "name"
+      ],
+      [
+        "SWAP",
+        ""
+      ],
+      [
+        "BUILD_LIST",
+        ""
+      ],
+      [
+        "SWAP",
+        ""
+      ],
+      [
+        "FOR_ITER",
+        "to 132"
+      ]
+    ],
+    "signature": "4a80a4ea2a57b36519dd819cda3b80a2417a5e3145d82eeb4068dfeda8dc840d"
+  },
+  "ordinary_code": {
+    "cellvars": [],
+    "locals": 3,
+    "stacksize": 4,
+    "head": [
+      [
+        "RESUME",
+        ""
+      ],
+      [
+        "LOAD_GLOBAL",
+        "NULL + isinstance"
+      ],
+      [
+        "LOAD_FAST",
+        "event_name"
+      ],
+      [
+        "LOAD_GLOBAL",
+        "str"
+      ],
+      [
+        "CALL",
+        ""
+      ],
+      [
+        "POP_JUMP_IF_FALSE",
+        "to 38"
+      ],
+      [
+        "LOAD_FAST",
+        "event_name"
+      ],
+      [
+        "POP_JUMP_IF_TRUE",
+        "to 60"
+      ],
+      [
+        "LOAD_GLOBAL",
+        "NULL + ValueError"
+      ],
+      [
+        "LOAD_CONST",
+        "'event_name must be a non-empty string.'"
+      ],
+      [
+        "CALL",
+        ""
+      ],
+      [
+        "RAISE_VARARGS",
+        ""
+      ],
+      [
+        "LOAD_FAST",
+        "self"
+      ],
+      [
+        "LOAD_ATTR",
+        "cached_chain"
+      ],
+      [
+        "LOAD_ATTR",
+        "NULL|self + get"
+      ],
+      [
+        "LOAD_FAST",
+        "event_name"
+      ],
+      [
+        "CALL",
+        ""
+      ],
+      [
+        "STORE_FAST",
+        "chain"
+      ]
+    ],
+    "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+  },
+  "variants": {
+    "current": {
+      "cellvars": [
+        "self"
+      ],
+      "locals": 7,
+      "stacksize": 5,
+      "head": [
+        [
+          "MAKE_CELL",
+          "self"
+        ],
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_DEREF",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "STORE_FAST",
+          "chain"
+        ],
+        [
+          "LOAD_DEREF",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "_waiter_cache"
+        ],
+        [
+          "LOAD_ATTR",
+          "positions"
+        ],
+        [
+          "POP_JUMP_IF_TRUE",
+          "to 140"
+        ],
+        [
+          "LOAD_FAST",
+          "chain"
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 132"
+        ]
+      ],
+      "signature": "4a80a4ea2a57b36519dd819cda3b80a2417a5e3145d82eeb4068dfeda8dc840d"
+    },
+    "no_cell": {
+      "cellvars": [],
+      "locals": 7,
+      "stacksize": 7,
+      "head": [
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "STORE_FAST",
+          "chain"
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "_waiter_cache"
+        ],
+        [
+          "LOAD_ATTR",
+          "positions"
+        ],
+        [
+          "POP_JUMP_IF_TRUE",
+          "to 138"
+        ],
+        [
+          "LOAD_FAST",
+          "chain"
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 130"
+        ],
+        [
+          "STORE_FAST",
+          "name"
+        ]
+      ],
+      "signature": "803ea345d9d9fd5ae0d14a0220f8a0eac23a2ade9f979da759e50fa27dbb9e5d"
+    },
+    "no_check": {
+      "cellvars": [
+        "self"
+      ],
+      "locals": 7,
+      "stacksize": 5,
+      "head": [
+        [
+          "MAKE_CELL",
+          "self"
+        ],
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_DEREF",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "STORE_FAST",
+          "chain"
+        ],
+        [
+          "NOP",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "chain"
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 90"
+        ],
+        [
+          "STORE_FAST",
+          "name"
+        ],
+        [
+          "LOAD_DEREF",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "registry"
+        ]
+      ],
+      "signature": "62ca4ad76a926cd7008d25de3134ac4a2f70842ec1610edeb7de69105bbb3672"
+    },
+    "neither": {
+      "cellvars": [],
+      "locals": 7,
+      "stacksize": 5,
+      "head": [
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "STORE_FAST",
+          "chain"
+        ],
+        [
+          "NOP",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "chain"
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 88"
+        ],
+        [
+          "STORE_FAST",
+          "name"
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "registry"
+        ],
+        [
+          "LOAD_FAST",
+          "name"
+        ]
+      ],
+      "signature": "e7e663133212c5a2070c88341470e0d3cf45803f7da94915c2d77a9704dc889d"
+    },
+    "local_only": {
+      "cellvars": [],
+      "locals": 4,
+      "stacksize": 5,
+      "head": [
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "STORE_FAST",
+          "chain"
+        ],
+        [
+          "LOAD_FAST",
+          "chain"
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 86"
+        ],
+        [
+          "STORE_FAST",
+          "name"
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "registry"
+        ],
+        [
+          "LOAD_FAST",
+          "name"
+        ],
+        [
+          "BINARY_SUBSCR",
+          ""
+        ]
+      ],
+      "signature": "7f7d4a3359098ec793261c147a306cbf056b8c1f210e7bc7b3165b84cd485ee3"
+    },
+    "inline_only": {
+      "cellvars": [],
+      "locals": 3,
+      "stacksize": 5,
+      "head": [
+        [
+          "RESUME",
+          ""
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "NULL|self + get_subscription_chain_for_event"
+        ],
+        [
+          "LOAD_FAST",
+          "event_name"
+        ],
+        [
+          "CALL",
+          ""
+        ],
+        [
+          "GET_ITER",
+          ""
+        ],
+        [
+          "LOAD_FAST_AND_CLEAR",
+          "name"
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "BUILD_LIST",
+          ""
+        ],
+        [
+          "SWAP",
+          ""
+        ],
+        [
+          "FOR_ITER",
+          "to 82"
+        ],
+        [
+          "STORE_FAST",
+          "name"
+        ],
+        [
+          "LOAD_FAST",
+          "self"
+        ],
+        [
+          "LOAD_ATTR",
+          "registry"
+        ],
+        [
+          "LOAD_FAST",
+          "name"
+        ],
+        [
+          "BINARY_SUBSCR",
+          ""
+        ],
+        [
+          "LIST_APPEND",
+          ""
+        ],
+        [
+          "JUMP_BACKWARD",
+          "to 44"
+        ]
+      ],
+      "signature": "dfffe11bc4c1f578f5dce4f82e0b87a6bd1d8434497bd90c59806233df39142b"
+    }
+  },
+  "sources": {
+    "current": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n    Only the resulting reference list is copied. Its order and membership\n    survive listener cleanup and registration changes during dispatch.\n    \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if not self._waiter_cache.positions:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend((self.registry[name] for name in chain))\n    handlers.extend(processed)\n    return handlers",
+    "no_cell": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n    Only the resulting reference list is copied. Its order and membership\n    survive listener cleanup and registration changes during dispatch.\n    \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if not self._waiter_cache.positions:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend([self.registry[name] for name in chain])\n    handlers.extend(processed)\n    return handlers",
+    "no_check": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n    Only the resulting reference list is copied. Its order and membership\n    survive listener cleanup and registration changes during dispatch.\n    \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if True:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend((self.registry[name] for name in chain))\n    handlers.extend(processed)\n    return handlers",
+    "neither": "def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:\n    \"\"\"Capture received listeners, ordinary handlers, then processed listeners.\n\n    Only the resulting reference list is copied. Its order and membership\n    survive listener cleanup and registration changes during dispatch.\n    \"\"\"\n    chain = self.get_subscription_chain_for_event(event_name)\n    if True:\n        return [self.registry[name] for name in chain]\n    received, processed = self._waiter_cache.get(event_name)\n    handlers = received.copy()\n    handlers.extend([self.registry[name] for name in chain])\n    handlers.extend(processed)\n    return handlers",
+    "local_only": "def get_handlers_for_event(self,event_name):\n    chain = self.get_subscription_chain_for_event(event_name)\n    return [self.registry[name] for name in chain]\n",
+    "inline_only": "def get_handlers_for_event(self,event_name):\n    return [self.registry[name] for name in self.get_subscription_chain_for_event(event_name)]\n"
+  },
+  "rows": [
+    {
+      "variant": "current",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12477683403994888,
+            0.12460824998561293,
+            0.1246440410031937,
+            0.12469562498154119,
+            0.12457512499531731,
+            0.1257634159992449,
+            0.12502595799742267
+          ],
+          "ns_per_query": 124.69562498154117
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04706804099259898,
+            0.04759608302265406,
+            0.04613616602728143,
+            0.046583292016293854,
+            0.047113665961660445,
+            0.04725587501889095,
+            0.04730854200897738
+          ],
+          "ns_per_query": 471.13665961660445
+        }
+      }
+    },
+    {
+      "variant": "no_cell",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11932558397529647,
+            0.1194293750450015,
+            0.11965574999339879,
+            0.11956575000658631,
+            0.1192769999615848,
+            0.11946716700913385,
+            0.12276858399854973
+          ],
+          "ns_per_query": 119.46716700913383
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04575858300086111,
+            0.044870416983030736,
+            0.046288083016406745,
+            0.046059666958171874,
+            0.04639920900808647,
+            0.04456841602222994,
+            0.04560429201228544
+          ],
+          "ns_per_query": 457.5858300086111
+        }
+      }
+    },
+    {
+      "variant": "no_check",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12587654101662338,
+            0.12466004199814051,
+            0.12548020796384662,
+            0.12543691700557247,
+            0.1259243749664165,
+            0.12494779197731987,
+            0.12508237501606345
+          ],
+          "ns_per_query": 125.43691700557247
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.046057375031523407,
+            0.045397750043775886,
+            0.04583908402128145,
+            0.04625733400462195,
+            0.04592175001744181,
+            0.0468763749813661,
+            0.046322082984261215
+          ],
+          "ns_per_query": 460.57375031523407
+        }
+      }
+    },
+    {
+      "variant": "neither",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.1164767500013113,
+            0.1160072089987807,
+            0.116242541000247,
+            0.1156952089513652,
+            0.1162731249933131,
+            0.11645712499739602,
+            0.11655691702617332
+          ],
+          "ns_per_query": 116.2731249933131
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.0445156249916181,
+            0.043959999980870634,
+            0.04443358298158273,
+            0.043645999976433814,
+            0.04450437502237037,
+            0.04483962501399219,
+            0.04537974996492267
+          ],
+          "ns_per_query": 445.0437502237037
+        }
+      }
+    },
+    {
+      "variant": "local_only",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11565683397930115,
+            0.11539483402157202,
+            0.11588987498544157,
+            0.11533920798683539,
+            0.11573516600765288,
+            0.11545337503775954,
+            0.11580170801607892
+          ],
+          "ns_per_query": 115.65683397930115
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.044827167002949864,
+            0.04323662497336045,
+            0.04441529099131003,
+            0.04385691601783037,
+            0.04540350002935156,
+            0.044608374999370426,
+            0.04509495897218585
+          ],
+          "ns_per_query": 446.08374999370426
+        }
+      }
+    },
+    {
+      "variant": "inline_only",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11333108402322978,
+            0.11313558300025761,
+            0.11344270798144862,
+            0.11401929205749184,
+            0.11355208302848041,
+            0.11440037499414757,
+            0.11362437502248213
+          ],
+          "ns_per_query": 113.55208302848041
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.045121666975319386,
+            0.043641791970003396,
+            0.04475320898927748,
+            0.04357787501066923,
+            0.0451258749817498,
+            0.04425120900850743,
+            0.04518620896851644
+          ],
+          "ns_per_query": 447.5320898927748
+        }
+      }
+    },
+    {
+      "variant": "inline_only",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11288016702746972,
+            0.11282574996585026,
+            0.11236545798601583,
+            0.1127273750025779,
+            0.11234350001905113,
+            0.1125868329545483,
+            0.1129881669767201
+          ],
+          "ns_per_query": 112.7273750025779
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.045110292034223676,
+            0.04368920804699883,
+            0.044548916979692876,
+            0.04352437501074746,
+            0.04489999997895211,
+            0.044106958026532084,
+            0.04379504098324105
+          ],
+          "ns_per_query": 441.06958026532084
+        }
+      }
+    },
+    {
+      "variant": "local_only",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11286066699540243,
+            0.12211633299011737,
+            0.11361020797630772,
+            0.11290691699832678,
+            0.1129024590482004,
+            0.11273100000107661,
+            0.11287516698939726
+          ],
+          "ns_per_query": 112.9024590482004
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.0455752499983646,
+            0.044644457986578345,
+            0.04491295898333192,
+            0.043542208964936435,
+            0.04524120799032971,
+            0.04346720897592604,
+            0.044861875008791685
+          ],
+          "ns_per_query": 448.61875008791685
+        }
+      }
+    },
+    {
+      "variant": "neither",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.11311729100998491,
+            0.11331995797809213,
+            0.11326537496643141,
+            0.1131535840104334,
+            0.11324533296283334,
+            0.11335649999091402,
+            0.11380020796786994
+          ],
+          "ns_per_query": 113.26537496643141
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04529195895884186,
+            0.044041084009222686,
+            0.04490941698895767,
+            0.04492470796685666,
+            0.04486375005217269,
+            0.04464108298998326,
+            0.04567975003737956
+          ],
+          "ns_per_query": 449.09416988957673
+        }
+      }
+    },
+    {
+      "variant": "no_check",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12012166698696092,
+            0.11964491696562618,
+            0.11939341702964157,
+            0.11963704199297354,
+            0.11945387499872595,
+            0.11924587504472584,
+            0.11949116602772847
+          ],
+          "ns_per_query": 119.49116602772845
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.045159125002101064,
+            0.0456644170335494,
+            0.04638350004097447,
+            0.045501750020775944,
+            0.04575229197507724,
+            0.04644708300475031,
+            0.04606387502280995
+          ],
+          "ns_per_query": 457.5229197507724
+        }
+      }
+    },
+    {
+      "variant": "no_cell",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12067395902704448,
+            0.12026187498122454,
+            0.12025545805227011,
+            0.12025641702348366,
+            0.12004029203671962,
+            0.11990250000962988,
+            0.11989999999059364
+          ],
+          "ns_per_query": 120.25545805227011
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04597654199460521,
+            0.0458952920162119,
+            0.04643983399728313,
+            0.04612316604470834,
+            0.04603437503101304,
+            0.045426708995364606,
+            0.04612204199656844
+          ],
+          "ns_per_query": 460.3437503101304
+        }
+      }
+    },
+    {
+      "variant": "current",
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12568983295932412,
+            0.12559895898448303,
+            0.12535937497159466,
+            0.1255624580080621,
+            0.12570987496292219,
+            0.12557691702386364,
+            0.12554129195632413
+          ],
+          "ns_per_query": 125.57691702386364
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.047035708965267986,
+            0.04644608299713582,
+            0.047860125021543354,
+            0.04785224999068305,
+            0.04627454199362546,
+            0.04693716700421646,
+            0.0475584160303697
+          ],
+          "ns_per_query": 470.35708965267986
+        }
+      }
+    }
+  ],
+  "summary": {
+    "current": {
+      "hot_handlers": 125.45033346395941,
+      "cold_handlers": 470.9085347712971
+    },
+    "no_cell": {
+      "hot_handlers": 119.90125000011177,
+      "cold_handlers": 460.0545851280913
+    },
+    "no_check": {
+      "hot_handlers": 122.39085449255072,
+      "cold_handlers": 459.8956252448261
+    },
+    "neither": {
+      "hot_handlers": 114.74770845961757,
+      "cold_handlers": 447.40354001987725
+    },
+    "local_only": {
+      "hot_handlers": 115.3670210042037,
+      "cold_handlers": 447.35812494764104
+    },
+    "inline_only": {
+      "hot_handlers": 113.06187498848885,
+      "cold_handlers": 444.00062994100153
+    }
+  }
+}

@@ -7,6 +7,7 @@ listed font families are unavailable. SVG text is embedded as glyph paths.
 import argparse
 import json
 from pathlib import Path
+from statistics import median
 import warnings
 
 import matplotlib
@@ -19,14 +20,13 @@ from matplotlib.ft2font import FT2Font  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 COLORS = ["#2563eb", "#ea580c", "#059669", "#9333ea", "#475569"]
-THREAD_LABELS = {
-    "test_thread_publication_flood": "线程发布",
-    "test_thread_request_reply_stress": "请求／回复",
-    "test_thread_broadcast_and_cancellation_storm": "广播与取消",
-    "test_async_worker_publication_backpressure": "工作线程并发发布",
+GRAPH_LABELS = {
+    ("independent", "chain", "immediate"): "独立图·串行",
+    ("independent", "parallel", "immediate"): "独立图·并行",
+    ("shared", "chain", "immediate"): "共享图·串行",
+    ("shared", "parallel", "immediate"): "共享图·并行",
+    ("shared", "chain", "sleep-1ms"): "共享串行·等待 1 ms",
 }
-
-
 def configure_font(path):
     if path is None:
         for family in ("PingFang SC", "Heiti SC", "Microsoft YaHei", "Noto Sans CJK SC", "Arial Unicode MS"):
@@ -48,8 +48,8 @@ def configure_font(path):
         "axes.spines.right": False,
     })
     # Fail instead of publishing a chart with missing Chinese glyphs.
-    vocabulary = "跨线程性能每组单次测量队列容量各线工作量不同仅比较同一条线的背压设置耗时秒越低越好派发背压容量分类轴无限制"
-    vocabulary += "".join(THREAD_LABELS.values())
+    vocabulary = "当前版本性能测量图调度正式轮次耗时秒背压容量千节点吞吐越高低好无限制跨线程工作量不同单次预热并发调用三轮中位数"
+    vocabulary += "".join(GRAPH_LABELS.values())
     charmap = FT2Font(str(path)).get_charmap()
     missing = {c for c in vocabulary if ord(c) not in charmap and not c.isspace()}
     if missing:
@@ -70,22 +70,36 @@ def save(figure, name, directory=ROOT):
     plt.close(figure)
 
 
-def thread_chart(reports):
-    figure, axis = plt.subplots(figsize=(11, 6), layout="constrained")
-    capacities = [1, 128, None]
-    for (scenario, label), color in zip(THREAD_LABELS.items(), COLORS):
-        measurements = {r["dispatch_capacity"]: r["seconds"] for r in reports
-                        if r["scenario"].split("[")[0] == scenario}
-        values = [measurements[c] for c in capacities]
-        axis.plot(range(3), values, "o-", color=color, linewidth=2, label=label)
-        for x, y in enumerate(values):
-            axis.annotate(f"{y:.3f}", (x, y), xytext=(0, 9), textcoords="offset points", ha="center", fontsize=9)
-    axis.set_title("跨线程性能 · 每组单次测量，队列容量 64\n各线工作量不同，仅比较同一条线的背压设置", fontsize=14)
-    axis.set_xticks(range(3), ["1", "128", "无限制"])
-    style(axis, "派发背压容量（分类轴）", "耗时（秒，越低越好）")
-    axis.margins(y=0.2)
-    axis.legend(loc="upper center", bbox_to_anchor=(0.5, -0.17), ncol=2, frameon=False)
-    save(figure, "thread-performance")
+def graph_chart(reports):
+    figure, axes = plt.subplots(2, 2, figsize=(14, 10), layout="constrained")
+    figure.suptitle("图调度性能 · 当前版本 78684a2", fontsize=18)
+    for axis, count, nodes in zip(axes[0], (1000, 3000), (16, 32)):
+        for (key, label), color in zip(GRAPH_LABELS.items(), COLORS):
+            report = next(r for r in reports if r["invocations"] == count and
+                          (r["ownership"], r["topology"], r["workload"]) == key)
+            axis.plot([1, 2, 3], [r["total_seconds"] for r in report["rounds"]],
+                      "o-", color=color, linewidth=2, label=label)
+        axis.set_title(f"{count:,} 次并发调用 × {nodes} 节点／次")
+        axis.set_xticks([1, 2, 3])
+        style(axis, "正式测量轮次", "含建图耗时（秒，越低越好）")
+        axis.legend(fontsize=9)
+
+    sweep = sorted((r for r in reports if r["workload"] == "sleep-50ms"),
+                   key=lambda r: r["event_loop_backpressure"])
+    capacities = [r["event_loop_backpressure"] for r in sweep]
+    for axis, metric, divisor, ylabel in (
+        (axes[1, 0], "total_seconds", 1, "含建图耗时中位数（秒，越低越好）"),
+        (axes[1, 1], "nodes_per_second", 1000, "吞吐中位数（千节点／秒，越高越好）"),
+    ):
+        values = [median(round_[metric] for round_ in r["rounds"]) / divisor for r in sweep]
+        axis.plot(capacities, values, "o-", color=COLORS[0], linewidth=2)
+        for x, y in zip(capacities, values):
+            axis.annotate(f"{y:.3f}", (x, y), xytext=(0, 10), textcoords="offset points", ha="center")
+        axis.set_title("8,192 次调用 × 4 节点，每节点等待 50 ms")
+        axis.set_xticks(capacities)
+        axis.margins(y=0.2)
+        style(axis, "派发背压容量", ylabel)
+    save(figure, "graph-performance")
 
 
 def history_chart(history):
@@ -121,7 +135,7 @@ def main():
     family = configure_font(args.font)
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
-        thread_chart(json.loads((ROOT / "thread.json").read_text(encoding="utf-8"))["results"])
+        graph_chart(json.loads((ROOT / "graph.json").read_text(encoding="utf-8"))["results"])
         if args.history:
             history_chart(json.loads((ROOT.parent / "history.json").read_text(encoding="utf-8")))
     print(f"Rendered PNG and SVG charts using {family}.")

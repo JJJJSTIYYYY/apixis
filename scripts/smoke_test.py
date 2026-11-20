@@ -11,9 +11,11 @@ import sys
 import apixis
 from apixis import (
     EventType,
+    GraphManager,
+    get_event_loop,
+    get_event_pipe,
     post_and_wait,
     start_core,
-    stop_core,
     subscribe,
     unsubscribe,
 )
@@ -28,7 +30,10 @@ async def main() -> None:
     assert any(path.endswith("/licenses/LICENSE") for path in files)
     assert installed.metadata["License-Expression"] == "Apache-2.0"
     assert not any(path.startswith(("tests/", "src/")) for path in files)
-    assert not any(path.startswith("apixis/core/graph/") for path in files)
+    assert "apixis/core/event/thread_bridge.py" not in files
+    assert not hasattr(apixis, "create_core")
+    assert not hasattr(apixis, "ThreadEventWaiter")
+    assert not hasattr(apixis, "post_event_threadsafe")
 
     observed = []
 
@@ -36,19 +41,33 @@ async def main() -> None:
     async def receive(event):
         observed.append(event.context)
 
+    def increment(state):
+        return {"value": state["value"] + 1}
+
+    graph = (
+        GraphManager()
+        .add_node(increment)
+        .compile_graph(entry_point="increment")
+    )
     await start_core()
+    pipe, loop = get_event_pipe(), get_event_loop()
     try:
-        event = await post_and_wait(
-            event_type=EventType.INFO,
-            event_name="package.ready",
-            context={"ok": True},
-            time_out=5,
-        )
-        assert observed == [event.context] == [{"ok": True}]
+        async with asyncio.timeout(5):
+            result = await post_and_wait(
+                event_type=EventType.INFO,
+                event_name="package.ready",
+                context={"ok": True},
+            )
+            assert result.context == {"ok": True}
+            assert observed == [{"ok": True}]
+            assert await graph.invoke({"value": 1}) == {"value": 2}
+            await pipe.join()
     finally:
+        graph.decompose()
         unsubscribe(receive.__name__)
-        await stop_core()
-    print(f"Installed apixis {installed.version}: metadata and events passed.")
+        await loop.stop()
+        await pipe.stop()
+    print(f"Installed apixis {installed.version}: metadata, events and graph passed.")
 
 
 if __name__ == "__main__":

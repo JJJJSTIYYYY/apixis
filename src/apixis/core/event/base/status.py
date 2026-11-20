@@ -21,17 +21,6 @@ class EventLoopStatus:
 
 
 @dataclass(frozen=True, slots=True)
-class EventThreadBridgeStatus:
-    """Owner-loop snapshot of bridge admission and tracked requests."""
-
-    running: bool
-    queue_size: int
-    queue_capacity: int
-    admission_waiters: int
-    active_requests: int
-
-
-@dataclass(frozen=True, slots=True)
 class EventRuntimeStatus:
     """Read-only snapshot; absent components are None before initialization."""
 
@@ -41,7 +30,6 @@ class EventRuntimeStatus:
     event_queue_capacity: int | None = None
     wait_listeners: int = 0
     event_loop: EventLoopStatus | None = None
-    thread_bridge: EventThreadBridgeStatus | None = None
 
 
-__all__ = ["EventLoopStatus", "EventThreadBridgeStatus", "EventRuntimeStatus"]
+__all__ = ["EventLoopStatus", "EventRuntimeStatus"]

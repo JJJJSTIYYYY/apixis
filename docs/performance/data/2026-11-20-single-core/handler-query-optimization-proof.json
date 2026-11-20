@@ -1,0 +1,34 @@
+{
+  "before": {
+    "registry_sha256": "056751d54bc294927229e66665f0e109865de6269e09c73d97ab42f12eecd636",
+    "cellvars": [
+      "self"
+    ],
+    "locals": 7,
+    "stacksize": 5
+  },
+  "after": {
+    "registry_sha256": "7ffb52b60002cced329ddc321aada5c13b1419ccb5cdadc3f4a6a9cbe2c83049",
+    "cellvars": [],
+    "locals": 7,
+    "stacksize": 5
+  },
+  "changed_runtime_files": [
+    "apixis/core/event/handler_registry/registry.py"
+  ],
+  "correctness": {
+    "command": ".venv/bin/python -m pytest -q --asyncio-debug",
+    "passed": 1440,
+    "seconds": 81.86
+  },
+  "comparison_driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+  "waiter_query_driver_sha256": "d85f713ebc1eaffe0ca19451bc6de88e23159b95f1a656f770478b166d409088",
+  "source_sha256_excluding_version": {
+    "before": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+    "after": "43bc003176db519ef0b4d390375f6de2516bb1fe8669589a7e186eb28a7f7ea8"
+  },
+  "runtime_change_is_exactly_archived_patch": true,
+  "all_worker_inputs_match": true,
+  "all_mixed_wait_cache_audits_match": true,
+  "source_unchanged_through_tests_and_benchmarks": true
+}

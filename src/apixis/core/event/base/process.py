@@ -15,12 +15,9 @@ class HandlerChainToken:
     The consumer creates this token after acquiring a permit. Suspension and
     dispatch completion update it; the token itself never operates on the
     semaphore. Child tasks share the token and serialize permit reacquisition.
-    The creating asyncio loop owns the permit; copying this token through
-    ContextVars to a different thread never transfers that ownership.
     """
 
     semaphore: ApixisSemaphore
-    loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.get_running_loop, repr=False)
     held: bool = True
     closed: bool = False
     suspended: int = 0
@@ -61,7 +58,7 @@ def suspend_process() -> AbstractAsyncContextManager[None]:
     """
     chain = handler_chain_token_context.get()
 
-    if chain is None or chain.closed or chain.loop is not asyncio.get_running_loop():
+    if chain is None or chain.closed:
         return nullcontext()
     return _suspend_process(chain)
 

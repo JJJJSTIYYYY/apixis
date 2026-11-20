@@ -1,14 +1,10 @@
 """Local handler subscription, removal, and registration inspection."""
 
-from collections.abc import Callable, Coroutine
 from copy import copy
-from functools import partial
-from typing import Any
 
 from apixis.core.event.base.event import EventHandlerFunc
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.event.thread_bridge import ThreadIds, get_thread_bridge
 from apixis.core.utils.validation import validate_number
 
 
@@ -25,14 +21,12 @@ def subscribe(
 ):
     """Register an async handler for one or more event-name patterns.
 
-    Handler names are unique across the calling thread's registry. The decorated
+    Handler names are unique across the shared registry. The decorated
     function or ApixEventHandler instance is returned unchanged. Validation
     happens in register_handler when the returned decorator is applied.
 
-    Registration is synchronous and local to the calling thread's core.
-    Use ``@subscribe(...)`` in any initialized thread. Worker threads register
-    their core with ``create_core(thread_id)`` first. Remote registration uses
-    ``await subscribe_threadsafe(..., thread_ids=...)(handler)``.
+    Registration is synchronous. Import-time decorators can register handlers
+    before the event loop starts; getters schedule startup inside asyncio.
 
     Event subscription and filtering use case-sensitive
     :func:`fnmatch.fnmatchcase` semantics. The handler chain is resolved lazily
@@ -286,53 +280,6 @@ def subscribe(
     return decorator
 
 
-def subscribe_threadsafe[HandlerT: EventHandlerFunc | ApixEventHandler](
-    *event_names: str,
-    exist_ok: bool = True,
-    priority: float | None = None,
-    between_handlers: tuple[str | None, str | None] | None = None,
-    filter_event: list[str] | None = None,
-    stop_when_error: bool | None = None,
-    time_out: float | None = None,
-    background: bool | None = None,
-    group: str | None = None,
-    thread_ids: ThreadIds = None,
-) -> Callable[[HandlerT], Coroutine[Any, Any, HandlerT | dict[str, HandlerT]]]:
-    """Create an async decorator registering on explicitly selected thread cores.
-
-    Use ``await subscribe_threadsafe("job.*", thread_ids="worker")(handler)``.
-    Registration options are identical to :func:`subscribe`. ``thread_ids``
-    defaults to the main core. A string selects one core; a non-empty list,
-    tuple or set selects multiple cores. Targets must have completed start_core.
-
-    Completion confirms registration on every target. A single target returns
-    its registered function or handler; a collection returns a dictionary keyed
-    by thread ID. Handler instances are shallow-copied per target so independent
-    registration metadata cannot overwrite another core's instance. Callbacks
-    and payloads are shared by reference and run on the selected core's loop.
-
-    Apply the decorator explicitly with await, rather than using ``@``. Missing
-    or stopped targets raise RuntimeError. Validation/registration errors reach
-    the caller. On cancellation or error unfinished requests are cleaned up;
-    completed registrations remain and must be explicitly unsubscribed.
-    """
-    register = subscribe(
-        *event_names, exist_ok=exist_ok, priority=priority,
-        between_handlers=between_handlers, filter_event=filter_event,
-        stop_when_error=stop_when_error, time_out=time_out,
-        background=background, group=group,
-    )
-
-    async def decorator(func: HandlerT) -> HandlerT | dict[str, HandlerT]:
-        def register_target() -> HandlerT:
-            target = copy(func) if isinstance(func, ApixEventHandler) else func
-            return register(target)
-
-        return await get_thread_bridge().call_sync(register_target, thread_ids=thread_ids)
-
-    return decorator
-
-
 def unsubscribe(
     handler_name: str | None = None,
     *,
@@ -346,8 +293,7 @@ def unsubscribe(
     groups are ignored unless ``missing_ok=False``.
     Already dequeued events retain their captured handler references.
 
-    Removal is synchronous and local to the current thread. Use
-    ``unsubscribe_threadsafe(..., thread_ids=...)`` for remote targets.
+    Removal is synchronous on the shared runtime.
     """
     if (handler_name is None) == (group is None):
         raise ValueError("Supply exactly one of handler_name and group.")
@@ -356,26 +302,6 @@ def unsubscribe(
         registry.unregister_group(group, missing_ok=missing_ok)
     else:
         registry.unregister_handler(handler_name, missing_ok=missing_ok)
-
-
-async def unsubscribe_threadsafe(
-    handler_name: str | None = None,
-    *,
-    group: str | None = None,
-    missing_ok: bool = True,
-    thread_ids: ThreadIds = None,
-) -> None:
-    """Await removal by name or group on selected thread cores.
-
-    Selectors and missing_ok match :func:`unsubscribe`. None selects the main
-    core; a string or non-empty collection of thread IDs selects explicit
-    targets. Each target must be started. Completion confirms removal on all
-    targets. Errors propagate and cancel unfinished requests; completed changes
-    are not rolled back. Already dequeued events retain captured handlers.
-    """
-    await get_thread_bridge().call_sync(partial(
-        unsubscribe, handler_name, group=group, missing_ok=missing_ok,
-    ), thread_ids=thread_ids)
 
 
 def get_handler(
@@ -419,9 +345,7 @@ def get_unmatched_subscriptions(handler_name: str) -> list[str]:
 
 __all__ = [
     "subscribe",
-    "subscribe_threadsafe",
     "unsubscribe",
-    "unsubscribe_threadsafe",
     "get_handler",
     "get_handler_meta",
     "is_registered",

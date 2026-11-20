@@ -1,0 +1,659 @@
+{
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "repeats_per_worker": 15,
+  "summary": {
+    "registry/cold": {
+      "before": {
+        "seconds": 0.044293604005360976,
+        "operations": 100000.0,
+        "samples": 30,
+        "min_seconds": 0.04179812502115965,
+        "max_seconds": 0.04720295802690089
+      },
+      "after": {
+        "seconds": 0.04677164551685564,
+        "operations": 100000.0,
+        "samples": 30,
+        "min_seconds": 0.04537562502082437,
+        "max_seconds": 0.05019637499935925
+      },
+      "elapsed_change_pct": 5.5945809042649675,
+      "throughput_change_pct": -5.298170470828579
+    },
+    "registry/hot": {
+      "before": {
+        "seconds": 0.10593379149213433,
+        "operations": 1000000.0,
+        "samples": 30,
+        "min_seconds": 0.10311966697918251,
+        "max_seconds": 0.11371924995910376
+      },
+      "after": {
+        "seconds": 0.12271579151274636,
+        "operations": 1000000.0,
+        "samples": 30,
+        "min_seconds": 0.12058925000019372,
+        "max_seconds": 0.12912066699936986
+      },
+      "elapsed_change_pct": 15.84197052161407,
+      "throughput_change_pct": -13.67550159090072
+    }
+  },
+  "memory": {},
+  "workers": [
+    {
+      "label": "before",
+      "file": "registry-long-1-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/cold": {
+            "rounds": [
+              {
+                "seconds": 0.043656792026013136,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.044348041992634535,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04447954200441018,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.0448598749935627,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04490008298307657,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.043032542045693845,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04380345798563212,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.043837000033818185,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.045381292002275586,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04720295802690089,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04450920899398625,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04534816701197997,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.045326000021304935,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04610683396458626,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04356712498702109,
+                "operations": 100000
+              }
+            ]
+          },
+          "registry/hot": {
+            "rounds": [
+              {
+                "seconds": 0.10415562498383224,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10793204203946516,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.11371924995910376,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10753745801048353,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10328254202613607,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.1031622089794837,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10472716600634158,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10372570797335356,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10362491698469967,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10363512497860938,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10323791700648144,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10311966697918251,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10396333399694413,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10347262502182275,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10357112501515076,
+                "operations": 1000000
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registry-long-2-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/cold": {
+            "rounds": [
+              {
+                "seconds": 0.04690754198236391,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04692595801316202,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04684983298648149,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046943166002165526,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.049202124995645136,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04644037497928366,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.045777957944665104,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04563529201550409,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.045784000016283244,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.047232375014573336,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04537562502082437,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046312374994158745,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046657832979690284,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.0488404170027934,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046427708002738655,
+                "operations": 100000
+              }
+            ]
+          },
+          "registry/hot": {
+            "rounds": [
+              {
+                "seconds": 0.12058925000019372,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12118345801718533,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12084937503095716,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12127587501890957,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12165574997197837,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12139820796437562,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12137304100906476,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12100750004174188,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12251016701338813,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12287291698157787,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.122728125017602,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12270345800789073,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12189633399248123,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12141579203307629,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12162020796677098,
+                "operations": 1000000
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registry-long-3-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/cold": {
+            "rounds": [
+              {
+                "seconds": 0.045620208024047315,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04614391701761633,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04695550003089011,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04724637500476092,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.05019637499935925,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04686458397191018,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046546208031941205,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04695858299965039,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04716404102509841,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04674883303232491,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04666166700189933,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.0467346670338884,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.046794458001386374,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04907804197864607,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04654870799276978,
+                "operations": 100000
+              }
+            ]
+          },
+          "registry/hot": {
+            "rounds": [
+              {
+                "seconds": 0.12372400000458583,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.1237733339658007,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.1234711249708198,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12298333400394768,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12373945798026398,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12394487496931106,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12394287501228973,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12105999997584149,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12105995794991031,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12354925001272932,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12902295897947624,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12912066699936986,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12709850003011525,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.12364399997750297,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.1237894999794662,
+                "operations": 1000000
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "before",
+      "file": "registry-long-4-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/cold": {
+            "rounds": [
+              {
+                "seconds": 0.04430624999804422,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04179812502115965,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04192662501009181,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.044359957973938435,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04412179201608524,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04445191699778661,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.043947041034698486,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04400808300124481,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04523487499682233,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04415970796253532,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04394791601225734,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.044071624986827374,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04407912498572841,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.045781749999150634,
+                "operations": 100000
+              },
+              {
+                "seconds": 0.04428095801267773,
+                "operations": 100000
+              }
+            ]
+          },
+          "registry/hot": {
+            "rounds": [
+              {
+                "seconds": 0.10456750000594184,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10583391698310152,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10603366600116715,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10684366698842496,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10693133302265778,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10635829099919647,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10632791696116328,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10484099999302998,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10651937499642372,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10664379200898111,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10638604202540591,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10622254101326689,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10673666698858142,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.10654800001066178,
+                "operations": 1000000
+              },
+              {
+                "seconds": 0.1075529579538852,
+                "operations": 1000000
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    }
+  ],
+  "unpaired_scenarios": []
+}

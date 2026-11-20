@@ -8,7 +8,7 @@ import pytest
 
 from apixis import (
     ApixEventPipe, EventType,
-    post_and_wait, post_and_wait_threadsafe, post_event, post_event_threadsafe, subscribe,
+    post_and_wait, post_event, subscribe,
 )
 from apixis.core.event.base import handler_chain_token_context
 from apixis.core.event.subscription import publication
@@ -27,8 +27,6 @@ def test_public_exports(module_name):
     module = importlib.import_module(module_name)
     assert module.post_and_wait is post_and_wait
     assert "post_and_wait" in module.__all__
-    assert module.post_and_wait_threadsafe is post_and_wait_threadsafe
-    assert "post_and_wait_threadsafe" in module.__all__
 
 
 async def test_concurrent_same_name_events_return_their_own_result(cleanup_event_runtime):
@@ -197,35 +195,6 @@ async def test_nested_publication_lends_and_restores_dispatch_permit(
     await post_event(event_type=EventType.INFO, event_name="job.parent")
     await asyncio.wait_for(finished.wait(), 2)
     assert result == [42]
-
-
-async def test_async_worker_does_not_block_bridge_requests(cleanup_event_runtime):
-    """Processing may depend on a later publication from another worker."""
-    release, entered = asyncio.Event(), asyncio.Event()
-
-    @subscribe("worker.wait")
-    async def process(event):
-        entered.set()
-        await release.wait()
-        event.context["processed"] = True
-
-    @subscribe("worker.release")
-    async def unblock(event):
-        release.set()
-
-    task = asyncio.create_task(asyncio.to_thread(lambda: asyncio.run(post_and_wait_threadsafe(
-        event_type=EventType.INFO, event_name="worker.wait", context={}, time_out=2,
-    ))))
-    try:
-        await asyncio.wait_for(entered.wait(), 1)
-        await asyncio.wait_for(asyncio.to_thread(lambda: asyncio.run(post_event_threadsafe(
-            event_type=EventType.INFO, event_name="worker.release",
-        ))), 1)
-        result = await asyncio.wait_for(task, 2)
-        assert result.context["processed"]
-    finally:
-        release.set()
-        await asyncio.gather(task, return_exceptions=True)
 
 
 async def test_result_completed_before_publication_returns_is_preserved(

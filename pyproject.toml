@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "apixis"
 dynamic = ["version"]
-description = "An event runtime for asyncio applications with cross-thread dispatch."
+description = "An event-driven graph orchestration core for asyncio applications."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["asyncio", "events", "dispatch", "pubsub", "multithreading"]
+keywords = ["asyncio", "events", "graph", "workflow", "orchestration"]
 authors = [
     { name = "JJJJSTIYYYY", email = "wavejustiy@gmail.com" },
 ]
@@ -76,12 +76,12 @@ select = ["E4", "E7", "E9", "F"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
-# Tests on each thread keep their core bound to one asyncio loop.
+# The shared event and graph runtime uses one asyncio loop across tests.
 asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "session"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
     "unit: focused component contracts and regressions",
-    "integration: interactions through the complete event runtime",
-    "performance: opt-in event workloads and timing reports",
+    "integration: interactions through the complete event and graph runtime",
+    "performance: opt-in concurrent graph workloads and timing reports",
 ]

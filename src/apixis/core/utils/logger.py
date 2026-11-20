@@ -12,7 +12,7 @@ class Logger:
 
     All callbacks default to None, so logging is silent until configured.
     Each set_{level}(logger) replaces that level's callback; pass None to
-    disable it again. Runtime cores on all threads share these callbacks.
+    disable it again. The shared runtime uses these callbacks.
 
     Log methods forward the message, positional arguments and keyword arguments
     unchanged. The application logger owns formatting, filtering, output and

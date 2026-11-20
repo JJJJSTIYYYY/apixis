@@ -8,6 +8,8 @@ from apixis.core.event import ApixEvent, EventType, subscribe, unsubscribe
 from apixis.core.event import event_loop, event_pipe, factory
 from apixis.core.event.factory import get_handler_registry
 from apixis.core.event.base import suspend_process
+from apixis.core.graph import Command, GraphManager
+from apixis.core.graph.interrupter import interrupt
 
 
 EVENT_CAPACITY = 2
@@ -26,7 +28,7 @@ async def runtime(monkeypatch, request):
     handlers = factory.ApixHandlerRegistry(registry)
     loop = event_loop.ApixEventLoop(handlers, pipe, registry)
     core = factory.EventCore(registry, pipe, handlers, loop)
-    monkeypatch.setattr(factory._local, "core", core)
+    monkeypatch.setattr(factory, "_core", core)
     await factory.start_core()
     running_loop = asyncio.get_running_loop()
     previous_handler = running_loop.get_exception_handler()
@@ -147,6 +149,65 @@ async def test_dequeued_handlers_stay_frozen_while_waiting_for_capacity(
     await pipe.post_event(event_type=EventType.INFO, event_name="work.next")
     await wait_for_dispatch(loop)
     assert calls == ["old", "tail", "late", "new"]
+
+
+@pytest.mark.parametrize("runtime", [1, 2], indirect=True)
+@pytest.mark.parametrize("outcome", ["success", "error", "cancel"])
+async def test_nested_graph_waits_release_saturated_parent_capacity(
+    runtime, request, outcome,
+):
+    """Nested invocations complete even when all slots belong to parent nodes."""
+    capacity = request.node.callspec.params["runtime"]
+    parents_entered = 0
+    all_parents_entered = asyncio.Event()
+    leaf_calls = []
+
+    async def leaf(state):
+        leaf_calls.append(state["value"])
+        if outcome == "error":
+            raise ValueError("child failed")
+        if outcome == "cancel":
+            raise asyncio.CancelledError()
+        return {"value": state["value"] + 1}
+
+    leaf_graph = GraphManager().add_node(leaf).compile_graph(entry_point="leaf")
+
+    async def middle(state):
+        return await leaf_graph.invoke(state)
+
+    middle_graph = (
+        GraphManager().add_node(middle).compile_graph(entry_point="middle")
+    )
+
+    async def parent(state):
+        nonlocal parents_entered
+        parents_entered += 1
+        if parents_entered == capacity:
+            all_parents_entered.set()
+        await all_parents_entered.wait()
+        return await middle_graph.invoke(state)
+
+    parent_graph = (
+        GraphManager().add_node(parent).compile_graph(entry_point="parent")
+    )
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(parent_graph.invoke({"value": i}) for i in range(capacity)),
+                return_exceptions=True,
+            ),
+            timeout=2,
+        )
+        assert sorted(leaf_calls) == list(range(capacity))
+        if outcome == "success":
+            assert results == [{"value": i + 1} for i in range(capacity)]
+        else:
+            error_type = ValueError if outcome == "error" else asyncio.CancelledError
+            assert all(isinstance(result, error_type) for result in results)
+    finally:
+        parent_graph.decompose()
+        middle_graph.decompose()
+        leaf_graph.decompose()
 
 
 async def test_saturated_handlers_can_publish_follow_up_events(runtime, wait_for_dispatch):
@@ -294,6 +355,46 @@ async def test_task_creation_failure_does_not_block_later_events(runtime, monkey
     await asyncio.wait_for(loop.stop(), 1)
     assert failed
     assert completed == ["work.1", "work.2", "work.3"]
+
+
+async def test_concurrent_graphs_route_next_nodes_under_saturation(runtime, wait_for_dispatch):
+    """Real graph nodes can post next hops while every permit is occupied."""
+    pipe, loop = runtime
+    entered, release = asyncio.Event(), asyncio.Event()
+    first_nodes = 0
+
+    async def first(state):
+        nonlocal first_nodes
+        first_nodes += 1
+        if first_nodes == EVENT_CAPACITY:
+            entered.set()
+        await release.wait()
+        return Command(update={"value": state["value"] + 1}, goto="second")
+
+    def second(state):
+        return {"value": state["value"] * 2}
+
+    graph = (
+        GraphManager().add_node(first).add_node(second).compile_graph(entry_point="first")
+    )
+    runs = [asyncio.create_task(graph.invoke({"value": value})) for value in range(EVENT_CAPACITY)]
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        for _ in range(EVENT_CAPACITY):
+            await pipe.post_event(event_type=EventType.INFO, event_name="waiting")
+        await asyncio.sleep(0)
+        assert pipe.qsize() <= pipe.maxsize
+        release.set()
+        assert await asyncio.wait_for(asyncio.gather(*runs), 1) == [
+            {"value": (value + 1) * 2} for value in range(EVENT_CAPACITY)
+        ]
+        await wait_for_dispatch(loop)
+    finally:
+        release.set()
+        for run in runs:
+            run.cancel()
+        await asyncio.gather(*runs, return_exceptions=True)
+        graph.decompose()
 
 
 @pytest.mark.parametrize("runtime", [1], indirect=True)
@@ -827,6 +928,38 @@ async def test_background_suspension_cannot_lend_foreground_capacity(runtime, wa
     finally:
         finish_foreground.set()
         finish_background.set()
+
+
+@pytest.mark.parametrize("runtime", [1], indirect=True)
+@pytest.mark.parametrize("timeout", [None, 1])
+async def test_parallel_graph_interruptions_share_one_event_slot(runtime, timeout):
+    """Parallel nodes can both interrupt and resume with only one event slot."""
+    async def route(state):
+        return Command(goto=["first", "second"])
+
+    async def first(state):
+        return {"first": await interrupt(data="first", timeout=timeout)}
+
+    async def second(state):
+        return {"second": await interrupt(data="second", timeout=timeout)}
+
+    graph = (
+        GraphManager().add_node(route).add_node(first).add_node(second).compile_graph(entry_point="route")
+    )
+    received = []
+
+    @graph.add_interrupted_hook
+    async def resume(block):
+        received.append(block.with_data)
+        block.resolve(f"{block.with_data}-resolved")
+
+    try:
+        assert await asyncio.wait_for(graph.invoke({}), 1) == {
+            "first": "first-resolved", "second": "second-resolved",
+        }
+        assert sorted(received) == ["first", "second"]
+    finally:
+        graph.decompose(force=True)
 
 
 @pytest.mark.parametrize("runtime", [1], indirect=True)

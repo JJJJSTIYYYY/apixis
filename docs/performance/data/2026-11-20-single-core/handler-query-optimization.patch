@@ -1,0 +1,10 @@
+--- a/src/apixis/core/event/handler_registry/registry.py
++++ b/src/apixis/core/event/handler_registry/registry.py
+@@ -258,5 +258,6 @@
+         received, processed = self._waiter_cache.get(event_name)
+         handlers = received.copy()
+-        handlers.extend(self.registry[name] for name in chain)
++        for name in chain:
++            handlers.append(self.registry[name])
+         handlers.extend(processed)
+         return handlers

@@ -1,0 +1,707 @@
+{
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "repeats_per_worker": 10,
+  "summary": {
+    "event/cached-pipe": {
+      "before": {
+        "seconds": 0.49120550000225194,
+        "publish_seconds": 0.20352010399801657,
+        "operations": 65536.0,
+        "events_per_second": 133418.8137011032,
+        "samples": 20,
+        "min_seconds": 0.48505879199365154,
+        "max_seconds": 0.5045926250168122
+      },
+      "after": {
+        "seconds": 0.44555283297086135,
+        "publish_seconds": 0.1646938124904409,
+        "operations": 65536.0,
+        "events_per_second": 147089.2434534269,
+        "samples": 20,
+        "min_seconds": 0.4399102079914883,
+        "max_seconds": 0.46428283298155293
+      },
+      "elapsed_change_pct": -9.294005672001083,
+      "throughput_change_pct": 10.2462971062236
+    },
+    "event/global-post": {
+      "before": {
+        "seconds": 0.506355416495353,
+        "publish_seconds": 0.21601189550710842,
+        "operations": 65536.0,
+        "events_per_second": 129426.93456998709,
+        "samples": 20,
+        "min_seconds": 0.49470383301377296,
+        "max_seconds": 0.5105262919678353
+      },
+      "after": {
+        "seconds": 0.45916406251490116,
+        "publish_seconds": 0.1760760415054392,
+        "operations": 65536.0,
+        "events_per_second": 142728.99023316544,
+        "samples": 20,
+        "min_seconds": 0.4552081670262851,
+        "max_seconds": 0.47466254100436345
+      },
+      "elapsed_change_pct": -9.319808269669194,
+      "throughput_change_pct": 10.277667141887935
+    }
+  },
+  "memory": {},
+  "workers": [
+    {
+      "label": "before",
+      "file": "global-publication-1-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/cached-pipe": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.4853865840123035,
+                "publish_seconds": 0.1997796249925159,
+                "operations": 65536,
+                "events_per_second": 135018.15286748594
+              },
+              {
+                "seconds": 0.4873032079776749,
+                "publish_seconds": 0.20030870800837874,
+                "operations": 65536,
+                "events_per_second": 134487.10972369064
+              },
+              {
+                "seconds": 0.48672337498283014,
+                "publish_seconds": 0.20142783399205655,
+                "operations": 65536,
+                "events_per_second": 134647.3240622805
+              },
+              {
+                "seconds": 0.4946544169797562,
+                "publish_seconds": 0.20424312498653308,
+                "operations": 65536,
+                "events_per_second": 132488.45608242505
+              },
+              {
+                "seconds": 0.5045926250168122,
+                "publish_seconds": 0.20698533300310373,
+                "operations": 65536,
+                "events_per_second": 129879.02864774618
+              },
+              {
+                "seconds": 0.49380170804215595,
+                "publish_seconds": 0.20367425004951656,
+                "operations": 65536,
+                "events_per_second": 132717.24040777353
+              },
+              {
+                "seconds": 0.49035587499383837,
+                "publish_seconds": 0.20479037502082065,
+                "operations": 65536,
+                "events_per_second": 133649.87214810774
+              },
+              {
+                "seconds": 0.4919281670008786,
+                "publish_seconds": 0.2048635000246577,
+                "operations": 65536,
+                "events_per_second": 133222.70281767164
+              },
+              {
+                "seconds": 0.4863301249570213,
+                "publish_seconds": 0.20185845898231491,
+                "operations": 65536,
+                "events_per_second": 134756.2008538781
+              },
+              {
+                "seconds": 0.4966555000282824,
+                "publish_seconds": 0.2038757080445066,
+                "operations": 65536,
+                "events_per_second": 131954.64461033454
+              }
+            ]
+          },
+          "event/global-post": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.5028492919518612,
+                "publish_seconds": 0.21660283399978653,
+                "operations": 65536,
+                "events_per_second": 130329.30750606266
+              },
+              {
+                "seconds": 0.5105262919678353,
+                "publish_seconds": 0.21828670898685232,
+                "operations": 65536,
+                "events_per_second": 128369.49052592373
+              },
+              {
+                "seconds": 0.5084547919686884,
+                "publish_seconds": 0.22158295795088634,
+                "operations": 65536,
+                "events_per_second": 128892.48176076947
+              },
+              {
+                "seconds": 0.5094129579956643,
+                "publish_seconds": 0.2151134159648791,
+                "operations": 65536,
+                "events_per_second": 128650.04505943051
+              },
+              {
+                "seconds": 0.5011700839968398,
+                "publish_seconds": 0.21650866704294458,
+                "operations": 65536,
+                "events_per_second": 130765.98562577658
+              },
+              {
+                "seconds": 0.507072042033542,
+                "publish_seconds": 0.2143479579826817,
+                "operations": 65536,
+                "events_per_second": 129243.9625288292
+              },
+              {
+                "seconds": 0.5066943329875357,
+                "publish_seconds": 0.21727345802355558,
+                "operations": 65536,
+                "events_per_second": 129340.30584788903
+              },
+              {
+                "seconds": 0.5058169160038233,
+                "publish_seconds": 0.21775962499668822,
+                "operations": 65536,
+                "events_per_second": 129564.66643655041
+              },
+              {
+                "seconds": 0.5093524999683723,
+                "publish_seconds": 0.21562766598071903,
+                "operations": 65536,
+                "events_per_second": 128665.31528571939
+              },
+              {
+                "seconds": 0.5037906659999862,
+                "publish_seconds": 0.215786290995311,
+                "operations": 65536,
+                "events_per_second": 130085.77653957922
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "global-publication-2-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/cached-pipe": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.46428283298155293,
+                "publish_seconds": 0.17902087495895103,
+                "operations": 65536,
+                "events_per_second": 141155.33753237847
+              },
+              {
+                "seconds": 0.440107291971799,
+                "publish_seconds": 0.16174237499944866,
+                "operations": 65536,
+                "events_per_second": 148909.14373715804
+              },
+              {
+                "seconds": 0.4461249580490403,
+                "publish_seconds": 0.16273704200284556,
+                "operations": 65536,
+                "events_per_second": 146900.54617566578
+              },
+              {
+                "seconds": 0.44878641702234745,
+                "publish_seconds": 0.1645781670231372,
+                "operations": 65536,
+                "events_per_second": 146029.37503060975
+              },
+              {
+                "seconds": 0.44321054103784263,
+                "publish_seconds": 0.16452716599451378,
+                "operations": 65536,
+                "events_per_second": 147866.5192541175
+              },
+              {
+                "seconds": 0.4449471249827184,
+                "publish_seconds": 0.16213766700820997,
+                "operations": 65536,
+                "events_per_second": 147289.4110790027
+              },
+              {
+                "seconds": 0.4595234159496613,
+                "publish_seconds": 0.17287274997215718,
+                "operations": 65536,
+                "events_per_second": 142617.32422179586
+              },
+              {
+                "seconds": 0.4416551669710316,
+                "publish_seconds": 0.16142316698096693,
+                "operations": 65536,
+                "events_per_second": 148387.2597924311
+              },
+              {
+                "seconds": 0.44208195799728855,
+                "publish_seconds": 0.164235332980752,
+                "operations": 65536,
+                "events_per_second": 148244.00501863947
+              },
+              {
+                "seconds": 0.4452558329794556,
+                "publish_seconds": 0.16232845798367634,
+                "operations": 65536,
+                "events_per_second": 147187.2913184809
+              }
+            ]
+          },
+          "event/global-post": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.4588920830283314,
+                "publish_seconds": 0.17560225003398955,
+                "operations": 65536,
+                "events_per_second": 142813.53377794902
+              },
+              {
+                "seconds": 0.4594360420014709,
+                "publish_seconds": 0.17557245900388807,
+                "operations": 65536,
+                "events_per_second": 142644.4466883819
+              },
+              {
+                "seconds": 0.47323404101189226,
+                "publish_seconds": 0.19358441600343212,
+                "operations": 65536,
+                "events_per_second": 138485.3884557157
+              },
+              {
+                "seconds": 0.4628836659830995,
+                "publish_seconds": 0.1762674999772571,
+                "operations": 65536,
+                "events_per_second": 141582.01037578372
+              },
+              {
+                "seconds": 0.4566345000057481,
+                "publish_seconds": 0.17412045795936137,
+                "operations": 65536,
+                "events_per_second": 143519.59827646625
+              },
+              {
+                "seconds": 0.4573277920135297,
+                "publish_seconds": 0.17394333303673193,
+                "operations": 65536,
+                "events_per_second": 143302.02787689134
+              },
+              {
+                "seconds": 0.47466254100436345,
+                "publish_seconds": 0.18811870797071606,
+                "operations": 65536,
+                "events_per_second": 138068.61578191727
+              },
+              {
+                "seconds": 0.4561606249772012,
+                "publish_seconds": 0.17534837499260902,
+                "operations": 65536,
+                "events_per_second": 143668.69127135965
+              },
+              {
+                "seconds": 0.46016770898131654,
+                "publish_seconds": 0.1767572920070961,
+                "operations": 65536,
+                "events_per_second": 142417.6419181574
+              },
+              {
+                "seconds": 0.45798791700508446,
+                "publish_seconds": 0.17355183302424848,
+                "operations": 65536,
+                "events_per_second": 143095.47821383338
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "global-publication-3-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/cached-pipe": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.44675470900256187,
+                "publish_seconds": 0.16836595901986584,
+                "operations": 65536,
+                "events_per_second": 146693.4733521168
+              },
+              {
+                "seconds": 0.4441215420374647,
+                "publish_seconds": 0.16577595798298717,
+                "operations": 65536,
+                "events_per_second": 147563.20915969348
+              },
+              {
+                "seconds": 0.4486200000392273,
+                "publish_seconds": 0.1648720420198515,
+                "operations": 65536,
+                "events_per_second": 146083.5450810698
+              },
+              {
+                "seconds": 0.4458498329622671,
+                "publish_seconds": 0.16567612497601658,
+                "operations": 65536,
+                "events_per_second": 146991.1955883729
+              },
+              {
+                "seconds": 0.44597499998053536,
+                "publish_seconds": 0.1648094579577446,
+                "operations": 65536,
+                "events_per_second": 146949.94114661208
+              },
+              {
+                "seconds": 0.4440111250150949,
+                "publish_seconds": 0.1654870419879444,
+                "operations": 65536,
+                "events_per_second": 147599.90529014784
+              },
+              {
+                "seconds": 0.44851458305492997,
+                "publish_seconds": 0.16511754202656448,
+                "operations": 65536,
+                "events_per_second": 146117.87994410374
+              },
+              {
+                "seconds": 0.44355845800600946,
+                "publish_seconds": 0.1655709159676917,
+                "operations": 65536,
+                "events_per_second": 147750.53618549666
+              },
+              {
+                "seconds": 0.44707937497878447,
+                "publish_seconds": 0.16359808400738984,
+                "operations": 65536,
+                "events_per_second": 146586.94555773216
+              },
+              {
+                "seconds": 0.4399102079914883,
+                "publish_seconds": 0.1622174580115825,
+                "operations": 65536,
+                "events_per_second": 148975.85645766158
+              }
+            ]
+          },
+          "event/global-post": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.4641781250247732,
+                "publish_seconds": 0.1760899579967372,
+                "operations": 65536,
+                "events_per_second": 141187.17894451047
+              },
+              {
+                "seconds": 0.4553490420221351,
+                "publish_seconds": 0.1755447080358863,
+                "operations": 65536,
+                "events_per_second": 143924.75650978577
+              },
+              {
+                "seconds": 0.4600057920324616,
+                "publish_seconds": 0.1760621250141412,
+                "operations": 65536,
+                "events_per_second": 142467.77135226867
+              },
+              {
+                "seconds": 0.4651745830196887,
+                "publish_seconds": 0.1780872080125846,
+                "operations": 65536,
+                "events_per_second": 140884.7396058743
+              },
+              {
+                "seconds": 0.4588165000313893,
+                "publish_seconds": 0.17618325003422797,
+                "operations": 65536,
+                "events_per_second": 142837.0601221108
+              },
+              {
+                "seconds": 0.4582742500351742,
+                "publish_seconds": 0.17753212503157556,
+                "operations": 65536,
+                "events_per_second": 143006.07113528607
+              },
+              {
+                "seconds": 0.4552081670262851,
+                "publish_seconds": 0.17310066701611504,
+                "operations": 65536,
+                "events_per_second": 143969.29744939256
+              },
+              {
+                "seconds": 0.46383299998706207,
+                "publish_seconds": 0.17797037499258295,
+                "operations": 65536,
+                "events_per_second": 141292.2323375612
+              },
+              {
+                "seconds": 0.45619929203530774,
+                "publish_seconds": 0.17706004198407754,
+                "operations": 65536,
+                "events_per_second": 143656.5140371323
+              },
+              {
+                "seconds": 0.46007670898688957,
+                "publish_seconds": 0.17541424999944866,
+                "operations": 65536,
+                "events_per_second": 142445.81114378368
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "before",
+      "file": "global-publication-4-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "0152a3c3175dc833f5adaf5ec32dda99842d6651e6dfe27026569bf6659b2bb1",
+          "driver_sha256": "93cfe30649a8896ffd278c0b09a5f370bcfaabbbb2002b5c285aac162ad55b63",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/cached-pipe": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.48922437499277294,
+                "publish_seconds": 0.20253383397357538,
+                "operations": 65536,
+                "events_per_second": 133958.9835460838
+              },
+              {
+                "seconds": 0.48505879199365154,
+                "publish_seconds": 0.20106304198270664,
+                "operations": 65536,
+                "events_per_second": 135109.39515319152
+              },
+              {
+                "seconds": 0.499178791011218,
+                "publish_seconds": 0.2045944160199724,
+                "operations": 65536,
+                "events_per_second": 131287.62916236804
+              },
+              {
+                "seconds": 0.4933545409585349,
+                "publish_seconds": 0.20620625000447035,
+                "operations": 65536,
+                "events_per_second": 132837.5327663359
+              },
+              {
+                "seconds": 0.49053825001465157,
+                "publish_seconds": 0.20045004202984273,
+                "operations": 65536,
+                "events_per_second": 133600.18306022527
+              },
+              {
+                "seconds": 0.48566095798742026,
+                "publish_seconds": 0.20188595802756026,
+                "operations": 65536,
+                "events_per_second": 134941.8744129264
+              },
+              {
+                "seconds": 0.49412558297626674,
+                "publish_seconds": 0.20415512495674193,
+                "operations": 65536,
+                "events_per_second": 132630.25080639822
+              },
+              {
+                "seconds": 0.49174550001043826,
+                "publish_seconds": 0.20384783402550966,
+                "operations": 65536,
+                "events_per_second": 133272.19059169604
+              },
+              {
+                "seconds": 0.4907551250071265,
+                "publish_seconds": 0.20220904104644433,
+                "operations": 65536,
+                "events_per_second": 133541.1423345774
+              },
+              {
+                "seconds": 0.4916558749973774,
+                "publish_seconds": 0.20336595794651657,
+                "operations": 65536,
+                "events_per_second": 133296.48506762902
+              }
+            ]
+          },
+          "event/global-post": {
+            "workload": {
+              "events": 65536,
+              "queue_capacity": 65536
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.5079693750012666,
+                "publish_seconds": 0.22003179200692102,
+                "operations": 65536,
+                "events_per_second": 129015.65177986682
+              },
+              {
+                "seconds": 0.49470383301377296,
+                "publish_seconds": 0.21087162499316037,
+                "operations": 65536,
+                "events_per_second": 132475.22179229895
+              },
+              {
+                "seconds": 0.5097733329748735,
+                "publish_seconds": 0.21623750001890585,
+                "operations": 65536,
+                "events_per_second": 128559.09825167383
+              },
+              {
+                "seconds": 0.5037781249848194,
+                "publish_seconds": 0.21665316697908565,
+                "operations": 65536,
+                "events_per_second": 130089.01488522318
+              },
+              {
+                "seconds": 0.5006335839862004,
+                "publish_seconds": 0.21352566697169095,
+                "operations": 65536,
+                "events_per_second": 130906.11995739873
+              },
+              {
+                "seconds": 0.5060165000031702,
+                "publish_seconds": 0.21527479198994115,
+                "operations": 65536,
+                "events_per_second": 129513.56329208516
+              },
+              {
+                "seconds": 0.5045750419958495,
+                "publish_seconds": 0.21724241698393598,
+                "operations": 65536,
+                "events_per_second": 129883.55456657542
+              },
+              {
+                "seconds": 0.49863212497439235,
+                "publish_seconds": 0.2131281250040047,
+                "operations": 65536,
+                "events_per_second": 131431.56390769177
+              },
+              {
+                "seconds": 0.5081772080156952,
+                "publish_seconds": 0.21435929101426154,
+                "operations": 65536,
+                "events_per_second": 128962.88728867174
+              },
+              {
+                "seconds": 0.5067104170448147,
+                "publish_seconds": 0.21541408402845263,
+                "operations": 65536,
+                "events_per_second": 129336.20031380536
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    }
+  ],
+  "unpaired_scenarios": []
+}

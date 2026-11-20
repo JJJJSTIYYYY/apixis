@@ -53,7 +53,7 @@ async def observe(event):
 
 ### `priority`
 
-数值越大，排序越靠前；相同优先级按注册顺序执行。`subscribe()` 接受任意有限数值，未指定排序参数时默认优先级为 `1`。事件等待监听器不参与优先级排序：`received` 始终位于普通订阅之前，`processed` 始终位于普通订阅之后。
+数值越大，排序越靠前；相同优先级按注册顺序执行。`subscribe()` 接受 `[-9999, 9999]` 范围内的有限数值，未指定排序参数时默认优先级为 `1`。
 
 ```python
 @subscribe("order.*", priority=100)
@@ -178,23 +178,6 @@ handler.unregister()
 ```
 
 这些实例方法与 `subscribe()` / `unsubscribe()` 使用同一套 registry 语义。
-
-任意已初始化线程中，`subscribe()` / `unsubscribe()` 和实例 `register()` / `unregister()` 都是同步本地操作。工作线程先 `create_core("worker")`，随后可使用普通 `@subscribe` 装饰器。处理器名称仅在当前 core 的 registry 内唯一。
-
-本地订阅和移除直接使用同步接口；显式跨线程接口支持 `thread_ids`，省略时选择主线程 core：
-
-```python
-from apixis import subscribe_threadsafe, unsubscribe_threadsafe
-
-registered = await subscribe_threadsafe(
-    "work.*", group="workers", thread_ids=["worker-a", "worker-b"],
-)(observe_work)
-await unsubscribe_threadsafe(group="workers", thread_ids=["worker-a", "worker-b"], missing_ok=False)
-```
-
-目标需先完成 `await start_core()`。回调在各目标线程执行；跨线程注册 `ApixEventHandler` 时按目标浅拷贝注册对象，避免元数据相互覆盖。字符串目标返回该目标注册对象，目标集合返回按线程 ID 索引的字典。校验和注册错误传播给等待方，并清理其他未完成请求；已生效的修改不会回滚。
-
-`subscribe_threadsafe()` 需显式等待装饰器应用，不能用作 `@` 装饰器。
 
 handler 的 `group` 默认为 `"global"`，必须是非空字符串。可在构造函数、`subscribe()` 或 `register()` 中指定；后两者省略 `group` 或传入 `None` 时保留已有实例的分组，新函数默认使用 `"global"`。handler 名称仍在整个 registry 中唯一。
 

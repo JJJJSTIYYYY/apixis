@@ -1,0 +1,1966 @@
+{
+  "worker_order": [
+    "f8e885d",
+    "51f7bea",
+    "9227e95",
+    "current",
+    "current",
+    "9227e95",
+    "51f7bea",
+    "f8e885d"
+  ],
+  "method": "Serial independent workers in forward/reverse revision order; one warmup then five measured rounds per workload per worker.",
+  "code_comparison": "Normalized AST proof is archived separately. The raw public_code.signature field contains process-local nested code object repr values and is not used for equality.",
+  "summary": {
+    "f8e885d": {
+      "hot_handlers": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 106.52772898902185
+      },
+      "hot_names": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 56.6268959955778
+      },
+      "cold_handlers": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 428.4545796690509
+      },
+      "cold_names": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 394.22895992174745
+      },
+      "request_reply_ms": 234.8020005156286
+    },
+    "51f7bea": {
+      "hot_handlers": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 107.19281248748302
+      },
+      "hot_names": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 57.217041990952566
+      },
+      "cold_handlers": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 431.4885401981883
+      },
+      "cold_names": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 389.21583007322624
+      },
+      "request_reply_ms": 237.11758299032226
+    },
+    "9227e95": {
+      "hot_handlers": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 123.16581248887816
+      },
+      "hot_names": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 56.66052098968066
+      },
+      "cold_handlers": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 455.61500010080636
+      },
+      "cold_names": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 389.33270989218727
+      },
+      "request_reply_ms": 222.6532494823914
+    },
+    "current": {
+      "hot_handlers": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 123.81535451277158
+      },
+      "hot_names": {
+        "queries_per_round": 1000000,
+        "measured_rounds": 10,
+        "ns_per_query": 57.003271009307355
+      },
+      "cold_handlers": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 455.6864552432671
+      },
+      "cold_names": {
+        "queries_per_round": 100000,
+        "measured_rounds": 10,
+        "ns_per_query": 392.8652103058994
+      },
+      "request_reply_ms": 181.0126040072646
+    }
+  },
+  "workers": [
+    {
+      "label": "f8e885d",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+      "public_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 5,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_handlers_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 82"
+          ],
+          [
+            "STORE_FAST",
+            "name"
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "registry"
+          ],
+          [
+            "LOAD_FAST",
+            "name"
+          ],
+          [
+            "BINARY_SUBSCR",
+            ""
+          ],
+          [
+            "LIST_APPEND",
+            ""
+          ],
+          [
+            "JUMP_BACKWARD",
+            "to 44"
+          ]
+        ],
+        "signature": "5ac7ce598deef3e32787bad6c42558a84c1227d098d889e16d8db4c310898038"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.10408666700823233,
+            0.10473995801294222,
+            0.1054578329785727,
+            0.10520633397391066,
+            0.10485608398448676
+          ],
+          "ns_per_query": 104.85608398448676
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.055885625013615936,
+            0.05607541702920571,
+            0.056026041973382235,
+            0.05617104202974588,
+            0.05632437497843057
+          ],
+          "ns_per_query": 56.07541702920571
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.042945625027641654,
+            0.04235108301509172,
+            0.042776166985277086,
+            0.042185792000964284,
+            0.043799083039630204
+          ],
+          "ns_per_query": 427.76166985277086
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.04057233297498897,
+            0.03928954200819135,
+            0.038894624973181635,
+            0.0385796669870615,
+            0.03882266697473824
+          ],
+          "ns_per_query": 388.94624973181635
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.23601337504805997,
+          0.23493158299243078,
+          0.23840620799455792,
+          0.2341009160154499,
+          0.23462879203725606
+        ]
+      }
+    },
+    {
+      "label": "51f7bea",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+      "public_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 5,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_handlers_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 82"
+          ],
+          [
+            "STORE_FAST",
+            "name"
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "registry"
+          ],
+          [
+            "LOAD_FAST",
+            "name"
+          ],
+          [
+            "BINARY_SUBSCR",
+            ""
+          ],
+          [
+            "LIST_APPEND",
+            ""
+          ],
+          [
+            "JUMP_BACKWARD",
+            "to 44"
+          ]
+        ],
+        "signature": "5ac7ce598deef3e32787bad6c42558a84c1227d098d889e16d8db4c310898038"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.10601208300795406,
+            0.10716025001602247,
+            0.10722537495894358,
+            0.10649612499400973,
+            0.10652291600126773
+          ],
+          "ns_per_query": 106.52291600126773
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.05599329195683822,
+            0.05664124997565523,
+            0.05626670800847933,
+            0.05736687500029802,
+            0.05674929200904444
+          ],
+          "ns_per_query": 56.64124997565523
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04381091700633988,
+            0.04199795797467232,
+            0.044417250028345734,
+            0.04349195898976177,
+            0.04343483300181106
+          ],
+          "ns_per_query": 434.9195898976177
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.03897729201707989,
+            0.03850266698282212,
+            0.03960191702935845,
+            0.03846499999053776,
+            0.041636208014097065
+          ],
+          "ns_per_query": 389.7729201707989
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.23722912499215454,
+          0.2368378330138512,
+          0.23751366598298773,
+          0.23676166700897738,
+          0.23740858398377895
+        ]
+      }
+    },
+    {
+      "label": "9227e95",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "9e9af3916e31f2bddb49b88e000950c084e5beaeb104744a411ac3b60de711ab",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "6a15b75cc9e0495acf6fc8902c8e914c9b078e79705900d5c68c3a863bf25279"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.124776708020363,
+            0.12445975001901388,
+            0.12472199997864664,
+            0.12361983297159895,
+            0.12462550000054762
+          ],
+          "ns_per_query": 124.62550000054762
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.056643999996595085,
+            0.056551957968622446,
+            0.05636704101925716,
+            0.056501541985198855,
+            0.056518750032410026
+          ],
+          "ns_per_query": 56.518750032410026
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04535620904061943,
+            0.04530216596322134,
+            0.04555554100079462,
+            0.045735874969977885,
+            0.045914874994196
+          ],
+          "ns_per_query": 455.5554100079462
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.03884304198436439,
+            0.03817604196956381,
+            0.038486915989778936,
+            0.03830245800781995,
+            0.03870475001167506
+          ],
+          "ns_per_query": 384.86915989778936
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.22206041601020843,
+          0.22307054098928347,
+          0.2254152920213528,
+          0.22223595797549933,
+          0.23551395896356553
+        ]
+      }
+    },
+    {
+      "label": "current",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "a184145fd608874f0c1d12943c44044e0dc9eb00a5b8bc37b4c19c7ebc0236e4"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12341370800277218,
+            0.13448524998966604,
+            0.12999462499283254,
+            0.12363899999763817,
+            0.12341720896074548
+          ],
+          "ns_per_query": 123.63899999763817
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.056762541993521154,
+            0.056387374992482364,
+            0.05671929201344028,
+            0.0576425829785876,
+            0.05757962499046698
+          ],
+          "ns_per_query": 56.762541993521154
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.045306375017389655,
+            0.04541608301224187,
+            0.04544549999991432,
+            0.04525849997298792,
+            0.045295541000086814
+          ],
+          "ns_per_query": 453.06375017389655
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.0394399170181714,
+            0.03812183300033212,
+            0.03983845794573426,
+            0.04061112500494346,
+            0.039133125043008476
+          ],
+          "ns_per_query": 394.399170181714
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.17948704201262444,
+          0.17969925003126264,
+          0.18032516702078283,
+          0.18197045801207423,
+          0.18442783295176923
+        ]
+      }
+    },
+    {
+      "label": "current",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "e4a85c4a3fed1c66a6e1234c691b6118a375dc5bbc98b0c1800b342552d389b7",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "aab5d2dd42e003ae77373cda290ca3a1625759b96ebf329044c5d812ce9ec37e"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12401079200208187,
+            0.12386891699861735,
+            0.12447520904242992,
+            0.12376179202692583,
+            0.12355249997926876
+          ],
+          "ns_per_query": 123.86891699861735
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.057329999981448054,
+            0.056968500022776425,
+            0.05728212499525398,
+            0.056862000026740134,
+            0.057038041995838284
+          ],
+          "ns_per_query": 57.038041995838284
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04583808296592906,
+            0.04579212499083951,
+            0.0464975829818286,
+            0.04593629203736782,
+            0.045691791048739105
+          ],
+          "ns_per_query": 458.3808296592906
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.04033854202134535,
+            0.03972241602605209,
+            0.03849591698963195,
+            0.03901183302514255,
+            0.03882187500130385
+          ],
+          "ns_per_query": 390.1183302514255
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.1809965409920551,
+          0.1807010000338778,
+          0.18219041696283966,
+          0.1810286670224741,
+          0.18185491597978398
+        ]
+      }
+    },
+    {
+      "label": "9227e95",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "9e9af3916e31f2bddb49b88e000950c084e5beaeb104744a411ac3b60de711ab",
+      "public_code": {
+        "cellvars": [
+          "self"
+        ],
+        "locals": 7,
+        "stacksize": 5,
+        "head": [
+          [
+            "MAKE_CELL",
+            "self"
+          ],
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_subscription_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ],
+          [
+            "LOAD_DEREF",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "_waiter_cache"
+          ],
+          [
+            "LOAD_ATTR",
+            "positions"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 140"
+          ],
+          [
+            "LOAD_FAST",
+            "chain"
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 132"
+          ]
+        ],
+        "signature": "17fd307dd5f08b4c06b8a992d0580981bf0f39f519aefb5a71c9756396f56aa5"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.12221954099368304,
+            0.12258687504800037,
+            0.1225384579738602,
+            0.12271179200615734,
+            0.1224647500202991
+          ],
+          "ns_per_query": 122.53845797386019
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.05688516702502966,
+            0.05667704198276624,
+            0.057086832995992154,
+            0.05716520902933553,
+            0.05680479103466496
+          ],
+          "ns_per_query": 56.88516702502966
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04523333301767707,
+            0.04564858297817409,
+            0.04518237500451505,
+            0.04556745901936665,
+            0.04577341699041426
+          ],
+          "ns_per_query": 455.6745901936665
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.03984566603321582,
+            0.03902349999407306,
+            0.03975758404703811,
+            0.03941287501947954,
+            0.03994925000006333
+          ],
+          "ns_per_query": 397.5758404703811
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.22419008403085172,
+          0.22343249997356907,
+          0.22166575002484024,
+          0.22161249996861443,
+          0.22105020796880126
+        ]
+      }
+    },
+    {
+      "label": "51f7bea",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "5b095fd3525161b23a72d28ecf8233d36981dba5989a4df426f2b89c8fdaccee",
+      "public_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 5,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_handlers_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 82"
+          ],
+          [
+            "STORE_FAST",
+            "name"
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "registry"
+          ],
+          [
+            "LOAD_FAST",
+            "name"
+          ],
+          [
+            "BINARY_SUBSCR",
+            ""
+          ],
+          [
+            "LIST_APPEND",
+            ""
+          ],
+          [
+            "JUMP_BACKWARD",
+            "to 44"
+          ]
+        ],
+        "signature": "5ac7ce598deef3e32787bad6c42558a84c1227d098d889e16d8db4c310898038"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.10676116601098329,
+            0.10765820799861103,
+            0.10725229204399511,
+            0.10733016696758568,
+            0.1080440409714356
+          ],
+          "ns_per_query": 107.33016696758568
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.05726933397818357,
+            0.05737908300943673,
+            0.05734045896679163,
+            0.057164750003721565,
+            0.05736420798348263
+          ],
+          "ns_per_query": 57.34045896679163
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.0428628750378266,
+            0.042187417042441666,
+            0.042769833002239466,
+            0.04197983298217878,
+            0.0442171249887906
+          ],
+          "ns_per_query": 427.69833002239466
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.0388692919514142,
+            0.03991749999113381,
+            0.03892516600899398,
+            0.038786582998000085,
+            0.038918000005651265
+          ],
+          "ns_per_query": 389.18000005651265
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.23567483300575987,
+          0.23767854197649285,
+          0.23708820797037333,
+          0.2371469580102712,
+          0.23619124997640029
+        ]
+      }
+    },
+    {
+      "label": "f8e885d",
+      "mode": "history",
+      "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+      "gc": true,
+      "source_sha256": "f6ca6076a810c9a0fa3a8496fda7387590bae2e4e7f6c697d75cea3813332b76",
+      "public_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 5,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get_handlers_chain_for_event"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "GET_ITER",
+            ""
+          ],
+          [
+            "LOAD_FAST_AND_CLEAR",
+            "name"
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "BUILD_LIST",
+            ""
+          ],
+          [
+            "SWAP",
+            ""
+          ],
+          [
+            "FOR_ITER",
+            "to 82"
+          ],
+          [
+            "STORE_FAST",
+            "name"
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "registry"
+          ],
+          [
+            "LOAD_FAST",
+            "name"
+          ],
+          [
+            "BINARY_SUBSCR",
+            ""
+          ],
+          [
+            "LIST_APPEND",
+            ""
+          ],
+          [
+            "JUMP_BACKWARD",
+            "to 44"
+          ]
+        ],
+        "signature": "5ac7ce598deef3e32787bad6c42558a84c1227d098d889e16d8db4c310898038"
+      },
+      "ordinary_code": {
+        "cellvars": [],
+        "locals": 3,
+        "stacksize": 4,
+        "head": [
+          [
+            "RESUME",
+            ""
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + isinstance"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "str"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "POP_JUMP_IF_FALSE",
+            "to 38"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "POP_JUMP_IF_TRUE",
+            "to 60"
+          ],
+          [
+            "LOAD_GLOBAL",
+            "NULL + ValueError"
+          ],
+          [
+            "LOAD_CONST",
+            "'event_name must be a non-empty string.'"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "RAISE_VARARGS",
+            ""
+          ],
+          [
+            "LOAD_FAST",
+            "self"
+          ],
+          [
+            "LOAD_ATTR",
+            "cached_chain"
+          ],
+          [
+            "LOAD_ATTR",
+            "NULL|self + get"
+          ],
+          [
+            "LOAD_FAST",
+            "event_name"
+          ],
+          [
+            "CALL",
+            ""
+          ],
+          [
+            "STORE_FAST",
+            "chain"
+          ]
+        ],
+        "signature": "4399e6dfd3ec6b8846404ea6226ed4dd9d51e052c5499d9e6eece7e677fbc1df"
+      },
+      "measurements": {
+        "hot_handlers": {
+          "queries": 1000000,
+          "seconds": [
+            0.10794045904185623,
+            0.1079564579995349,
+            0.10800662502879277,
+            0.1076782500022091,
+            0.10759762499947101
+          ],
+          "ns_per_query": 107.94045904185623
+        },
+        "hot_names": {
+          "queries": 1000000,
+          "seconds": [
+            0.05700616701506078,
+            0.05724529200233519,
+            0.056929417012725025,
+            0.057259167020674795,
+            0.0569876249646768
+          ],
+          "ns_per_query": 57.00616701506078
+        },
+        "cold_handlers": {
+          "queries": 100000,
+          "seconds": [
+            0.04282391595188528,
+            0.042181458964478225,
+            0.044163167010992765,
+            0.04289325000718236,
+            0.04286699998192489
+          ],
+          "ns_per_query": 428.6699998192489
+        },
+        "cold_names": {
+          "queries": 100000,
+          "seconds": [
+            0.04006987495813519,
+            0.038832042017020285,
+            0.039602542005013674,
+            0.03955624997615814,
+            0.04020466702058911
+          ],
+          "ns_per_query": 396.02542005013674
+        }
+      },
+      "path_counts": {
+        "get": 100000,
+        "resolve": 100000,
+        "move_to_end": 100000,
+        "popitem": 91808,
+        "retained": 8192,
+        "waiter_cache_get": 0
+      },
+      "request_reply": {
+        "roundtrips": 2048,
+        "seconds": [
+          0.2347458340227604,
+          0.2395218750461936,
+          0.23485816700849682,
+          0.2343700419878587,
+          0.2346437499509193
+        ]
+      }
+    }
+  ]
+}

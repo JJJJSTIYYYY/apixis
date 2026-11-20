@@ -3,7 +3,7 @@
 from apixis.core.event.base.event import (
     ApixEvent, ApixEventError, EventType, EventPredicate, EventHandlerFunc, EventHandlerErrorFunc,
 )
-from apixis.core.event.base.status import EventLoopStatus, EventRuntimeStatus, EventThreadBridgeStatus
+from apixis.core.event.base.status import EventLoopStatus, EventRuntimeStatus
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.base.process import HandlerChainToken, handler_chain_token_context, suspend_process
 
@@ -11,7 +11,6 @@ from apixis.core.event.base.process import HandlerChainToken, handler_chain_toke
 __all__ = [
     "EventLoopStatus",
     "EventRuntimeStatus",
-    "EventThreadBridgeStatus",
     "EventType",
     "ApixEvent",
     "ApixEventError",

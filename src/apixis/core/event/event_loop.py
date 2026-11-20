@@ -47,7 +47,7 @@ class ApixEventLoop:
         self._started = False
 
     def get_status(self) -> EventLoopStatus:
-        """Read tracked work on the owner thread without starting consumption."""
+        """Read tracked work on the runtime loop without starting consumption."""
         return EventLoopStatus(
             running=self._started,
             dispatch_capacity=self._event_semaphore.capacity,

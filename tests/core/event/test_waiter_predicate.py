@@ -3,13 +3,11 @@
 import asyncio
 from contextlib import AsyncExitStack
 from functools import partial
-from threading import get_ident
 
 import pytest
 
 from apixis import (
-    EventWaiter, expect_event, expect_event_threadsafe, post_event, subscribe,
-    wait_event, wait_event_threadsafe,
+    EventWaiter, expect_event, post_event, subscribe, wait_event,
 )
 from apixis.core.event.subscription import waiter as waiter_module
 
@@ -117,20 +115,19 @@ async def test_invalid_predicate_fails_before_registration(monkeypatch, predicat
 
 
 @pytest.mark.parametrize("use_context", [False, True])
-@pytest.mark.parametrize("explicit", [False, True])
 @pytest.mark.parametrize("fail", [False, True])
-async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_error(
-    cleanup_event_runtime, use_context, explicit, fail,
+async def test_predicate_runs_on_runtime_loop_and_propagates_result_or_error(
+    cleanup_event_runtime, use_context, fail,
 ):
     core = cleanup_event_runtime
-    owner = get_ident()
+    owner = asyncio.get_running_loop()
     seen = []
-    failure = LookupError("worker predicate failed")
-    expect = expect_event_threadsafe if explicit else expect_event
-    wait = wait_event_threadsafe if explicit else wait_event
+    failure = LookupError("predicate failed")
+    expect = expect_event
+    wait = wait_event
 
     def predicate(event):
-        seen.append((get_ident(), event.context))
+        seen.append((asyncio.get_running_loop(), event.context))
         if event.context == 7 and fail:
             raise failure
         return event.context == 7
@@ -141,9 +138,7 @@ async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_erro
                 return await waiter.wait()
         return await wait("job.reply", predicate=predicate, time_out=3)
 
-    task = asyncio.create_task(
-        asyncio.to_thread(lambda: asyncio.run(worker())) if explicit else worker(),
-    )
+    task = asyncio.create_task(worker())
     try:
         async with asyncio.timeout(3):
             while not core.handler_registry.waiter_count:
@@ -157,9 +152,6 @@ async def test_worker_predicate_runs_on_owner_loop_and_propagates_result_or_erro
         else:
             assert (await asyncio.wait_for(task, 3)).context == 7
         assert seen == [(owner, 0), (owner, 7)]
-        async with asyncio.timeout(3):
-            while core.endpoint.get_status().active_requests:
-                await asyncio.sleep(0)
         assert not core.handler_registry.registry
     finally:
         task.cancel()

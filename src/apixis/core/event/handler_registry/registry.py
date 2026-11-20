@@ -257,7 +257,8 @@ class ApixHandlerRegistry:
             return [self.registry[name] for name in chain]
         received, processed = self._waiter_cache.get(event_name)
         handlers = received.copy()
-        handlers.extend(self.registry[name] for name in chain)
+        for name in chain:
+            handlers.append(self.registry[name])
         handlers.extend(processed)
         return handlers
 

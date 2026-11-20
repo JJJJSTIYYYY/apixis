@@ -28,17 +28,14 @@ from apixis.core.event import factory
 @pytest.fixture
 async def fresh_core(monkeypatch):
     """Keep test-owned factory components separate from the shared test core."""
-    monkeypatch.setattr(factory._local, "core", None)
+    monkeypatch.setattr(factory, "_core", None)
     yield
-    core = factory._local.core
+    core = factory._core
     if core is not None:
         if core.start_task is not None:
             await asyncio.gather(core.start_task, return_exceptions=True)
         await core.event_loop.stop()
         await core.event_pipe.stop()
-        if core.endpoint is not None:
-            await core.endpoint.close()
-        factory.get_thread_bridge().unregister(core.thread_id)
 
 
 def components():
@@ -74,7 +71,7 @@ async def test_stop_without_a_core_does_not_construct_one(fresh_core):
     assert apixis.stop_core is apixis.core.stop_core is stop_core
     await stop_core()
     await stop_core()
-    assert factory._local.core is None
+    assert factory._core is None
 
 
 @pytest.mark.parametrize("startup_state", ["not_scheduled", "scheduled", "running"])
@@ -106,7 +103,7 @@ async def test_stop_cancels_automatic_startup(fresh_core, monkeypatch, startup_s
 
 async def test_start_waits_for_stop_to_finish(fresh_core, monkeypatch):
     await start_core()
-    core = factory._local.core
+    core = factory._core
     entered, release = asyncio.Event(), asyncio.Event()
     original_stop = core.event_loop.stop
 
@@ -135,7 +132,7 @@ async def test_start_waits_for_stop_to_finish(fresh_core, monkeypatch):
 @pytest.mark.parametrize("failure", [RuntimeError, asyncio.CancelledError])
 async def test_stop_resets_pipe_when_consumer_stop_fails(fresh_core, monkeypatch, failure):
     await start_core()
-    core = factory._local.core
+    core = factory._core
     original_stop = core.event_loop.stop
 
     async def fail_stop():
@@ -363,10 +360,25 @@ async def test_getters_share_one_startup_attempt(fresh_core, monkeypatch, wait_f
         release.set()
 
 
+async def test_graph_invocation_starts_core_through_getters(fresh_core):
+    """Graph invocation and restart require no explicit runtime startup."""
+    from apixis.core.graph import NodeGraph
+
+    graph = NodeGraph({}, None)
+    try:
+        assert await asyncio.wait_for(graph.invoke({"value": 1}), 1) == {"value": 1}
+        core = factory._core
+        await core.event_loop.stop()
+        await core.event_pipe.stop()
+        assert await asyncio.wait_for(graph.invoke({"value": 2}), 1) == {"value": 2}
+    finally:
+        graph.decompose()
+
+
 async def test_explicit_start_returns_when_restart_has_signalled_started(fresh_core, monkeypatch, wait_for_dispatch):
     """Startup is a signal, not a barrier for every ongoing startup task."""
     await start_core()
-    core = factory._local.core
+    core = factory._core
     await core.event_pipe.stop()
     entered, release = asyncio.Event(), asyncio.Event()
     original_start = core.event_pipe.start
