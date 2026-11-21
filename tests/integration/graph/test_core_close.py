@@ -264,7 +264,7 @@ async def test_graph_cannot_silently_move_to_a_new_core(cleanup_event_runtime):
 async def test_old_graph_cleanup_does_not_touch_the_replacement_registry(
     cleanup_event_runtime,
 ):
-    from apixis import create_core
+    from apixis import create_core, is_registered
 
     old = (
         GraphManager()
@@ -273,6 +273,11 @@ async def test_old_graph_cleanup_does_not_touch_the_replacement_registry(
     )
     await close_core()
     replacement = create_core()
+
+    @subscribe("replacement-listener", group=old.handler_group)
+    async def replacement_listener(event):
+        pass
+
     current = (
         GraphManager()
         .add_node(lambda state: {"new": True}, "node")
@@ -280,6 +285,7 @@ async def test_old_graph_cleanup_does_not_touch_the_replacement_registry(
     )
     old.decompose()
     try:
+        assert is_registered(replacement_listener.__name__)
         await start_core()
         assert await asyncio.wait_for(current.invoke({}), 1) == {"new": True}
         assert current.handler_group in replacement._handler_registry._group_handlers

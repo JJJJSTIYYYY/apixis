@@ -9,15 +9,18 @@ from functools import wraps
 from typing import Any
 
 from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
-from apixis.core.event.factory import get_core
-from apixis.core.event.base import suspend_process
 from apixis.core.event import (
     ApixEvent,
-    EventType,
-)
-from apixis.core.event.base.handler import ApixEventHandler
-from apixis.core.utils.exception import (
     CoreClosedError,
+    CoreState,
+    EventType,
+    get_core,
+    post_event,
+    subscribe,
+    unsubscribe,
+)
+from apixis.core.event.base import suspend_process
+from apixis.core.utils.exception import (
     GraphNodeError,
     InvalidContextError,
 )
@@ -39,7 +42,7 @@ from apixis.core.graph.context.graph_context import GraphContext, GraphContextSn
 from apixis.core.graph.context.manager import apix_graph_context
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.graph.interrupter.graph_interrupter import (
-    create_interrupted_handler,
+    register_interrupted_hook,
 )
 from apixis.core.graph.node import BaseNode, _NodeBinding
 from apixis.core.graph.context.stream_writer import (
@@ -109,20 +112,18 @@ class NodeGraph:
         self._contexts: set[GraphContext] = set()  # Running attempts only.
         self._namespace = using_namespace or uuid4().hex
         self._core = get_core()
-        self._handler_registry = self._core._handler_registry
-        self._event_pipe = self._core._event_pipe
 
         # Acquisition validates ownership and synchronously retires the old graph.
         # Only an acquired namespace needs cleanup if registration fails.
         acquire_namespace(self, replace_existed=exist_ok)
         try:
             self._register_dispatch_handler()
-            self._decomposed = False
             self._core.add_close_task_done_callback(self._on_core_closed)
         except BaseException:
-            self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
+            unsubscribe(group=self.handler_group)
             release_namespace(self, decompose_immediately=False)
             raise
+        self._decomposed = False
 
     def __del__(self):
         """Release the graph's namespace and unregister its event handlers."""
@@ -176,9 +177,7 @@ class NodeGraph:
 
         async def on_dispatch_failure(event: ApixEvent, error: Exception) -> None:
             """Complete an invocation after this handler's own dispatch failure."""
-            context: GraphContext = event.context
-            if self._is_active_context(context):
-                self._fail(context, error)
+            self._fail(event.context, error)
 
         async def on_dispatch_error(event: ApixEvent) -> None:
             """Fail the invocation when a preceding event handler failed."""
@@ -204,16 +203,17 @@ class NodeGraph:
             if self._is_active_context(context):
                 context._cancel()
 
-        dispatch_node.__name__ = self.dispatch_name
-        handler = ApixEventHandler(
-            dispatch_node,
+        dispatch_name = self.dispatch_name
+        subscribe(
+            dispatch_name,
+            name=dispatch_name,
+            exist_ok=False,
+            group=self.handler_group,
             on_accepted=on_dispatch_accepted,
             on_has_error=on_dispatch_error,
             on_error=on_dispatch_failure,
             on_cancelled=on_dispatch_cancelled,
-            group=self.handler_group,
-        )
-        handler.register(self.dispatch_name, exist_ok=False)
+        )(dispatch_node)
 
     def _is_active_block(self, block: Block) -> bool:
         """Return whether the block belongs to an active attempt of this graph."""
@@ -238,7 +238,7 @@ class NodeGraph:
         """Reject business operations on an invalidated graph."""
         if self._decomposed:
             raise RuntimeError("NodeGraph has been decomposed.")
-        if self._event_pipe.closed:
+        if self._core.state in (CoreState.CLOSING, CoreState.CLOSED):
             raise CoreClosedError("This graph belongs to a closed event core.")
 
     def decompose(self, *, force: bool = True) -> None:
@@ -261,7 +261,9 @@ class NodeGraph:
         # Terminal transitions remove contexts from the running set immediately.
         for context in tuple(self._contexts):
             context.abort()
-        self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
+        # Closing the previous core already removed its groups before replacement.
+        if get_core() is self._core:
+            unsubscribe(group=self.handler_group)
         release_namespace(self, decompose_immediately=False)
 
     def _is_active_context(self, context: object) -> bool:
@@ -460,10 +462,10 @@ class NodeGraph:
             raise RuntimeError("Completion in GraphContext could not be None.")
         with apix_graph_context(context):
             try:
-                if self._is_active_context(context):
-                    await self._post_next(context.target_node_name, context)
-                # A parent handler must lend its permit while child dispatches run.
+                # Lend the caller's permit once for publication and completion.
                 async with suspend_process():
+                    if self._is_active_context(context):
+                        await self._post_next(context.target_node_name, context)
                     result = await completion
                 # Checkpoint history must stay isolated even when output contains
                 # KeepRef fields. Normal completion follows the graph's copy policy.
@@ -719,7 +721,9 @@ class NodeGraph:
         )
         context._set_target_node(target)
         try:
-            await self._event_pipe.post_event(
+            if get_core() is not self._core:
+                raise CoreClosedError("This graph belongs to a closed event core.")
+            await post_event(
                 event_type=EventType.WORKFLOW,
                 event_name=self.dispatch_name,
                 context=context,
@@ -763,11 +767,11 @@ class NodeGraph:
             if self._is_active_block(block):
                 await afunc(block)
 
-        dispatch_owned_block.__name__ = name or get_graph_interrupted_name(
-            self.namespace, missing_ok=True
-        )
-        create_interrupted_handler(dispatch_owned_block).register(
-            get_graph_interrupted_name(self.namespace, missing_ok=True),
+        event_name = get_graph_interrupted_name(self)
+        register_interrupted_hook(
+            dispatch_owned_block,
+            event_name,
+            name=name or event_name,
             exist_ok=False,
             group=self.handler_group,
         )

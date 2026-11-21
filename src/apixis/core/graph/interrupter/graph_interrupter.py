@@ -13,7 +13,6 @@ from apixis.core.graph.utils.namespace import (
     get_graph_namespace,
 )
 from apixis.core.event import ApixEvent, EventType, post_and_wait, subscribe
-from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.utils.exception import (
     BlockHookNotRegisteredError, BlockNotResolvedError, GraphNodeError,
@@ -157,8 +156,15 @@ async def interrupt(
             future.exception()
 
 
-def create_interrupted_handler(func: InterruptedHandler) -> ApixEventHandler:
-    """Adapt a Block callback and preserve its own exception for the waiting node."""
+def register_interrupted_hook(
+    func: InterruptedHandler,
+    event_name: str,
+    *,
+    exist_ok: bool,
+    name: str | None = None,
+    group: str | None = None,
+) -> None:
+    """Subscribe a Block callback and pass its exception to the waiting node."""
     if not callable(func):
         raise TypeError("Interrupted hook must be callable.")
 
@@ -174,7 +180,9 @@ def create_interrupted_handler(func: InterruptedHandler) -> ApixEventHandler:
         if isinstance(event.context, Block):
             event.context.fail(error)
 
-    return ApixEventHandler(dispatch_block, on_error=on_failure)
+    subscribe(
+        event_name, name=name, exist_ok=exist_ok, group=group, on_error=on_failure,
+    )(dispatch_block)
 
 
 def interrupted_hook(
@@ -199,7 +207,7 @@ def interrupted_hook(
     event_name = get_graph_interrupted_name(namespace, missing_ok=True)
 
     def decorator(func: InterruptedHandler) -> InterruptedHandler:
-        subscribe(event_name, exist_ok=exist_ok)(create_interrupted_handler(func))
+        register_interrupted_hook(func, event_name, exist_ok=exist_ok)
         return func
 
     return decorator
