@@ -40,6 +40,7 @@ class ApixEvent:
     accepted: bool = False
     seen: list[str] = field(default_factory=list) # Handler names recorded immediately before core execution.
     error_stack: list[ApixEventError] = field(default_factory=list)
+    cancelled: bool = False
     _execution_context: Context | None = field(
         default=None, init=False, repr=False, compare=False,
     )

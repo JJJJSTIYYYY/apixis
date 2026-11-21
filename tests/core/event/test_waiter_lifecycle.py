@@ -35,6 +35,8 @@ async def test_future_completion_cleans_up_without_a_wait_call(outcome, wait_for
     baseline = set(registry.registry)
     waiter = EventWaiter("reply", time_out=60)
     future = waiter._future
+    assert waiter.active
+    assert waiter in registry._waiter_cache.waiters
     try:
         if outcome == "success":
             await post_event(event_name="reply")
@@ -43,10 +45,14 @@ async def test_future_completion_cleans_up_without_a_wait_call(outcome, wait_for
             future.set_exception(ValueError("collection failed"))
         else:
             future.cancel()
+        # Future state is authoritative even before its cleanup callback runs.
+        assert not waiter.active
+        await registry.cancel_waiters()
         await asyncio.sleep(0)
         assert future.done()
         assert waiter._timeout_handle is None
         assert set(registry.registry) == baseline
+        assert waiter not in registry._waiter_cache.waiters
         if outcome == "success":
             result = await waiter.wait()
             assert result.event_name == "reply"

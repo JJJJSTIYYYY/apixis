@@ -1,0 +1,93 @@
+{
+  "baseline_commit": "a2a288a",
+  "source_sha256_excluding_version": {
+    "before": "43bc003176db519ef0b4d390375f6de2516bb1fe8669589a7e186eb28a7f7ea8",
+    "after": "8f34f5d66ddd21f92ab0f609aa47ea59b0d37a8b37dc92731587c5861bd3a06a"
+  },
+  "runtime_files_sha256": {
+    "apixis/_version.py": "ce6c3e90184157c7621c8605c4bd346888050bd83f335bd4aa1a9579e6dc205d",
+    "apixis/__init__.py": "2e45055243d7a47e2a86c9de240cad060c8d4edbac7b978c355782e945af5f4e",
+    "apixis/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "apixis/core/__init__.py": "a2d6a50c0a48f39592382589ab283a7c3b91681003181adf41f32059799374ba",
+    "apixis/core/config/core_config.py": "c9f3f5ae9e99b61af18090674f38445e34911e57ffbe1f60f2773c3d3c2c47e9",
+    "apixis/core/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "apixis/core/config/base.py": "d88bdc95e32f7f4404322f4ee26018cdf831aa18740b346289778e21baa020f8",
+    "apixis/core/graph/__init__.py": "34e4136e303fe359ac457e2192389712015796128d1a48867e74f7c4e84c8d2b",
+    "apixis/core/graph/graph_manager.py": "0918ad356d208179deacd49ef40b46eba62522f562d2ef14b847d8db4f5aede3",
+    "apixis/core/graph/node.py": "2a22fa3d06f1ec898951deecae3c85610a59e5779629496031e2b2c0d01e9a88",
+    "apixis/core/graph/base.py": "b6796222f90f89f7afa0f6785bd26cdf91899dbcd3e1bb3967cede594980f6d2",
+    "apixis/core/graph/node_graph.py": "06577bb91ba0a4f0d1bd3dc48fe567f364a68bbb1107f47a2e433791886a7ca0",
+    "apixis/core/utils/exception.py": "805f2e7740e8cf7514753347045df62ad6cd57df86f1c42a36c1695ba2132b5c",
+    "apixis/core/utils/semaphore.py": "fd759d7ca6f444ebf2f825875719b23e03c2a42abaaafa5110a7449cb24d47ae",
+    "apixis/core/utils/__init__.py": "5b037569aebdaa71adf5e56983c58e5e9e7c02c502dd7793033360119fa6d6e9",
+    "apixis/core/utils/logger.py": "0dcc25fa98fb300f890029796ba783c637b9d301898c614d16f69d3e6f383682",
+    "apixis/core/utils/validation.py": "f4f41f215f9fa03653e6f34561bc77d8efc9e365d2889160d9cda76a0bbf95a3",
+    "apixis/core/event/event_registry.py": "183aa7c5552dc5aac87d39cf27e121469b61a9caac1544e5aff1f71d32173325",
+    "apixis/core/event/__init__.py": "3e8ee909cd5bf76aa88ed21f53c039f7e7de17bc0ed45ff4d1005d7cec9ddbaa",
+    "apixis/core/event/core.py": "704df75f6bd7edbdc9a1d54e5bca95b85374d10ef72fc85bcdb32d14cebd57a6",
+    "apixis/core/event/factory.py": "d6906ea3e2be5a013e55f5361891e517a5ae7981b0dc10c846098f13a603781d",
+    "apixis/core/event/event_loop.py": "c69934d66c34507c7ce223dc079b8120b3c3cad19322fbbcc58fd4986b5c4d7e",
+    "apixis/core/event/event_pipe.py": "6e6f0d724a5a321d6cfca01826581439ddd5e6792eb8858f3be34f2ee0fb3fe2",
+    "apixis/core/graph/context/stream_writer.py": "c5937ab4b2ff4f4b2e5a2f114a22c1505012bf3c5cdf2b0aa78d5c998967d813",
+    "apixis/core/graph/context/__init__.py": "a025f60f36e49bedd03fe5ce5266491d7b8acfb363099a841c5347012ed58d5f",
+    "apixis/core/graph/context/graph_context.py": "b355012c1f9a876f93b2dfa4da2176db4439e211170b0e747736e78f20259f29",
+    "apixis/core/graph/context/manager.py": "027d2c4183becfd3a9ccab818c9dcc3985cf1d1f314b9a34675b9f6fc3f4c414",
+    "apixis/core/graph/interrupter/__init__.py": "01e5d8ec7f175a90b48dcb8e50f9bcafe92e4258926d9a283717fb72dd4f4948",
+    "apixis/core/graph/interrupter/graph_interrupter.py": "bd64c845334d4905c5f0aca9f3f0a492c4855045c91baf1f5ffb8316a7b0d07e",
+    "apixis/core/graph/interrupter/block.py": "a045034d34a217794b9096f0bf24ccea28e2ce96e3386226e8e11560b66dd4c4",
+    "apixis/core/graph/utils/__init__.py": "0e87e54c3894eec224965c0927112de3468f3091d583a02161c13590b32aa8c3",
+    "apixis/core/graph/utils/validate.py": "7d0dae92ab13f8a53c5d0eac8405d8d9304d6951976128d3ad87eae1e22506a6",
+    "apixis/core/graph/utils/namespace.py": "9a3b203febb93b2fc443e93102774a2f6bd6199f13ca58db80f375d569c391a3",
+    "apixis/core/graph/utils/state.py": "3a56d81ddc15af9743e269ecbd613d28460229156bb99e2dac486a8df87fc3bb",
+    "apixis/core/event/handler_registry/registry.py": "377bd4474dea3ca9c010a5e8f222d2c0863a89c45b183bfb6bf57cbc977b7652",
+    "apixis/core/event/handler_registry/waiter_cache.py": "72c681e500d77f81ac13c220d266c055167e366c97b73e6db25ad9ae91d5ab2f",
+    "apixis/core/event/handler_registry/__init__.py": "43c31550e7ab23107c05792c2cfd718887e533e6c7a0950eb28cc65fb05ce533",
+    "apixis/core/event/handler_registry/matching.py": "cdc45524438e7430e9e7a120650859601c81250e128147c7dbbed8dea5df8be6",
+    "apixis/core/event/subscription/subscriber.py": "65d23c5dbbe8a10060116edea6d2ce111fd738c10424011826e12c1a88288ac6",
+    "apixis/core/event/subscription/__init__.py": "95464b44405406a7c415d5a691ce7de78afd022b8435012209348490bc40bcc7",
+    "apixis/core/event/subscription/waiter.py": "81aeb3d2d52fa22c98d1228599f2553c98df6e6e0591acaa860dd06eadfb538f",
+    "apixis/core/event/subscription/publication.py": "1c21822ffc97bb00652090ddd2ebf367f798290008ad5be0a8247920c995fae4",
+    "apixis/core/event/base/event.py": "4dc461c73e282d8178a87900838b9724c847550c9db52f7524ac95ed0b7061f4",
+    "apixis/core/event/base/handler.py": "cbe25d1493e12121dcb4d1b856490ba08745808851c00427c1dfd2949ce68b61",
+    "apixis/core/event/base/__init__.py": "571dd16c9621c352be60c04066a069f59ab5405d5ef35f4a11c8b58c4ca71d9d",
+    "apixis/core/event/base/process.py": "e01ffac07c49aba578b1a449835168cf747aefa1c09c8859047f2f17a6781d71",
+    "apixis/core/event/base/status.py": "78edf08ca3b5a1c34555168043e8469dc341950db353eb214c534dd5c7ddb451"
+  },
+  "driver_sha256": "e326146440878eb9caf1e77d9d7b484e6ab777298b2e3c59d3c94c08fada3074",
+  "validation": {
+    "full_asyncio_debug": {
+      "command": ".venv/bin/python -m pytest -q --asyncio-debug --maxfail=1 -o faulthandler_timeout=45",
+      "passed": 1461,
+      "seconds": 90.27
+    },
+    "eager_lifecycle": {
+      "passed": 83,
+      "seconds": 0.29,
+      "plugin": "eager_plugin.py",
+      "paths": [
+        "tests/core/event/test_close_core.py",
+        "tests/core/event/test_factory.py",
+        "tests/integration/graph/test_core_close.py",
+        "tests/core/event/test_waiter_lifecycle.py",
+        "tests/core/event/test_waiter_predicate.py"
+      ]
+    },
+    "documentation_python_blocks": 53,
+    "executed_application_examples": 4,
+    "wheel_runtime_files_identical": 47,
+    "installed_wheel_smoke": "metadata, explicit lifecycle, events and graph passed",
+    "distribution_metadata": "Twine strict checks passed",
+    "static_checks": "Ruff and git diff --check passed",
+    "graph_small_scale": {
+      "passed": 13,
+      "count": 32,
+      "nodes": 8,
+      "repeats": 1
+    },
+    "cache_audit": {
+      "healthy_scenarios": 13,
+      "preexisting_findings_reproduced": 3,
+      "expected_exit_code": 1
+    }
+  }
+}

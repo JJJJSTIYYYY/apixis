@@ -14,17 +14,25 @@ from apixis.core.event.factory import get_handler_registry
 from apixis.core.utils.validation import validate_number
 
 
-type _EventMatches = ApixEvent | dict[str, ApixEvent]
+type _EventMatches = ApixEvent | dict[str, ApixEvent] | None
+
+
+class _WaiterHandler(ApixEventHandler):
+    """Observe an event without recording a business handler execution."""
+
+    async def execute(self, event: ApixEvent) -> None:
+        await self.core_func(event)
 
 
 class EventWaiter:
-    """Own subscriptions, first-match collection and the waiting deadline.
+    """Own first-match collection, a single Future and its waiting deadline.
 
     String input returns one event; list/set input returns a dictionary keyed
-    by pattern. Registration is synchronous. Listeners close automatically on
-    completion, timeout or cancellation of its single Future. The deadline is
+    by pattern. The registry installs all listeners as one synchronous operation
+    and removes them when the Future completes, times out or is cancelled. The deadline is
     fixed at registration. An optional synchronous ``predicate`` filters events
-    by their contents. Completed results remain readable after cleanup.
+    by their contents. Framework cancellation finishes a pending collection
+    with ``None``. Completed results remain readable after cleanup.
     """
 
     def __init__(
@@ -62,21 +70,42 @@ class EventWaiter:
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
         self._remaining = len(self._events)
         loop = asyncio.get_running_loop()
-        self._future: asyncio.Future[dict[str, ApixEvent]] = loop.create_future()
+        self._registry = get_handler_registry()
+        self._future: asyncio.Future[dict[str, ApixEvent] | None] = loop.create_future()
         self._deadline: float | None = None
         self._timeout_handle: asyncio.TimerHandle | None = None
         self._entered = False
-        self._registry = get_handler_registry()
-        self._handlers: list[ApixEventHandler] = []
         self._future.add_done_callback(self._on_done)
         try:
-            self._register_wait_handler(point, filter)
+            self._registry.register_waiter(
+                self, self._build_handlers(filter), point=point,
+            )
             if time_out is not None:
                 self._deadline = loop.time() + time_out
                 self._timeout_handle = loop.call_at(self._deadline, self._expire)
         except BaseException:
             self.close()
             raise
+
+    @property
+    def active(self) -> bool:
+        """Whether this collection's Future is still pending.
+
+        Completion, timeout, explicit close and task cancellation make this
+        false. No independent lifecycle flag is maintained.
+        """
+        return not self._future.done()
+
+    def finish(self) -> None:
+        """Complete an active collection with None and release its resources.
+
+        Framework cancellation uses this on the owner loop after checking
+        ``active``. All readers receive None, including for partial collections.
+        Calling it for a terminal Future raises asyncio.InvalidStateError.
+        Use close() to actively cancel an unfinished Future instead.
+        """
+        self._future.set_result(None)
+        self.close()
 
     async def __aenter__(self) -> Self:
         if self._entered:
@@ -93,8 +122,11 @@ class EventWaiter:
         Return every requested pattern's first match. Timeout raises
         ``TimeoutError``. Cancelling a pending wait cancels the shared Future
         and removes its listeners, including for concurrent readers. Explicit
-        ``close()`` also cancels an incomplete Future. Subsequent reads preserve
-        its result, exception or cancellation. Waiting lends the current
+        ``close()`` also cancels an incomplete Future. A matching event
+        cancellation or core closure completes a pending collection with None,
+        including partially collected patterns. Task cancellation keeps normal asyncio
+        Future propagation. Subsequent reads preserve its result, exception
+        or cancellation. Waiting lends the current
         handler's dispatch permit. Listener cleanup precedes permit recovery.
         """
         if self._future.done():
@@ -105,7 +137,9 @@ class EventWaiter:
                     events = await self._future
                 finally:
                     self.close()
-        return next(iter(events.values())) if self._single_event else events
+        if events is None or not self._single_event:
+            return events
+        return next(iter(events.values()))
 
     get_result = wait
 
@@ -139,30 +173,41 @@ class EventWaiter:
             # removes listeners from the separate waiting cache.
             self.close()
 
-    def _register_wait_handler(
-        self,
-        point: Literal['received', 'processed'],
-        filter: list[str] | str | None,
-    ) -> None:
-        """Install every handler without yielding; constructor failure closes all."""
+    async def _cancel(self, event_name: str, event: ApixEvent) -> None:
+        """Complete a matching cancellation with None, never a partial event.
+
+        Cancelled events keep predicate-based request correlation.
+        An already terminal Future keeps its result, exception or cancellation.
+        """
+        if not self.active or self._events[event_name] is not None:
+            return
+        if self._predicate is not None:
+            try:
+                if not self._predicate(event):
+                    return
+            except Exception as error:
+                self._future.set_exception(error)
+                self.close()
+                return
+        self.finish()
+
+    def _build_handlers(self, filter: list[str] | str | None) -> list[ApixEventHandler]:
+        """Build callbacks; registration and ownership belong to the registry."""
         if isinstance(filter, str):
             filter = [filter]
         filters = list(dict.fromkeys(filter)) if filter else []
+        handlers = []
         for event_name in self._events:
             resolve = partial(self._resolve, event_name)
-            handler = ApixEventHandler(
+            handler = _WaiterHandler(
                 core_func=resolve,
-                on_accepted=resolve,
-                on_cancelled=resolve,
-                on_has_error=resolve,
-                on_error=resolve,
-                stop_when_error=False,
+                on_cancelled=partial(self._cancel, event_name),
             )
             handler.name = 'resolve_future-' + handler.id
             handler.subscribe = [event_name]
             handler.filter_event = filters
-            self._registry.register_wait_handler(handler, point=point)
-            self._handlers.append(handler)
+            handlers.append(handler)
+        return handlers
 
     def close(self) -> None:
         """Cancel an incomplete Future and release listeners and its timer.
@@ -173,14 +218,12 @@ class EventWaiter:
         self._future.cancel()
         self._on_done(self._future)
 
-    def _on_done(self, future: asyncio.Future[dict[str, ApixEvent]]) -> None:
+    def _on_done(self, future: asyncio.Future[dict[str, ApixEvent] | None]) -> None:
         """Release collection resources when the Future reaches a terminal state."""
+        self._registry.unregister_waiter(self)
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
             self._timeout_handle = None
-        for handler in self._handlers:
-            self._registry.unregister_handler(handler.name, missing_ok=True)
-        self._handlers.clear()
         if not future.cancelled():
             # A timeout may finish before the caller starts reading the result.
             future.exception()
@@ -208,6 +251,10 @@ async def expect_event(
     interface replays events whose handler chains were captured before
     registration. Each pattern retains its first matching event independently.
 
+    A matching event cancellation or core closure makes ``wait()`` return
+    ``None`` for either input shape, including partial collections. Explicit
+    ``close()`` and cancellation of the waiting task still raise ``CancelledError``.
+
     Args:
         event_name: Case-sensitive glob pattern or non-empty list/set of patterns.
             A string returns one event; a collection returns a dictionary keyed
@@ -230,9 +277,10 @@ async def expect_event(
             ``get_result()`` use this fixed deadline. Timely results remain
             available afterwards. Expiry raises ``TimeoutError``.
 
-    The waiter owns registration and cleanup. All handlers are registered
-    without yielding. Completion, timeout, cancellation and context exit
-    release every listener and timer. Each context is single-use. Repeated
+    The waiter owns its Future and timer; the registry owns registration,
+    listener indexes and removal. All handlers are registered without yielding.
+    Completion, timeout, cancellation and context exit release every listener
+    and timer. Each context is single-use. Repeated
     reads observe the same Future's terminal state. Waiting lends the current
     handler's dispatch permit. Local context entry keeps that permit.
 
@@ -245,7 +293,8 @@ async def expect_event(
                 context={"reply": reply},
             )
             event = await waiter.wait()
-            result = event.context["result"]
+            if event is not None:
+                result = event.context["result"]
     """
     async with EventWaiter(
         event_name, point=point, filter=filter, predicate=predicate,
@@ -261,7 +310,7 @@ async def wait_event(
     filter: list[str] | str | None = None,
     predicate: EventPredicate | None = None,
     time_out: float | None = None,
-) -> ApixEvent | dict[str, ApixEvent]:
+) -> _EventMatches:
     """Register all patterns and immediately wait for their first matches.
 
     Subscription starts when this coroutine executes. It registers on the
@@ -270,6 +319,10 @@ async def wait_event(
     it but does not guarantee registration when ``create_task`` returns. Events
     dequeued before registration are not replayed. This is normal subscription
     ordering, not an event-loop scheduling guarantee.
+
+    Return ``None`` if a matching event cancellation or core closure completes the
+    collection, including when some patterns already have results. Explicit
+    waiter closure and cancellation of the waiting task raise ``CancelledError``.
 
     Use ``await wait_event(...)`` to subscribe and immediately wait for an event
     produced elsewhere. Use :func:`expect_event` for request/reply flows that
@@ -295,13 +348,14 @@ async def wait_event(
             Expiry raises ``TimeoutError`` and removes the listeners.
 
     Waiting lends the current handler's dispatch permit via ``suspend_process``.
-    The waiter owns all handlers and closes them on completion, ordinary timeout
-    or cancellation.
+    The waiter delegates listener registration and removal to the registry.
+    Completion, ordinary timeout and cancellation release its listeners and timer.
 
     Example::
 
         event = await wait_event("job.finished", point="processed", time_out=40)
-        result = event.context["result"]
+        if event is not None:
+            result = event.context["result"]
     """
     async with expect_event(
         event_name, point=point, filter=filter, predicate=predicate,

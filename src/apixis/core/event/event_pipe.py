@@ -8,6 +8,7 @@ from apixis.core.event.base.event import EventType, create_event
 from apixis.core.event.base.process import suspend_process
 from apixis.core.utils.logger import Logger
 from apixis.core.utils.validation import validate_int
+from apixis.core.utils.exception import CoreClosedError
 
 
 class ApixEventPipe:
@@ -20,19 +21,39 @@ class ApixEventPipe:
     def __init__(self, *, maxsize: int = EVENT_PIPE_MAX_LEN) -> None:
         maxsize = validate_int(maxsize, "maxsize", minimum=1)
         self._queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=maxsize)
-        self._started = False
+        self._closed = False
+        self._blocked_puts: set[asyncio.Task[None]] = set()
 
     @property
-    def is_running(self) -> bool:
-        """Return whether the pipe has received its startup signal."""
-        return self._started
+    def closed(self) -> bool:
+        """Whether admission has permanently closed, independently of consumption."""
+        return self._closed
 
     @property
     def maxsize(self) -> int:
         return self._queue.maxsize
 
     async def put(self, event: Any) -> None:
-        await self._queue.put(event)
+        """Admit an event, waiting for capacity; closure wakes blocked publishers.
+
+        Raises CoreClosedError after close, including for publishers already
+        waiting on a full queue. Caller cancellation remains CancelledError.
+        """
+        if self._closed:
+            raise CoreClosedError("The event pipe is closed.")
+        if not self._queue.full():
+            self._queue.put_nowait(event)
+            return
+        put = asyncio.create_task(self._queue.put(event))
+        self._blocked_puts.add(put)
+        try:
+            await put
+        except asyncio.CancelledError:
+            if self._closed and not asyncio.current_task().cancelling():
+                raise CoreClosedError("The event pipe is closed.") from None
+            raise
+        finally:
+            self._blocked_puts.discard(put)
 
     async def post_event(
         self,
@@ -63,6 +84,8 @@ class ApixEventPipe:
 
     def put_nowait(self, event: Any) -> None:
         """Push an event without waiting, raising QueueFull if at capacity."""
+        if self._closed:
+            raise CoreClosedError("The event pipe is closed.")
         self._queue.put_nowait(event)
 
     async def get(self) -> Any:
@@ -99,13 +122,15 @@ class ApixEventPipe:
         Logger.info(f"Cleaned {count} in event pipe.")
         return count
 
-    async def start(self) -> None:
-        """Mark the pipe started; local queue access requires no worker."""
-        self._started = True
+    def close(self) -> None:
+        """Permanently reject every publication and wake blocked publishers.
 
-    async def stop(self) -> None:
-        """Reset startup state while preserving queued events for reuse."""
-        self._started = False
+        Closing admission does not execute or clear queued events. The core
+        owns queue discarding, acknowledgement and running-task cancellation.
+        """
+        self._closed = True
+        for put in self._blocked_puts:
+            put.cancel()
 
 
 __all__ = ["ApixEventPipe"]

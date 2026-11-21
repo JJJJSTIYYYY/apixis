@@ -1,5 +1,5 @@
 import asyncio
-from contextlib import suppress
+from collections.abc import Callable
 from contextvars import copy_context
 from datetime import datetime
 from functools import partial
@@ -18,6 +18,7 @@ from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.base.status import EventLoopStatus
 from apixis.core.utils.logger import Logger
 from apixis.core.utils.semaphore import ApixisSemaphore
+from apixis.core.utils.exception import CoreClosedError
 
 
 class ApixEventLoop:
@@ -36,20 +37,41 @@ class ApixEventLoop:
         self._event_semaphore = ApixisSemaphore(EVENT_LOOP_BACKPRESSURE)
 
         self._event_consumer_task: asyncio.Task | None = None
-        self._dispatch_tasks: set[asyncio.Task] = set()
-        self._background_handler_tasks: set[asyncio.Task] = set()
+        self._dispatch_tasks: dict[asyncio.Task, ApixEvent] = {}
+        self._background_handler_tasks: dict[asyncio.Task, ApixEvent] = {}
+        self.on_stopped: Callable[[], None] | None = None
 
         # An event may already be dequeued while waiting for foreground
         # dispatch capacity. Keep the event and its captured handler references
         # together so stopping the consumer cannot lose or re-resolve them.
         self._pending_dispatch: tuple[ApixEvent, list[ApixEventHandler]] | None = None
 
-        self._started = False
+    @property
+    def is_running(self) -> bool:
+        """Whether a live queue consumer is currently assigned."""
+        return self._event_consumer_task is not None and not self._event_consumer_task.done()
+
+    def owns_task(self, task: asyncio.Task | None) -> bool:
+        """Whether a task belongs to foreground or background execution."""
+        return task in self._dispatch_tasks or task in self._background_handler_tasks
+
+    def cancel_in_flight(self) -> None:
+        """Request cancellation synchronously without interrupting existing cleanup."""
+        for tasks in (self._dispatch_tasks, self._background_handler_tasks):
+            for task, event in tasks.items():
+                if task.done():
+                    continue
+                event.cancelled = True
+                if not task.cancelling():
+                    task.cancel()
+        consumer = self._event_consumer_task
+        if consumer is not None and not consumer.cancelling():
+            consumer.cancel()
 
     def get_status(self) -> EventLoopStatus:
         """Read tracked work on the runtime loop without starting consumption."""
         return EventLoopStatus(
-            running=self._started,
+            running=self.is_running,
             dispatch_capacity=self._event_semaphore.capacity,
             dispatch_permits_in_use=self._event_semaphore.in_use,
             dispatch_tasks=len(self._dispatch_tasks),
@@ -59,7 +81,9 @@ class ApixEventLoop:
 
     async def start(self) -> None:
         """Start the single local consumer in the running loop, once."""
-        if self._started:
+        if self._event_pipe.closed:
+            raise CoreClosedError("The event pipe is closed.")
+        if self.is_running:
             return
 
         self._event_consumer_task = asyncio.create_task(
@@ -67,7 +91,6 @@ class ApixEventLoop:
             name="pipe-event-consumer",
         )
         self._event_consumer_task.add_done_callback(self._on_consumer_done)
-        self._started = True
         Logger.info("Worker started.")
 
     def _on_consumer_done(self, task: asyncio.Task) -> None:
@@ -76,7 +99,8 @@ class ApixEventLoop:
         # Completion callbacks also cover cancellation before the coroutine runs.
         if self._event_consumer_task is task:
             self._event_consumer_task = None
-            self._started = False
+            if self.on_stopped is not None:
+                self.on_stopped()
         if not task.cancelled():
             error = task.exception()
             if error is not None:
@@ -92,7 +116,6 @@ class ApixEventLoop:
         """
         task = self._event_consumer_task
         self._event_consumer_task = None
-        self._started = False
 
         if task is None:
             return
@@ -109,6 +132,37 @@ class ApixEventLoop:
                 raise result
 
         Logger.info("Worker stopped.")
+        if self.on_stopped is not None:
+            self.on_stopped()
+
+    async def close(self) -> None:
+        """Cancel handler execution and discard queued and pending events.
+
+        The owning core seals pipe admission first. Running handler chains
+        deliver their own cancellation callbacks. Unassigned events are only
+        removed and acknowledged; closing does not dispatch notifications for them.
+        """
+        self.cancel_in_flight()
+        await self.stop()
+        # Eager execution can request close before its task is registered by
+        # the consumer. Once the consumer has stopped, the ownership handoff
+        # is complete; include those tasks without interrupting existing hooks.
+        self.cancel_in_flight()
+        if self._pending_dispatch is not None:
+            self._pending_dispatch = None
+            self._event_pipe.task_done()
+        await self._event_pipe.clear()
+        # Complete waiter Futures before joining handlers whose cleanup may
+        # await them. This does not notify discarded events.
+        await self._registry.cancel_waiters()
+        while self._dispatch_tasks or self._background_handler_tasks:
+            await asyncio.gather(
+                *self._dispatch_tasks, *self._background_handler_tasks,
+                return_exceptions=True,
+            )
+            # gather() can complete synchronously for already-done tasks.
+            # Their ownership callbacks must run before inspecting the sets.
+            await asyncio.sleep(0)
 
     async def _event_consumer_loop(self) -> None:
         """Dequeue events and launch dispatch when foreground capacity is available."""
@@ -194,18 +248,14 @@ class ApixEventLoop:
                     )
 
                 else:
-                    self._dispatch_tasks.add(task)
+                    self._dispatch_tasks[task] = event
                     task.add_done_callback(partial(self._on_dispatch_done, chain=chain))
                     self._event_pipe.task_done()
 
                 finally:
                     # The dispatch task owns these references. Drop the
                     # consumer's copies before the next dequeue.
-                    with suppress(Exception):
-                        del event
-                        del handler_chain
-                        del execution_context
-                        del task
+                    event = handler_chain = execution_context = task = None
 
         except asyncio.CancelledError:
             Logger.info("Event loop cancelled.")
@@ -234,6 +284,8 @@ class ApixEventLoop:
                 return event
 
             for handler in handler_chain:
+                if event.cancelled and asyncio.current_task().cancelling():
+                    raise asyncio.CancelledError
                 if handler.background:
                     self._create_background_handler_task(
                         handler,
@@ -245,6 +297,8 @@ class ApixEventLoop:
                         event,
                     )
 
+            if event.cancelled and asyncio.current_task().cancelling():
+                raise asyncio.CancelledError
             return event
 
         except asyncio.CancelledError:
@@ -252,13 +306,9 @@ class ApixEventLoop:
             for handler in handler_chain:
                 if not handler.background:
                     try:
-                        await handler.notify_cancelled(
-                            event,
-                            time_out=5.0,
-                        )
-                    except Exception:
+                        await handler.notify_cancelled(event, time_out=5.0)
+                    except (Exception, asyncio.CancelledError):
                         pass
-
             raise
 
         except Exception as exc:
@@ -267,7 +317,9 @@ class ApixEventLoop:
                 f"{exc}\n{traceback.format_exc()}"
             )
 
-    def _on_dispatch_done(self, task: asyncio.Task, *, chain: HandlerChainToken) -> None:
+    def _on_dispatch_done(
+        self, task: asyncio.Task, *, chain: HandlerChainToken,
+    ) -> None:
         """Close the chain and release its permit only if it still owns one."""
         chain.closed = True
         if chain.resuming_task is not None:
@@ -277,7 +329,7 @@ class ApixEventLoop:
         if chain.held:
             self._event_semaphore.release()
             chain.held = False
-        self._dispatch_tasks.discard(task)
+        self._dispatch_tasks.pop(task)
 
         if not task.cancelled():
             error = task.exception()
@@ -309,10 +361,7 @@ class ApixEventLoop:
         event: ApixEvent,
     ) -> None:
         """Create one background handler task without foreground semaphore context."""
-        coroutine = self._run_background_handler(
-            handler,
-            event,
-        )
+        coroutine = self._run_background_handler(handler, event)
 
         # Background handlers do not own foreground event capacity. Clearing
         # the context also prevents their event publishing from releasing or
@@ -327,7 +376,7 @@ class ApixEventLoop:
         finally:
             handler_chain_token_context.reset(token)
 
-        self._background_handler_tasks.add(task)
+        self._background_handler_tasks[task] = event
         task.add_done_callback(self._on_background_handler_done)
 
     def _on_background_handler_done(
@@ -335,8 +384,7 @@ class ApixEventLoop:
         task: asyncio.Task,
     ) -> None:
         """Remove a completed background handler task."""
-        self._background_handler_tasks.discard(task)
-
+        self._background_handler_tasks.pop(task)
         if not task.cancelled():
             error = task.exception()
             if error is not None:
@@ -354,6 +402,8 @@ class ApixEventLoop:
         try:
             try:
                 await handler.execute(event)
+                if event.cancelled and asyncio.current_task().cancelling():
+                    raise asyncio.CancelledError
 
             except asyncio.CancelledError:
                 # Notification failure must never replace the original

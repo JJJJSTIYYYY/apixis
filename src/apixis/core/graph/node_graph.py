@@ -9,17 +9,15 @@ from functools import wraps
 from typing import Any
 
 from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
-from apixis.core.event.factory import aget_event_pipe, get_handler_registry
+from apixis.core.event.factory import get_event_pipe, get_handler_registry
 from apixis.core.event.base import suspend_process
 from apixis.core.event import (
     ApixEvent,
     ApixEventHandler,
     EventType,
-    unsubscribe,
 )
 from apixis.core.utils.exception import (
-    BlockHookNotRegisteredError,
-    BlockNotResolvedError,
+    CoreClosedError,
     GraphNodeError,
     InvalidContextError,
 )
@@ -41,7 +39,7 @@ from apixis.core.graph.context.graph_context import GraphContext, GraphContextSn
 from apixis.core.graph.context.manager import apix_graph_context
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.graph.interrupter.graph_interrupter import (
-    BlockEventHandler,
+    create_interrupted_handler,
 )
 from apixis.core.graph.node import BaseNode, _NodeBinding
 from apixis.core.graph.context.stream_writer import (
@@ -54,7 +52,7 @@ from apixis.core.graph.context.stream_writer import (
 class NodeGraph:
     """Compiled nodes and policies owning their contexts and registrations.
 
-    Namespace registration, listener registration, and invocation management
+    Namespace registration, handler registration, and invocation management
     are coordinated here. Contexts and snapshots retain only this graph's ID.
     """
 
@@ -70,7 +68,7 @@ class NodeGraph:
         no_snapshot: bool = False,
         exist_ok: bool = False,
     ):
-        """Create a compiled graph and register dispatch and interruption listeners.
+        """Create a compiled graph and register its node dispatch handler.
 
         Args:
             nodes: Nodes keyed by their graph names.
@@ -90,7 +88,7 @@ class NodeGraph:
                 Glob characters (``*``, ``?``, ``[``, ``]``) are forbidden.
             no_snapshot: If ``True``, disable snapshotting for the graph.
             exist_ok: If ``True``, force decomposition of the previous owner
-                and claim its namespace before registering the new listener.
+                and claim its namespace before registering the new handlers.
                 A later registration failure releases the new graph's resources
                 without restoring the retired graph.
         """
@@ -110,21 +108,22 @@ class NodeGraph:
         self._graph_id = uuid4().hex
         self._contexts: set[GraphContext] = set()  # Running attempts only.
         self._namespace = using_namespace or uuid4().hex
+        self._handler_registry = get_handler_registry()
+        self._event_pipe = get_event_pipe()
 
         # Acquisition validates ownership and synchronously retires the old graph.
         # Only an acquired namespace needs cleanup if registration fails.
         acquire_namespace(self, replace_existed=exist_ok)
         try:
             self._register_dispatch_handler()
-            self._register_interrupted_handler()
             self._decomposed = False
         except BaseException:
-            unsubscribe(group=self.handler_group)
+            self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
             release_namespace(self, decompose_immediately=False)
             raise
 
     def __del__(self):
-        """Release the graph's namespace and unregister its event listeners."""
+        """Release the graph's namespace and unregister its event handlers."""
         with suppress(Exception):
             self.decompose(force=True)
 
@@ -221,38 +220,6 @@ class NodeGraph:
             for c in self._contexts
         )
 
-    def _register_interrupted_handler(self) -> None:
-        """Always provide interruption cleanup and reject missing user hooks."""
-        event_name = get_graph_interrupted_name(self.namespace, missing_ok=True)
-        handler_name = f"__graph_interrupted_fallback__{self.namespace}"
-
-        async def temp_hook(_, *args, **kwargs) -> None:
-            return
-
-        async def require_interrupted_hook(event: ApixEvent, *args, **kwargs) -> None:
-            block: Block = event.context
-            if not self._is_active_block(block):
-                return
-            if not event.seen or event.seen == [handler_name]:
-                raise BlockHookNotRegisteredError(
-                    f"Graph namespace `{self.namespace}` emitted a Block without a "
-                    "registered interruption hook. Register graph.add_interrupted_hook() "
-                    "or interrupted_hook(namespace=...) before calling interrupt()."
-                )
-            if not block.accepted and not block.done:
-                raise BlockNotResolvedError(
-                    f"Graph namespace `{self.namespace}` emitted a Block and not be resolved by any "
-                    "registered interruption hook."
-                )
-
-        temp_hook.__name__ = handler_name
-        handler = BlockEventHandler(temp_hook)
-        handler.set_core_func(require_interrupted_hook)
-        # Run after hooks at every numeric priority, before later processed waits.
-        handler.subscribe = [event_name]
-        handler.group = self.handler_group
-        get_handler_registry().register_wait_handler(handler, point="processed")
-
     def set_max_steps(self, steps: int):
         self._ensure_not_decomposed()
         self._max_steps = validate_int(steps, "max_steps", minimum=0)
@@ -262,6 +229,8 @@ class NodeGraph:
         """Reject business operations on an invalidated graph."""
         if self._decomposed:
             raise RuntimeError("NodeGraph has been decomposed.")
+        if self._event_pipe.closed:
+            raise CoreClosedError("This graph belongs to a closed event core.")
 
     def decompose(self, *, force: bool = True) -> None:
         """Retire this graph and release its contexts, listeners, and namespace.
@@ -282,7 +251,7 @@ class NodeGraph:
         # Terminal transitions remove contexts from the running set immediately.
         for context in tuple(self._contexts):
             context.abort()
-        unsubscribe(group=self.handler_group)
+        self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
         release_namespace(self, decompose_immediately=False)
 
     def _is_active_context(self, context: object) -> bool:
@@ -739,7 +708,7 @@ class NodeGraph:
             node_name, context.steps
         )
         context._set_target_node(target)
-        await (await aget_event_pipe()).post_event(
+        await self._event_pipe.post_event(
             event_type=EventType.WORKFLOW,
             event_name=self.dispatch_name,
             context=context,
@@ -782,7 +751,7 @@ class NodeGraph:
         dispatch_owned_block.__name__ = name or get_graph_interrupted_name(
             self.namespace, missing_ok=True
         )
-        BlockEventHandler(dispatch_owned_block).register(
+        create_interrupted_handler(dispatch_owned_block).register(
             get_graph_interrupted_name(self.namespace, missing_ok=True),
             exist_ok=False,
             group=self.handler_group,

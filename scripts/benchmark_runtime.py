@@ -106,8 +106,11 @@ async def run_worker(args):
 
     async def stop(core):
         await drain(core)
-        await core.event_loop.stop()
-        await core.event_pipe.stop()
+        if hasattr(core, "close_core"):
+            await core.close_core()
+        else:
+            await core.event_loop.stop()
+            await core.event_pipe.stop()
         assert not core.event_loop._dispatch_tasks
         semaphore = core.event_loop._event_semaphore
         assert semaphore._value == getattr(semaphore, "capacity", semaphore._bound_value)
@@ -118,7 +121,10 @@ async def run_worker(args):
             await stop(previous)
         loop_module.EVENT_LOOP_BACKPRESSURE = capacity
         factory._core = None
-        core = factory._get_core()
+        if hasattr(factory, "create_core") and not inspect.signature(factory.create_core).parameters:
+            core = factory.create_core()
+        else:
+            core = factory._get_core()
         if shared_start:
             await factory.start_core()
         else:

@@ -15,7 +15,7 @@ pip install apixis
 ```python
 import asyncio
 
-from apixis import Command, GraphManager
+from apixis import Command, GraphManager, create_core, start_core, close_core
 
 
 def increment(state: dict) -> Command:
@@ -27,14 +27,19 @@ def double(state: dict) -> dict:
 
 
 async def main() -> None:
+    create_core()
     graph = (
         GraphManager()
         .add_nodes([increment, double])
         .compile_graph(entry_point="increment")
     )
-    with graph:
-        result = await graph.invoke({"value": 1})
-        print(result)  # {'value': 4}
+    try:
+        await start_core()
+        with graph:
+            result = await graph.invoke({"value": 1})
+            print(result)  # {'value': 4}
+    finally:
+        await close_core()
 
 
 asyncio.run(main())
@@ -52,11 +57,12 @@ asyncio.run(main())
 import asyncio
 
 from apixis import (
-    EventType, get_event_pipe, start_core, stop_core, subscribe, unsubscribe,
+    EventType, create_core, get_event_pipe, start_core, close_core, subscribe, unsubscribe,
 )
 
 
 async def main() -> None:
+    create_core()
     handled = asyncio.Event()
 
     @subscribe("app.started")
@@ -75,7 +81,7 @@ async def main() -> None:
         await handled.wait()
     finally:
         unsubscribe("observe")
-        await stop_core()
+        await close_core()
 
 
 asyncio.run(main())
@@ -83,7 +89,7 @@ asyncio.run(main())
 
 `subscribe()` 注册异步处理函数，`post_event()` 创建并发布事件。示例使用 `asyncio.Event` 等待应用需要的处理结果；`pipe.join()` 只等待队列项目完成交接，不表示所有 handler 已执行结束。
 
-共享 event core 服务整个应用，启动和停止通常由应用入口统一管理。继续阅读：[事件 API](./core/event/README.md)、[事件处理器](./core/event/handlers.md)。
+共享 event core 服务整个应用，由应用入口显式创建、启动和关闭。stop 仅暂停队列消费，start 恢复消费；getter 不创建或启动组件。详见[五阶段生命周期](./core/runtime-lifecycle.md)。继续阅读：[事件 API](./core/event/README.md)、[事件处理器](./core/event/handlers.md)。
 
 ## 调整运行参数
 

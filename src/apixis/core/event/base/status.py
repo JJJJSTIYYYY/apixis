@@ -1,6 +1,18 @@
 """Immutable event runtime snapshots, independent of runtime components."""
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class CoreState(str, Enum):
+    """Lifecycle state; CLOSING and CLOSED belong to the terminal close phase."""
+
+    CREATED = "created"
+    STARTING = "starting"
+    RUNNING = "running"
+    STOPPED = "stopped"
+    CLOSING = "closing"
+    CLOSED = "closed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +37,7 @@ class EventRuntimeStatus:
     """Read-only snapshot; absent components are None before initialization."""
 
     initialized: bool = False
+    state: CoreState | None = None
     running: bool = False
     event_queue_size: int = 0
     event_queue_capacity: int | None = None
@@ -32,4 +45,4 @@ class EventRuntimeStatus:
     event_loop: EventLoopStatus | None = None
 
 
-__all__ = ["EventLoopStatus", "EventRuntimeStatus"]
+__all__ = ["CoreState", "EventLoopStatus", "EventRuntimeStatus"]

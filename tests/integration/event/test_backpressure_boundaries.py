@@ -13,7 +13,7 @@ from apixis.core.event import (
     unsubscribe,
     expect_event,
 )
-from apixis.core.event import factory
+from apixis.core.event import core as core_module
 from apixis.core.event.base import handler_chain_token_context, suspend_process
 from apixis.core.graph import GraphManager
 
@@ -30,7 +30,7 @@ def event_runtime_capacity(request, monkeypatch):
     """Let centralized cleanup own a fresh core with both limits set explicitly."""
     capacity, queue_capacity = request.param
     monkeypatch.setattr(
-        factory,
+        core_module,
         "ApixEventPipe",
         lambda: ApixEventPipe(maxsize=queue_capacity),
     )
@@ -903,7 +903,7 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
             waiter._future.add_done_callback(lambda _: expired.set())
             asyncio.get_running_loop().call_soon(waiter._expire)
             await expired.wait()
-            assert not waiter._handlers
+            assert waiter not in core.handler_registry._waiter_cache.waiters
             assert waiter._timeout_handle is None
             assert core.handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
             assert chain.suspended == 0

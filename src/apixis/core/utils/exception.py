@@ -1,3 +1,7 @@
+class CoreClosedError(RuntimeError):
+    """The core or one of its terminally closed components cannot accept work."""
+
+
 class EventHandlerNotRegisteredError(Exception):
 
     def __init__(self, message="Invalid handler detected", errors=None):

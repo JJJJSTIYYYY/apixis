@@ -3,17 +3,30 @@
 from collections import OrderedDict
 from fnmatch import fnmatchcase
 from heapq import merge
-from typing import Literal
+from typing import Literal, Protocol
 
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.handler_registry.matching import is_glob_pattern, matches_handler
 
 
+class WaiterLifecycle(Protocol):
+    """Collection lifecycle required by the cache, independent of subscriptions."""
+
+    @property
+    def active(self) -> bool: ...
+
+    def finish(self) -> None:
+        """Complete an active collection with None and release its resources."""
+        ...
+
+
 class WaiterHandlerCache:
-    """Index single-pattern listeners independently of ordinary chain caches."""
+    """Index handlers owned by received/processed wait collections."""
 
     def __init__(self, cache_size: int) -> None:
         self._cache_size = cache_size
+        self.waiters: dict[WaiterLifecycle, dict[str, ApixEventHandler]] = {}
+        self._owners: dict[str, WaiterLifecycle] = {}
         self.positions: dict[str, int] = {}
         self._exact: dict[str, dict[str, ApixEventHandler]] = {}
         self._glob: dict[str, ApixEventHandler] = {}
@@ -25,6 +38,10 @@ class WaiterHandlerCache:
         return name in self.positions
 
     def clear(self) -> None:
+        """Clear routing indexes while retaining Future-owned collections."""
+        for handlers in self.waiters.values():
+            handlers.clear()
+        self._owners.clear()
         self.positions.clear()
         self._exact.clear()
         self._glob.clear()
@@ -44,10 +61,14 @@ class WaiterHandlerCache:
         for name in expired:
             del self._chains[name]
 
-    def register(
+    def index_handler(
         self, handler: ApixEventHandler, point: Literal['received', 'processed'],
+        waiter: WaiterLifecycle,
     ) -> None:
+        """Index one callback for a registered waiter and expire matching chains."""
         self.positions[handler.name] = 0 if point == 'received' else 1
+        self._owners[handler.name] = waiter
+        self.waiters[waiter][handler.name] = handler
         pattern = handler.subscribe[0]
         is_glob = is_glob_pattern(pattern)
         if is_glob:
@@ -56,8 +77,11 @@ class WaiterHandlerCache:
             self._exact.setdefault(pattern, {})[handler.name] = handler
         self._invalidate(handler, is_glob)
 
-    def unregister(self, handler: ApixEventHandler) -> None:
+    def unindex_handler(self, handler: ApixEventHandler) -> None:
+        """Remove callback indexes without completing or forgetting its waiter."""
         del self.positions[handler.name]
+        owner = self._owners.pop(handler.name)
+        del self.waiters[owner][handler.name]
         pattern = handler.subscribe[0]
         is_glob = handler.name in self._glob
         if is_glob:
@@ -104,5 +128,6 @@ class WaiterHandlerCache:
 
 
 __all__ = [
+    "WaiterLifecycle",
     "WaiterHandlerCache",
 ]

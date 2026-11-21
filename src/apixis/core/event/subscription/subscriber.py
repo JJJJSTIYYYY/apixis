@@ -25,8 +25,9 @@ def subscribe(
     function or ApixEventHandler instance is returned unchanged. Validation
     happens in register_handler when the returned decorator is applied.
 
-    Registration is synchronous. Import-time decorators can register handlers
-    before the event loop starts; getters schedule startup inside asyncio.
+    Registration is synchronous. Call create_core() before applying decorators;
+    registration and getters never start the consumer. Call start_core()
+    explicitly when the application is ready to consume events.
 
     Event subscription and filtering use case-sensitive
     :func:`fnmatch.fnmatchcase` semantics. The handler chain is resolved lazily

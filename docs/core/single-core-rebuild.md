@@ -1,5 +1,7 @@
 # 共享 core 重建记录
 
+此页保留初次重建的历史契约。后续显式创建、纯同步 getter、stop/close 分离及等待取消语义以[当前生命周期](./runtime-lifecycle.md)为准。
+
 本轮以 `5049c7d` 的父提交 `f8e885d` 还原工作树，再重建后续独立的功能、优化和修复。原提交历史保留，用于逐项核对。
 
 运行时恢复为一个共享 event core、一个 asyncio 事件循环。graph 保留，使用同一组 registry、pipe、handler registry 和 event loop。版本保持 `3.0.0`。

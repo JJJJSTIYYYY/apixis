@@ -64,7 +64,7 @@ pyproject.toml  # 构建、依赖和工具配置
 ```python
 import asyncio
 
-from apixis import GraphManager
+from apixis import GraphManager, create_core, start_core, close_core
 
 
 def increment(state: dict) -> dict:
@@ -72,16 +72,19 @@ def increment(state: dict) -> dict:
 
 
 async def master() -> None:
+    create_core()
     graph = (
         GraphManager()
         .add_node(increment)
         .compile_graph(entry_point="increment")
     )
     try:
+        await start_core()
         result = await graph.invoke({"value": 1})
         print(result)  # {'value': 2}
     finally:
         graph.decompose()
+        await close_core()
 
 
 asyncio.run(master())
@@ -164,7 +167,7 @@ Run development commands from the repository root.
 ```python
 import asyncio
 
-from apixis import GraphManager
+from apixis import GraphManager, create_core, start_core, close_core
 
 
 def increment(state: dict) -> dict:
@@ -172,16 +175,19 @@ def increment(state: dict) -> dict:
 
 
 async def master() -> None:
+    create_core()
     graph = (
         GraphManager()
         .add_node(increment)
         .compile_graph(entry_point="increment")
     )
     try:
+        await start_core()
         result = await graph.invoke({"value": 1})
         print(result)  # {'value': 2}
     finally:
         graph.decompose()
+        await close_core()
 
 
 asyncio.run(master())

@@ -150,7 +150,7 @@ class TestStartStop:
             await asyncio.sleep(10)
 
         task = asyncio.create_task(slow_dispatch())
-        handler._dispatch_tasks.add(task)
+        handler._dispatch_tasks[task] = None
 
         await handler.stop()
         assert not task.done()
@@ -168,7 +168,7 @@ class TestStartStop:
             await asyncio.sleep(10)
 
         task = asyncio.create_task(slow_background())
-        handler._background_handler_tasks.add(task)
+        handler._background_handler_tasks[task] = None
 
         await handler.stop()
         assert not task.done()

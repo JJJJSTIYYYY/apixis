@@ -169,49 +169,39 @@ class TestApixEventPipeEvents:
 
 
 
-async def test_pipe_lifecycle_preserves_pending_events_and_acknowledgements():
-    """Repeated local lifecycle transitions retain queue ownership and order."""
-    pipe = ApixEventPipe(maxsize=2)
-    first, second = object(), object()
-    pipe.put_nowait(first)
-    pipe.put_nowait(second)
-    assert not pipe.is_running
-    await asyncio.gather(*(pipe.start() for _ in range(8)))
-    assert pipe.is_running
-    await asyncio.wait_for(asyncio.gather(*(pipe.stop() for _ in range(8))), 1)
-    assert not pipe.is_running
-    assert pipe.full()
-    await pipe.start()
-    assert await pipe.get() is first
-    pipe.task_done()
-    assert pipe.get_nowait() is second
+async def test_pipe_close_rejects_all_admission_and_wakes_full_queue_publishers():
+    from apixis import CoreClosedError
+
+    pipe = ApixEventPipe(maxsize=1)
+    accepted = object()
+    pipe.put_nowait(accepted)
+    publishers = [asyncio.create_task(pipe.put(object())) for _ in range(8)]
+    await asyncio.sleep(0)
+    pipe.close()
+    pipe.close()
+    for publisher in publishers:
+        with pytest.raises(CoreClosedError):
+            await asyncio.wait_for(publisher, 1)
+    with pytest.raises(CoreClosedError):
+        pipe.put_nowait(object())
+    with pytest.raises(CoreClosedError):
+        await pipe.put(object())
+    with pytest.raises(CoreClosedError):
+        await pipe.post_event(event_name="closed")
+    assert pipe.qsize() == 1
+    assert pipe.get_nowait() is accepted
     pipe.task_done()
     await asyncio.wait_for(pipe.join(), 1)
-    await pipe.stop()
+    assert not pipe._blocked_puts
 
 
-async def test_local_context_preserves_arbitrary_python_objects():
-    """Local event payloads are passed by reference without serialization."""
-    context = {"object": object(), "values": {1, 2}}
-    pipe = ApixEventPipe()
-    await pipe.post_event(event_type=EventType.INFO, event_name="local.context", context=context)
-    event = await pipe.get()
-    assert event.context is context
-    assert event.context["object"] is context["object"]
-    pipe.task_done()
-    await pipe.join()
-
-
-async def test_nowait_queue_errors_and_join_wait_for_acknowledgement():
+async def test_cancelled_publisher_keeps_application_cancellation_semantics():
     pipe = ApixEventPipe(maxsize=1)
-    pipe.put_nowait("first")
-    with pytest.raises(asyncio.QueueFull):
-        pipe.put_nowait("second")
-    assert pipe.get_nowait() == "first"
-    with pytest.raises(asyncio.QueueEmpty):
-        pipe.get_nowait()
-    joined = asyncio.create_task(pipe.join())
+    pipe.put_nowait(object())
+    publisher = asyncio.create_task(pipe.put(object()))
     await asyncio.sleep(0)
-    assert not joined.done()
-    pipe.task_done()
-    await asyncio.wait_for(joined, 1)
+    publisher.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await publisher
+    assert not pipe._blocked_puts
+    assert pipe.qsize() == 1

@@ -15,9 +15,10 @@ import platform
 
 from apixis import (
     ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
-    Node, NodeGraph, start_core, stop_core, expect_event,
+    Node, NodeGraph, create_core, close_core, start_core, stop_core, expect_event,
 )
 from apixis.core.event import factory
+from apixis.core.event import core as core_module
 
 
 class CountingRegistry(ApixHandlerRegistry):
@@ -148,14 +149,14 @@ async def drain(core):
 async def fresh_runtime():
     if factory._core is not None:
         await drain(factory._core)
-        await stop_core()
-    factory._core = None
+        await close_core()
+    create_core()
     await start_core()
     return factory._core
 
 
 async def runtime_audit(results):
-    factory.ApixHandlerRegistry = CountingRegistry
+    core_module.ApixHandlerRegistry = CountingRegistry
     core = await fresh_runtime()
     received = Counter()
 

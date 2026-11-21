@@ -123,7 +123,6 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
     handlers.register_handler(handler)
     event = make_event(name)
     event.event_type = event_type
-    await pipe.start()
     try:
         if publication == "post_event":
             await pipe.post_event(event_type=event_type, event_name=name)
@@ -148,6 +147,5 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
         assert observed_in_handler == ([expected] if name else [])
     finally:
         await loop.stop()
-        await pipe.stop()
 
 

@@ -6,7 +6,7 @@ import pytest
 
 from apixis.core.graph.base import _END
 
-from apixis.core.event import ApixEventHandler, subscribe, unsubscribe
+from apixis.core.event import ApixEventHandler, expect_event, subscribe, unsubscribe
 from apixis.core.event.factory import get_event_pipe
 from apixis.core.graph import GraphManager
 from apixis.core.graph.context import get_stream_writer
@@ -125,7 +125,7 @@ async def test_node_cancellation_ends_call_without_committing_or_routing(mode):
 @pytest.mark.parametrize("mode", ["invoke", "stream"])
 @pytest.mark.parametrize("origin", ["plugin", "hook"])
 @pytest.mark.parametrize("timeout", [None, 10])
-async def test_interruption_dispatch_cancellation_releases_block_and_call(mode, origin, timeout):
+async def test_interruption_dispatch_cancellation_does_not_cancel_graph(mode, origin, timeout):
     blocks = []
     resumed = []
 
@@ -148,16 +148,34 @@ async def test_interruption_dispatch_cancellation_releases_block_and_call(mode, 
 
     graph.add_interrupted_hook(hook)
     context = graph.create_context({})
+    task = None
     try:
         async with asyncio.timeout(1):
-            with pytest.raises(asyncio.CancelledError):
-                await run_graph(graph, context, mode, [])
+            async with expect_event(
+                get_graph_interrupted_name(graph), point="processed",
+            ) as processed:
+                task = asyncio.create_task(run_graph(graph, context, mode, []))
+                assert await processed.wait() is None
+            # Let interrupt() consume its own cancelled event's waiter result.
+            await asyncio.sleep(0)
+            assert not task.done()
+            assert context.status == "running"
+            assert not context.completion.done()
+            assert len(blocks) == 1 and not blocks[0].done
+            assert resumed == []
+
+            await graph.abort(context)
+            assert await task == ({} if mode == "invoke" else None)
             await get_event_pipe().join()
         assert context.status == "aborted"
-        assert context.completion.cancelled()
-        assert len(blocks) == 1 and blocks[0].done
+        assert not context.completion.cancelled()
+        assert blocks[0].cancelled
         assert resumed == []
     finally:
+        if task is not None:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         unsubscribe(plugin.__name__)
         graph.decompose()
 

@@ -6,6 +6,7 @@
 
 | 异常 | 含义 |
 | --- | --- |
+| `CoreClosedError` | core 已开始关闭，或旧 pipe / registry 拒绝继续接收工作 |
 | `BlockHookNotRegisteredError` | 图发生中断，但没有可执行的中断处理器 |
 | `BlockNotResolvedError` | 中断处理器返回时，Block 既未完成也未被接管 |
 | `EventHandlerAlreadyRegisteredError` | 禁止覆盖时注册了同名处理器 |

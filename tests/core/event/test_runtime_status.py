@@ -20,7 +20,7 @@ def event_runtime_capacity(request, monkeypatch):
     loop_module = importlib.import_module("apixis.core.event.event_loop")
     monkeypatch.setattr(loop_module, "EVENT_LOOP_BACKPRESSURE", capacity)
     monkeypatch.setattr(factory, "_core", None)
-    monkeypatch.setattr(factory, "ApixEventPipe", lambda: ApixEventPipe(maxsize=1))
+    monkeypatch.setattr(importlib.import_module("apixis.core.event.core"), "ApixEventPipe", lambda: ApixEventPipe(maxsize=1))
     return capacity
 
 
@@ -47,13 +47,12 @@ async def test_uninitialized_query_does_not_construct_or_start_core(monkeypatch)
 
 async def test_initialized_query_does_not_schedule_startup(monkeypatch):
     monkeypatch.setattr(factory, "_core", None)
-    core = factory._get_core()
+    core = factory.create_core()
     snapshot = get_event_runtime_status()
     assert snapshot.initialized
     assert not snapshot.running
     assert snapshot.event_queue_capacity == 1
     assert not snapshot.event_loop.running
-    assert core.start_task is None
     assert core.event_loop._event_consumer_task is None
 
 

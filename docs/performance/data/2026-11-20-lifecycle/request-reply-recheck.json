@@ -1,0 +1,463 @@
+{
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "repeats_per_worker": 15,
+  "summary": {
+    "event/request-reply": {
+      "before": {
+        "seconds": 0.17919875000370666,
+        "operations": 2048.0,
+        "roundtrips_per_second": 11428.662706037881,
+        "samples": 30,
+        "min_seconds": 0.17499983398010954,
+        "max_seconds": 0.1861842909711413
+      },
+      "after": {
+        "seconds": 0.17967099999077618,
+        "operations": 2048.0,
+        "roundtrips_per_second": 11398.61389185879,
+        "samples": 30,
+        "min_seconds": 0.17499195801792666,
+        "max_seconds": 0.18387616600375623
+      },
+      "elapsed_change_pct": 0.2635341971189753,
+      "throughput_change_pct": -0.2628415198300038
+    }
+  },
+  "memory": {},
+  "workers": [
+    {
+      "label": "before",
+      "file": "reply-recheck-1-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "43bc003176db519ef0b4d390375f6de2516bb1fe8669589a7e186eb28a7f7ea8",
+          "driver_sha256": "e326146440878eb9caf1e77d9d7b484e6ab777298b2e3c59d3c94c08fada3074",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/request-reply": {
+            "workload": {
+              "roundtrips": 2048
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.1793789580115117,
+                "operations": 2048,
+                "roundtrips_per_second": 11417.169676437572
+              },
+              {
+                "seconds": 0.17877520801266655,
+                "operations": 2048,
+                "roundtrips_per_second": 11455.727126632097
+              },
+              {
+                "seconds": 0.18107166700065136,
+                "operations": 2048,
+                "roundtrips_per_second": 11310.438755681378
+              },
+              {
+                "seconds": 0.17894533404614776,
+                "operations": 2048,
+                "roundtrips_per_second": 11444.83599372223
+              },
+              {
+                "seconds": 0.18059200001880527,
+                "operations": 2048,
+                "roundtrips_per_second": 11340.480197277506
+              },
+              {
+                "seconds": 0.18149250000715256,
+                "operations": 2048,
+                "roundtrips_per_second": 11284.212845816157
+              },
+              {
+                "seconds": 0.1809855840401724,
+                "operations": 2048,
+                "roundtrips_per_second": 11315.818388858068
+              },
+              {
+                "seconds": 0.17838854203000665,
+                "operations": 2048,
+                "roundtrips_per_second": 11480.557981439788
+              },
+              {
+                "seconds": 0.17944116704165936,
+                "operations": 2048,
+                "roundtrips_per_second": 11413.211548744179
+              },
+              {
+                "seconds": 0.17949720798060298,
+                "operations": 2048,
+                "roundtrips_per_second": 11409.648222613652
+              },
+              {
+                "seconds": 0.17620587500277907,
+                "operations": 2048,
+                "roundtrips_per_second": 11622.767969386376
+              },
+              {
+                "seconds": 0.1755736250197515,
+                "operations": 2048,
+                "roundtrips_per_second": 11664.622176420897
+              },
+              {
+                "seconds": 0.17901854199590161,
+                "operations": 2048,
+                "roundtrips_per_second": 11440.155735638189
+              },
+              {
+                "seconds": 0.18062520900275558,
+                "operations": 2048,
+                "roundtrips_per_second": 11338.395184742769
+              },
+              {
+                "seconds": 0.18040883401408792,
+                "operations": 2048,
+                "roundtrips_per_second": 11351.993992933152
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "reply-recheck-2-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "8f34f5d66ddd21f92ab0f609aa47ea59b0d37a8b37dc92731587c5861bd3a06a",
+          "driver_sha256": "e326146440878eb9caf1e77d9d7b484e6ab777298b2e3c59d3c94c08fada3074",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/request-reply": {
+            "workload": {
+              "roundtrips": 2048
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.18387616600375623,
+                "operations": 2048,
+                "roundtrips_per_second": 11137.930730827635
+              },
+              {
+                "seconds": 0.1797698749578558,
+                "operations": 2048,
+                "roundtrips_per_second": 11392.34257397198
+              },
+              {
+                "seconds": 0.17670062504475936,
+                "operations": 2048,
+                "roundtrips_per_second": 11590.224989194176
+              },
+              {
+                "seconds": 0.17584799998439848,
+                "operations": 2048,
+                "roundtrips_per_second": 11646.421910864507
+              },
+              {
+                "seconds": 0.17499195801792666,
+                "operations": 2048,
+                "roundtrips_per_second": 11703.394962814218
+              },
+              {
+                "seconds": 0.17659708397695795,
+                "operations": 2048,
+                "roundtrips_per_second": 11597.020482326985
+              },
+              {
+                "seconds": 0.17930154199711978,
+                "operations": 2048,
+                "roundtrips_per_second": 11422.099203323629
+              },
+              {
+                "seconds": 0.17639804200734943,
+                "operations": 2048,
+                "roundtrips_per_second": 11610.10619332539
+              },
+              {
+                "seconds": 0.17754483397584409,
+                "operations": 2048,
+                "roundtrips_per_second": 11535.114563111654
+              },
+              {
+                "seconds": 0.18045858398545533,
+                "operations": 2048,
+                "roundtrips_per_second": 11348.864402953895
+              },
+              {
+                "seconds": 0.17747708299430087,
+                "operations": 2048,
+                "roundtrips_per_second": 11539.518034932798
+              },
+              {
+                "seconds": 0.1797459579538554,
+                "operations": 2048,
+                "roundtrips_per_second": 11393.858439508082
+              },
+              {
+                "seconds": 0.1832973340060562,
+                "operations": 2048,
+                "roundtrips_per_second": 11173.103041053142
+              },
+              {
+                "seconds": 0.1833679170231335,
+                "operations": 2048,
+                "roundtrips_per_second": 11168.802226954602
+              },
+              {
+                "seconds": 0.18025095900520682,
+                "operations": 2048,
+                "roundtrips_per_second": 11361.936775830638
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "reply-recheck-3-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "8f34f5d66ddd21f92ab0f609aa47ea59b0d37a8b37dc92731587c5861bd3a06a",
+          "driver_sha256": "e326146440878eb9caf1e77d9d7b484e6ab777298b2e3c59d3c94c08fada3074",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/request-reply": {
+            "workload": {
+              "roundtrips": 2048
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.1775102079845965,
+                "operations": 2048,
+                "roundtrips_per_second": 11537.364657798811
+              },
+              {
+                "seconds": 0.1817133339936845,
+                "operations": 2048,
+                "roundtrips_per_second": 11270.49928031797
+              },
+              {
+                "seconds": 0.17692558298585936,
+                "operations": 2048,
+                "roundtrips_per_second": 11575.488210564126
+              },
+              {
+                "seconds": 0.1749985420028679,
+                "operations": 2048,
+                "roundtrips_per_second": 11702.954644996054
+              },
+              {
+                "seconds": 0.1771748330211267,
+                "operations": 2048,
+                "roundtrips_per_second": 11559.20378237801
+              },
+              {
+                "seconds": 0.18165679200319573,
+                "operations": 2048,
+                "roundtrips_per_second": 11274.007304741852
+              },
+              {
+                "seconds": 0.1770177090074867,
+                "operations": 2048,
+                "roundtrips_per_second": 11569.463933765988
+              },
+              {
+                "seconds": 0.18128845799947158,
+                "operations": 2048,
+                "roundtrips_per_second": 11296.913342414604
+              },
+              {
+                "seconds": 0.18083241599379107,
+                "operations": 2048,
+                "roundtrips_per_second": 11325.403074138647
+              },
+              {
+                "seconds": 0.17959604202769697,
+                "operations": 2048,
+                "roundtrips_per_second": 11403.369344209497
+              },
+              {
+                "seconds": 0.18119149998528883,
+                "operations": 2048,
+                "roundtrips_per_second": 11302.95847303146
+              },
+              {
+                "seconds": 0.18074395798612386,
+                "operations": 2048,
+                "roundtrips_per_second": 11330.94584637363
+              },
+              {
+                "seconds": 0.18150941701605916,
+                "operations": 2048,
+                "roundtrips_per_second": 11283.161136586108
+              },
+              {
+                "seconds": 0.18028862500796095,
+                "operations": 2048,
+                "roundtrips_per_second": 11359.563033494582
+              },
+              {
+                "seconds": 0.17955800000345334,
+                "operations": 2048,
+                "roundtrips_per_second": 11405.785317059735
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "before",
+      "file": "reply-recheck-4-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "43bc003176db519ef0b4d390375f6de2516bb1fe8669589a7e186eb28a7f7ea8",
+          "driver_sha256": "e326146440878eb9caf1e77d9d7b484e6ab777298b2e3c59d3c94c08fada3074",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "event/request-reply": {
+            "workload": {
+              "roundtrips": 2048
+            },
+            "capacity": 128,
+            "rounds": [
+              {
+                "seconds": 0.18110912502743304,
+                "operations": 2048,
+                "roundtrips_per_second": 11308.09946594234
+              },
+              {
+                "seconds": 0.1763844580273144,
+                "operations": 2048,
+                "roundtrips_per_second": 11611.00032794756
+              },
+              {
+                "seconds": 0.18008379195816815,
+                "operations": 2048,
+                "roundtrips_per_second": 11372.483762868187
+              },
+              {
+                "seconds": 0.18017008295282722,
+                "operations": 2048,
+                "roundtrips_per_second": 11367.037004341142
+              },
+              {
+                "seconds": 0.1861842909711413,
+                "operations": 2048,
+                "roundtrips_per_second": 10999.853904524316
+              },
+              {
+                "seconds": 0.17549116601003334,
+                "operations": 2048,
+                "roundtrips_per_second": 11670.103097285877
+              },
+              {
+                "seconds": 0.17499983398010954,
+                "operations": 2048,
+                "roundtrips_per_second": 11702.868245193738
+              },
+              {
+                "seconds": 0.17796612496022135,
+                "operations": 2048,
+                "roundtrips_per_second": 11507.808019406868
+              },
+              {
+                "seconds": 0.1777385410387069,
+                "operations": 2048,
+                "roundtrips_per_second": 11522.543101971329
+              },
+              {
+                "seconds": 0.1790017089806497,
+                "operations": 2048,
+                "roundtrips_per_second": 11441.231548361313
+              },
+              {
+                "seconds": 0.18125974998110905,
+                "operations": 2048,
+                "roundtrips_per_second": 11298.7025537299
+              },
+              {
+                "seconds": 0.18012858304427937,
+                "operations": 2048,
+                "roundtrips_per_second": 11369.65586131635
+              },
+              {
+                "seconds": 0.17596020799828693,
+                "operations": 2048,
+                "roundtrips_per_second": 11638.995107461673
+              },
+              {
+                "seconds": 0.17723245901288465,
+                "operations": 2048,
+                "roundtrips_per_second": 11555.445381768992
+              },
+              {
+                "seconds": 0.17897458298830315,
+                "operations": 2048,
+                "roundtrips_per_second": 11442.965620061517
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    }
+  ],
+  "unpaired_scenarios": []
+}

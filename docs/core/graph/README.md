@@ -1,11 +1,19 @@
 # 图 API
 
+构图前调用 `create_core()`，执行前调用 `await start_core()`；graph 不通过 getter 自动创建或启动 core。应用结束时调用 `await close_core()`。详见[生命周期](../runtime-lifecycle.md)。
+
+core 关闭时，处理中的图调用沿现有取消契约结束，`invoke()` / `stream()` 的调用者收到 `CancelledError`。未派发事件直接丢弃后，关联图调用的等待收尾留待后续处理。stop 期间已安排的节点继续执行，后续图事件排队等待显式 start。
+
+编译后的图绑定创建时的 pipe 和 handler registry。core 关闭后旧图不能迁移到新 core，业务操作会抛出 `CoreClosedError`；`decompose()` 仍可释放旧图资源，且不会注销新 core 的注册。重建 core 后应重新构图。
+
 Graph API 的主要入口是 `GraphManager`。它负责注册节点与 state 策略，`compile_graph()` 返回可执行的 `NodeGraph`。
 
 ## 构建图
 
 ```python
-from apixis import GraphManager
+from apixis import GraphManager, create_core
+
+create_core()
 
 
 def step(state: dict) -> dict:
@@ -196,8 +204,10 @@ async def on_interrupted(block):
     block.resolve("yes")
 ```
 
-如果图发送了 `Block` 但没有可执行的 interruption hook，调用会因 `BlockHookNotRegisteredError` 失败。
+`interrupt()` 使用 `post_and_wait()` 等待本次中断事件的全部前台 hook 处理结束，再检查返回事件和 Block。图编译时不注册中断兜底 handler，框架等待回调也不会计入业务 `event.seen`。没有可执行的 interruption hook 时，调用因 `BlockHookNotRegisteredError` 失败。
 如果 hook 正常返回后，`Block` 仍未完成且没有调用 `block.accept()`，调用会因 `BlockNotResolvedError` 失败。需要暂存 Block、稍后由外部响应时，必须在 hook 返回前调用 `block.accept()`；它只声明接管，不会恢复图执行，仍需稍后调用 `resolve()`、`fail()` 或 `cancel()`。hook 自身抛出的异常会传播到等待中断的节点。
+
+`timeout` 使用一个期限，覆盖事件入队、前台 hook 处理和最终 Block 响应；期限到达返回 `None` 并关闭 Block。hook 自己抛出的 `TimeoutError` 仍按原异常传播。
 
 `Block` 常用接口：
 

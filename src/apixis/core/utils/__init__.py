@@ -1,6 +1,7 @@
 """Public exceptions, logging, and lifecycle utilities."""
 
 from apixis.core.utils.exception import (
+    CoreClosedError,
     BlockHookNotRegisteredError,
     BlockNotResolvedError,
     EventHandlerAlreadyRegisteredError,
@@ -12,6 +13,7 @@ from apixis.core.utils.exception import (
 from apixis.core.utils.logger import Logger
 
 __all__ = [
+    "CoreClosedError",
     "BlockHookNotRegisteredError",
     "BlockNotResolvedError",
     "EventHandlerAlreadyRegisteredError",

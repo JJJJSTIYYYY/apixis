@@ -18,7 +18,7 @@ from apixis.core.event import (
     ApixEvent, ApixEventPipe, EventType, EventWaiter,
     wait_event, subscribe, expect_event,
 )
-from apixis.core.event import factory
+from apixis.core.event import core as core_module
 from apixis.core.event.base import handler_chain_token_context
 from apixis.core.graph import (
     AutoMerge, Command, GraphManager, ParallelNode, get_graph_dispatch_name,
@@ -45,7 +45,7 @@ class StressState(TypedDict):
 def event_runtime_capacity(request, monkeypatch):
     capacity, queue_capacity = request.param
     monkeypatch.setattr(
-        factory, "ApixEventPipe",
+        core_module, "ApixEventPipe",
         lambda: ApixEventPipe(maxsize=queue_capacity),
     )
     return capacity

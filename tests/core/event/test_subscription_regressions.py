@@ -119,7 +119,7 @@ async def test_cancelling_one_result_wait_closes_shared_partial_collection(wait_
         getters[0].cancel()
         outcomes = await asyncio.gather(*getters, waiting, return_exceptions=True)
         assert all(isinstance(outcome, asyncio.CancelledError) for outcome in outcomes)
-        assert set(registry.registry) == baseline | {handler.name for handler in independent._handlers}
+        assert set(registry.registry) == baseline | set(registry._waiter_cache.waiters[independent])
         with pytest.raises(asyncio.CancelledError):
             await waiter.get_result()
         await get_event_pipe().post_event(event_type=EventType.INFO, event_name="last")

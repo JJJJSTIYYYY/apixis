@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from fnmatch import fnmatchcase
 from typing import Literal
 
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.event_registry import ApixEventRegistry
 from apixis.core.event.handler_registry.matching import is_glob_pattern, matches_handler
-from apixis.core.event.handler_registry.waiter_cache import WaiterHandlerCache
+from apixis.core.event.handler_registry.waiter_cache import WaiterHandlerCache, WaiterLifecycle
 from apixis.core.utils.logger import Logger
 from apixis.core.utils.validation import validate_int, validate_non_empty_string, validate_number
 from apixis.core.utils.exception import (
+    CoreClosedError,
     EventHandlerAlreadyRegisteredError,
     EventHandlerNotRegisteredError,
 )
@@ -60,11 +61,81 @@ class ApixHandlerRegistry:
         self._bucket_next_order: dict[float, int] = {}
         self._register_order = 0
         self._waiter_cache = WaiterHandlerCache(self._cache_size)
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        """Whether the owner has sealed registration for terminal closure."""
+        return self._closed
+
+    def close_admission(self) -> None:
+        """Reject new registrations while existing callbacks finish cleanup."""
+        self._closed = True
+
+    async def close(self) -> None:
+        """Complete active waiters directly and release registrations.
+
+        In-flight cancellation notifications run first in the event loop.
+        Remaining waiters finish with None without producing any event or
+        invoking listener callbacks. Unregistration stays available throughout
+        closure so waiter-owned cleanup can complete normally.
+        """
+        self.close_admission()
+        await self.cancel_waiters()
+        self.clear()
+
+    def register_waiter(
+        self, waiter: WaiterLifecycle, handlers: Sequence[ApixEventHandler], *,
+        point: Literal['received', 'processed'],
+    ) -> None:
+        """Register a new collection and all its listeners as one operation.
+
+        The waiting API supplies validated single-pattern handlers and an
+        observation point. The registry records each listener's owner and
+        installs the whole collection synchronously. Listener failure rolls
+        back only entries installed by this call, preserving existing entries.
+        """
+        if self._closed:
+            raise CoreClosedError("The handler registry is closed.")
+        if waiter in self._waiter_cache.waiters:
+            raise ValueError("The waiter is already registered.")
+        self._waiter_cache.waiters[waiter] = {}
+        try:
+            for handler in handlers:
+                self._add_waiter_handler(handler, point=point, waiter=waiter)
+        except BaseException:
+            self.unregister_waiter(waiter)
+            raise
+
+    def unregister_waiter(self, waiter: WaiterLifecycle) -> None:
+        """Remove a collection and all listeners still registered for it.
+
+        Repeated calls are harmless. Individual handler or group removal does
+        not end collection ownership; its Future remains tracked until this
+        operation runs when the waiter reaches a terminal state.
+        """
+        handlers = self._waiter_cache.waiters.get(waiter)
+        if handlers is None:
+            return
+        for name in tuple(handlers):
+            self.unregister_handler(name)
+        del self._waiter_cache.waiters[waiter]
+
+    async def cancel_waiters(self) -> None:
+        """Finish active collections with None without creating notifications.
+
+        The snapshot permits finish() to unregister the waiter and its listeners.
+        Already terminal Futures retain their result, exception or cancellation.
+        """
+        for waiter in tuple(self._waiter_cache.waiters):
+            if waiter.active:
+                waiter.finish()
 
     def clear(self) -> None:
         """Remove registrations and cached chains without changing observations.
 
         Already captured handler references and chain lists remain usable.
+        Pending waiter Futures stay tracked for close even without listeners.
         """
         self.registry.clear()
         self.priority_buckets.clear()
@@ -262,25 +333,27 @@ class ApixHandlerRegistry:
         handlers.extend(processed)
         return handlers
 
-    def register_wait_handler(
-        self, handler: ApixEventHandler, *, point: Literal['received', 'processed'],
-    ) -> None:
-        """Register an internal single-pattern listener outside priority buckets.
-
-        Waiting APIs validate the pattern, filters and point before calling.
-        """
-        if handler.name in self.registry:
-            raise EventHandlerAlreadyRegisteredError(
-                f"Handler `{handler.name}` already registered."
-            )
+    def _add_handler_record(self, handler: ApixEventHandler) -> None:
+        """Install identity, group membership and registration order."""
         handler._register_order = self._register_order
         self._register_order += 1
         self.registry[handler.name] = handler
         self._group_handlers.setdefault(handler.group, set()).add(handler.name)
         self._handler_groups[handler.name] = handler.group
-        self._waiter_cache.register(handler, point)
 
-    def _remove_from_bucket(self, handler_name: str) -> None:
+    def _add_waiter_handler(
+        self, handler: ApixEventHandler, *, point: Literal['received', 'processed'],
+        waiter: WaiterLifecycle,
+    ) -> None:
+        """Install one prevalidated handler belonging to a wait collection."""
+        if handler.name in self.registry:
+            raise EventHandlerAlreadyRegisteredError(
+                f"Handler `{handler.name}` already registered."
+            )
+        self._add_handler_record(handler)
+        self._waiter_cache.index_handler(handler, point, waiter)
+
+    def _remove_handler_from_priority_bucket(self, handler_name: str) -> None:
         """Remove a registered name and discard its bucket when empty."""
         priority = -self._handler_order.pop(handler_name)[0]
         bucket = self.priority_buckets[priority]
@@ -292,7 +365,7 @@ class ApixHandlerRegistry:
             del self.priority_buckets[priority]
             del self._bucket_next_order[priority]
 
-    def _index_subscriptions(self, handler: ApixEventHandler) -> None:
+    def _index_handler_patterns(self, handler: ApixEventHandler) -> None:
         exact_names = []
         glob_patterns = []
         for pattern in handler.subscribe:
@@ -305,7 +378,7 @@ class ApixHandlerRegistry:
         if glob_patterns:
             self._glob_subscriptions[handler.name] = tuple(glob_patterns)
 
-    def _unindex_subscriptions(self, handler_name: str) -> None:
+    def _unindex_handler_patterns(self, handler_name: str) -> None:
         for event_name in self._handler_exact_names.pop(handler_name):
             names = self._exact_subscriptions[event_name]
             names.remove(handler_name)
@@ -313,10 +386,12 @@ class ApixHandlerRegistry:
                 del self._exact_subscriptions[event_name]
         self._glob_subscriptions.pop(handler_name, None)
 
-    def register_handler(
+    def _prepare_handler_registration(
         self, handler_entry: ApixEventHandler, *, exist_ok: bool = False,
-    ) -> None:
-        """Validate, then insert or replace an entry and expire affected caches."""
+    ) -> tuple[list[str], list[str]]:
+        """Validate common fields and return normalized subscription/filter patterns."""
+        if self._closed:
+            raise CoreClosedError("The handler registry is closed.")
         if not isinstance(handler_entry, ApixEventHandler):
             raise TypeError("handler_entry must be an ApixEventHandler instance.")
         if not handler_entry.name:
@@ -336,11 +411,6 @@ class ApixHandlerRegistry:
             raise TypeError("Handler on_error must be callable.")
         if handler_entry.on_cancelled is not None and not callable(handler_entry.on_cancelled):
             raise TypeError("Handler on_cancelled must be callable.")
-        if handler_entry.priority is not None and handler_entry.between_handlers is not None:
-            raise ValueError(
-                "between_handlers and priority cannot be set together."
-            )
-
         subscriptions = self._normalise_patterns(
             handler_entry.subscribe,
             argument_name="subscribe",
@@ -349,6 +419,32 @@ class ApixHandlerRegistry:
             self._normalise_patterns(handler_entry.filter_event, argument_name="filter_event",)
             if handler_entry.filter_event else []
         )
+        return subscriptions, filters
+
+    def _replace_handler_record(
+        self, handler: ApixEventHandler, subscriptions: list[str], filters: list[str],
+    ) -> None:
+        """Remove the old registration and record its validated replacement."""
+        self.unregister_handler(handler.name, missing_ok=True)
+        handler.subscribe = subscriptions
+        handler.filter_event = filters
+        self._add_handler_record(handler)
+
+    def register_handler(
+        self, handler_entry: ApixEventHandler, *, exist_ok: bool = False,
+    ) -> None:
+        """Register an ordinary handler using priority or relative insertion.
+
+        Matching and numeric priority buckets belong to the ordinary chain.
+        Validation precedes replacement so failures preserve the previous entry.
+        Event wait collections use register_waiter() and their own matching
+        indexes. Their observation points are not part of ordinary registration.
+        """
+        subscriptions, filters = self._prepare_handler_registration(handler_entry, exist_ok=exist_ok)
+        if handler_entry.priority is not None and handler_entry.between_handlers is not None:
+            raise ValueError(
+                "between_handlers and priority cannot be set together."
+            )
 
         between_handlers = handler_entry.between_handlers
         if between_handlers is not None:
@@ -360,16 +456,7 @@ class ApixHandlerRegistry:
             priority = handler_entry.priority
             bucket_priority = validate_number(priority, "Handler priority")
 
-        # Validate first so failed replacements preserve the old registration.
-        # Reuse normal unregistration, then insert against the updated bucket.
-        self.unregister_handler(handler_entry.name, missing_ok=True)
-
-        handler_entry.subscribe = subscriptions
-        handler_entry.filter_event = filters
-        handler_entry._register_order = self._register_order
-        self.registry[handler_entry.name] = handler_entry
-        self._group_handlers.setdefault(handler_entry.group, set()).add(handler_entry.name)
-        self._handler_groups[handler_entry.name] = handler_entry.group
+        self._replace_handler_record(handler_entry, subscriptions, filters)
         bucket = self.priority_buckets.setdefault(bucket_priority, [])
         if between_handlers is None:
             bucket.append(handler_entry.name)
@@ -388,9 +475,8 @@ class ApixHandlerRegistry:
             for ordinal, name in enumerate(bucket):
                 self._handler_order[name] = -bucket_priority, ordinal
             self._bucket_next_order[bucket_priority] = len(bucket)
-        self._index_subscriptions(handler_entry)
+        self._index_handler_patterns(handler_entry)
         self._invalidate_matching_chains(handler_entry)
-        self._register_order += 1
 
         Logger.debug(
             f"Registered handler `{handler_entry.name}`, "
@@ -400,7 +486,7 @@ class ApixHandlerRegistry:
         )
 
     def unregister_handler(self, handler_name: str, *, missing_ok: bool = False) -> None:
-        """Immediately remove an entry and its bucket record, expiring caches."""
+        """Remove one ordinary handler or listener and its indexes and ownership."""
         handler = self.registry.get(handler_name)
         if handler is None:
             if not missing_ok:
@@ -409,11 +495,11 @@ class ApixHandlerRegistry:
                 )
             return
         if handler_name in self._waiter_cache:
-            self._waiter_cache.unregister(handler)
+            self._waiter_cache.unindex_handler(handler)
         else:
             self._invalidate_matching_chains(handler)
-            self._unindex_subscriptions(handler_name)
-            self._remove_from_bucket(handler_name)
+            self._unindex_handler_patterns(handler_name)
+            self._remove_handler_from_priority_bucket(handler_name)
         group = self._handler_groups.pop(handler_name)
         members = self._group_handlers[group]
         members.remove(handler_name)

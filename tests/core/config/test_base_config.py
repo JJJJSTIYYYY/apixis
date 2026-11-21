@@ -157,7 +157,8 @@ def test_yaml_import_contract_and_snapshot_default_in_fresh_process(tmp_path):
     script = '''
 from pathlib import Path
 from apixis.core.config import core_config
-from apixis import GraphManager
+from apixis import GraphManager, create_core
+create_core()
 assert core_config.GRAPH_MAX_SNAPSHOTS == 3
 assert core_config.EVENT_PIPE_MAX_LEN == 2
 assert core_config.EVENT_LOOP_BACKPRESSURE == 1

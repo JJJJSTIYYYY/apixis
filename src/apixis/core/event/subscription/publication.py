@@ -41,7 +41,7 @@ async def post_and_wait(
     event_name: str,
     context: Any = None,
     time_out: float | None = None,
-) -> ApixEvent:
+) -> ApixEvent | None:
     """Publish one event and return it after its foreground handlers finish.
 
     The event category defaults to ``EventType.DEFAULT``.
@@ -58,6 +58,11 @@ async def post_and_wait(
     an admitted event or cancels its handlers. Managed callers lend their dispatch
     permit throughout publication and waiting. Publication and collection
     use the shared event loop.
+
+    Core closure rejects unadmitted publications with CoreClosedError. An
+    admitted event cancelled before foreground completion returns None, so
+    callers do not observe a partially processed event. Cancellation still
+    matches this call's event_id rather than another concurrent request.
     """
     if time_out is not None:
         time_out = validate_number(time_out, "time_out")

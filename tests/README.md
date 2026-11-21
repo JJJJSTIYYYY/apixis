@@ -155,3 +155,15 @@ uv run --no-sync pytest tests/performance --run-performance -k 1000
 原有四种场景的节点不包含 sleep、等待、I/O、业务计算或运行期探针；等待场景加入 1 ms 或 50 ms 的 asyncio 等待。执行次数在计时结束后根据访问标记核对。立即返回基准覆盖框架的建图、调度、Command 合并、状态复制及快照开销。比较结果时使用相同 Python 版本、机器及参数，仅改变背压；并发调用数可以超过 `event_loop_backpressure`，但不代表所有节点都能同时持有事件许可。
 
 如果使用 pip 安装开发依赖，将以上 `uv run --no-sync pytest` 替换为 `python -m pytest` 即可。
+
+
+## 显式 core 生命周期
+
+创建、纯同步 getter、启动/停止可逆、终止准入和取消通知的回归：
+
+```bash
+python -m pytest --asyncio-debug tests/core/event/test_factory.py \
+  tests/core/event/test_close_core.py tests/integration/graph/test_core_close.py
+```
+
+关闭覆盖实际事件与尚未产生事件的 waiter、普通 Future 取消语义、清理期间等待事件、错误隔离和满队列。handler 内关闭自身的场景同时在 default / eager task factory 下运行；完整要求见[五阶段生命周期](../docs/core/runtime-lifecycle.md)。

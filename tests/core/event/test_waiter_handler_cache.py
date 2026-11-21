@@ -7,9 +7,10 @@ from unittest.mock import patch
 import pytest
 
 from apixis import (
-    ApixEventRegistry, ApixHandlerRegistry, EventType,
+    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, EventType,
     EventWaiter, get_event_loop, get_event_pipe, get_handler_registry, subscribe,
 )
+from apixis.core.utils.exception import EventHandlerAlreadyRegisteredError
 
 
 @pytest.mark.parametrize("pattern", ["reply.fixed", "reply.*"])
@@ -51,7 +52,7 @@ async def test_wait_cleanup_never_invalidates_normal_cache(outcome):
     normal = registry.get_subscription_chain_for_event("reply.fixed")
     waiter = EventWaiter("reply.*", time_out=0 if outcome == "timeout" else None)
     try:
-        assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
+        assert registry.get_handlers_for_event("reply.fixed") == list(registry._waiter_cache.waiters[waiter].values())
         if outcome == "timeout":
             with pytest.raises(TimeoutError):
                 await waiter.wait()
@@ -85,7 +86,7 @@ async def test_mixed_waits_keep_registration_order_and_snapshot_references():
         EventWaiter("reply.*", point="received"),
         EventWaiter("reply.fixed", point="processed"),
     ]
-    handlers = [waiter._handlers[0] for waiter in waiters]
+    handlers = [next(iter(registry._waiter_cache.waiters[waiter].values())) for waiter in waiters]
     expected = [handlers[1], handlers[2], registry.get_handler("first"),
                 registry.get_handler("last"), handlers[0], handlers[3]]
     snapshot = registry.get_handlers_for_event("reply.fixed")
@@ -123,7 +124,7 @@ async def test_exact_wait_does_not_traverse_unrelated_caches_or_listeners(monkey
             patch("apixis.core.event.handler_registry.matching.fnmatchcase", side_effect=AssertionError),
         ):
             waiter = EventWaiter("reply.fixed")
-            assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
+            assert registry.get_handlers_for_event("reply.fixed") == list(registry._waiter_cache.waiters[waiter].values())
             waiter.close()
             assert registry.get_handlers_for_event("reply.fixed") == []
     finally:
@@ -144,7 +145,7 @@ async def test_glob_wait_cache_targets_matches_and_snapshots_filter_input():
     filters.clear()
     try:
         assert cache._chains["reply.excluded"] is excluded
-        assert registry.get_handlers_for_event("reply.fixed") == waiter._handlers
+        assert registry.get_handlers_for_event("reply.fixed") == list(cache.waiters[waiter].values())
         assert registry.get_handlers_for_event("reply.excluded") == []
         assert registry.get_handlers_for_event("Reply.fixed") == []
         waiter.close()
@@ -156,25 +157,90 @@ async def test_glob_wait_cache_targets_matches_and_snapshots_filter_input():
         keeper.close()
 
 
-async def test_wait_cache_is_bounded_and_group_clear_preserves_captured_handlers(monkeypatch):
+@pytest.mark.parametrize("removal", ["group", "clear"])
+async def test_wait_cache_is_bounded_and_removal_preserves_captured_handlers(monkeypatch, removal):
     registry = ApixHandlerRegistry(ApixEventRegistry(), cache_size=2)
     monkeypatch.setattr("apixis.core.event.subscription.waiter.get_handler_registry", lambda: registry)
     waiter = EventWaiter("reply.*")
     try:
         captured = registry.get_handlers_for_event("reply.first")
+        owned = list(registry._waiter_cache.waiters[waiter].values())
         registry.get_handlers_for_event("reply.second")
         registry.get_handlers_for_event("reply.first")
         registry.get_handlers_for_event("reply.third")
         assert list(registry._waiter_cache._chains) == ["reply.first", "reply.third"]
         assert len(registry.cached_chain) == 2
-        registry.unregister_group("global")
+        if removal == "group":
+            registry.unregister_group("global")
+        else:
+            registry.clear()
         assert not registry.registry
         assert not registry._waiter_cache.positions
         assert not registry._waiter_cache._chains
-        assert captured == waiter._handlers
+        assert captured == owned
+        assert registry._waiter_cache.waiters[waiter] == {}
+        assert waiter.active
+        await registry.cancel_waiters()
+        assert await waiter.wait() is None
+        assert waiter not in registry._waiter_cache.waiters
         registry.clear()
         assert not registry._waiter_cache._exact
         assert not registry._waiter_cache._glob
         assert registry.get_handlers_for_event("reply.first") == []
     finally:
         waiter.close()
+
+
+
+
+async def test_waiter_cleanup_preserves_same_name_replacement():
+    registry = get_handler_registry()
+    waiter = EventWaiter("reply")
+    original = next(iter(registry._waiter_cache.waiters[waiter].values()))
+
+    async def noop(event):
+        pass
+
+    replacement = ApixEventHandler(noop, name=original.name)
+    replacement.priority = 1
+    replacement.subscribe = ["reply"]
+    try:
+        registry.register_handler(replacement, exist_ok=True)
+        assert registry._waiter_cache.waiters[waiter] == {}
+        waiter.close()
+        assert registry.get_handler(replacement.name) is replacement
+        assert registry.get_handlers_for_event("reply") == [replacement]
+        assert not registry._waiter_cache.waiters
+        assert not registry._waiter_cache._owners
+    finally:
+        waiter.close()
+
+
+async def test_batch_waiter_registration_collision_rolls_back_only_its_own_entries(monkeypatch):
+    registry = get_handler_registry()
+
+    async def noop(event):
+        pass
+
+    existing = ApixEventHandler(noop, name="existing")
+    existing.priority = 1
+    existing.subscribe = ["reply"]
+    registry.register_handler(existing)
+    normal = registry.get_subscription_chain_for_event("reply")
+    keeper = EventWaiter("keeper")
+    retained = dict(registry.registry)
+    partial = ApixEventHandler(noop, name="partial")
+    partial.subscribe = ["first"]
+    collision = ApixEventHandler(noop, name="existing")
+    collision.subscribe = ["second"]
+    monkeypatch.setattr(EventWaiter, "_build_handlers", lambda self, filter: [partial, collision])
+    try:
+        with pytest.raises(EventHandlerAlreadyRegisteredError):
+            EventWaiter(["first", "second"])
+        assert registry.registry == retained
+        assert list(registry._waiter_cache.waiters) == [keeper]
+        assert registry.get_subscription_chain_for_event("reply") is normal
+        assert registry.get_handlers_for_event("first") == []
+        assert set(registry._waiter_cache._owners) == set(registry._waiter_cache.waiters[keeper])
+    finally:
+        keeper.close()

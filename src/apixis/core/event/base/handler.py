@@ -163,6 +163,8 @@ class ApixEventHandler:
                 f"error={error.exception_type}: {error.message}\n"
                 f"{error.traceback}"
             )
+            if event.cancelled and asyncio.current_task().cancelling():
+                raise asyncio.CancelledError from exc
             if phase != "on_error" and self.on_error is not None:
                 await self._execute_func(self.on_error, "on_error", event, exc)
 
@@ -226,6 +228,7 @@ class ApixEventHandler:
         failures, including cancellation, are logged only: they do not invoke
         on_error, append business errors, or replace the original cancellation.
         """
+        event.cancelled = True
         timeout = self.time_out if time_out is None else validate_timeout(time_out, "time_out")
         if self.on_cancelled is None:
             return

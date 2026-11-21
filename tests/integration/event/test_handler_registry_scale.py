@@ -283,7 +283,6 @@ async def test_two_thousand_four_hundred_events_dispatch_through_glob_handlers(w
     )
     dispatched = 0
 
-    await pipe.start()
     await event_loop.start()
     try:
         for tenant in range(600):
@@ -298,7 +297,6 @@ async def test_two_thousand_four_hundred_events_dispatch_through_glob_handlers(w
                 dispatched += 1
     finally:
         await event_loop.stop()
-        await pipe.stop()
 
     assert dispatched == DISPATCH_EVENT_COUNT
     assert call_counts == Counter(

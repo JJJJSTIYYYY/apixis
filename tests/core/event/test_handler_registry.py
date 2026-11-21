@@ -682,7 +682,6 @@ async def runtime(monkeypatch):
     """Use real consumer scheduling with a private pipe and registry state."""
     pipe = ApixEventPipe()
     loop = ApixEventLoop(get_handler_registry(), pipe, get_event_registry())
-    await pipe.start()
     await loop.start()
     yield pipe, loop
     await loop.stop()
@@ -906,7 +905,7 @@ async def test_stop_preserves_started_calls_and_explicit_start_resumes(runtime, 
     await asyncio.wait_for(entered.wait(), 1)
     # Leave an event queued while the consumer is stopped.
     await loop.stop()
-    assert not loop._started
+    assert not loop.is_running
     pipe.put_nowait(
         ApixEvent("queued", EventType.INFO, "event.two", None, 0)
     )
@@ -920,9 +919,9 @@ async def test_stop_preserves_started_calls_and_explicit_start_resumes(runtime, 
     async def current(event):
         completed.append(event.event_name)
     await pipe.post_event(event_type=EventType.INFO, event_name="event.three")
-    assert not loop._started
+    assert not loop.is_running
     await loop.start()
-    assert loop._started
+    assert loop.is_running
     await wait_for_dispatch(loop)
     assert completed == ["event.one", "event.two", "event.three"]
 
@@ -942,13 +941,13 @@ async def test_explicit_start_consumes_existing_ready_events(runtime):
     pipe.put_nowait(
         ApixEvent("first", EventType.INFO, "event.one", None, 0)
     )
-    assert not loop._started
+    assert not loop.is_running
     await asyncio.wait_for(pipe.post_event(event_type=EventType.INFO,
                                           event_name="event.two"), 1)
-    assert not loop._started
+    assert not loop.is_running
     await loop.start()
     await asyncio.wait_for(pipe.join(), 1)
-    assert loop._started
+    assert loop.is_running
 
 
 async def test_reordering_existing_name_only_changes_subsequent_dequeued_order(runtime, wait_for_dispatch):
@@ -1005,9 +1004,9 @@ def test_unregister_missing_ok_preserves_existing_cache():
 async def test_dispatch_cancelled_before_start_releases_ack_and_capacity(runtime, wait_for_dispatch):
     pipe, loop = runtime
     cancelled = []
-    class CancelFirstTask(set):
-        def add(self, task):
-            super().add(task)
+    class CancelFirstTask(dict):
+        def __setitem__(self, task, invocation):
+            super().__setitem__(task, invocation)
             if not cancelled:
                 cancelled.append(task)
                 task.cancel()  # Cancel before create_task can enter the coroutine.

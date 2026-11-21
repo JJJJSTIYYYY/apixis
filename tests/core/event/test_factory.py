@@ -1,406 +1,252 @@
-"""Public core lifecycle, dependency isolation, and startup regressions."""
+"""Explicit construction, lifecycle transitions and pure synchronous getters."""
 
 import asyncio
-import inspect
+import importlib
+from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 
-from apixis.core.event import (
-    ApixEvent,
-    ApixEventHandler,
-    ApixEventLoop,
-    ApixEventPipe,
-    ApixEventRegistry,
-    ApixHandlerRegistry,
-    EventType,
-    start_core,
-    stop_core,
+from apixis import (
+    ApixisCore,
+    CoreClosedError,
+    CoreState,
+    GraphManager,
+    close_core,
+    create_core,
+    get_core,
     get_event_loop,
     get_event_pipe,
     get_event_registry,
+    get_event_runtime_status,
     get_handler_registry,
+    post_event,
+    start_core,
+    stop_core,
     subscribe,
-    unsubscribe,
 )
 from apixis.core.event import factory
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def fresh_core(monkeypatch):
-    """Keep test-owned factory components separate from the shared test core."""
     monkeypatch.setattr(factory, "_core", None)
     yield
-    core = factory._core
-    if core is not None:
-        if core.start_task is not None:
-            await asyncio.gather(core.start_task, return_exceptions=True)
-        await core.event_loop.stop()
-        await core.event_pipe.stop()
+    if factory._core is not None:
+        await factory._core.close_core()
 
 
-def components():
-    return (
-        get_event_registry(), get_event_pipe(),
-        get_handler_registry(), get_event_loop(),
-    )
+@pytest.mark.parametrize("module_name", ["apixis", "apixis.core", "apixis.core.event"])
+def test_lifecycle_exports(module_name):
+    module = importlib.import_module(module_name)
+    for name in (
+        "ApixisCore",
+        "CoreState",
+        "create_core",
+        "get_core",
+        "start_core",
+        "stop_core",
+        "close_core",
+    ):
+        assert getattr(module, name) is globals()[name]
+        assert name in module.__all__
+    assert not hasattr(module, "EventCore")
+    assert not any(name.startswith("aget_") for name in module.__all__)
 
 
-@pytest.mark.parametrize("name", [
-    "event_registry", "event_pipe", "handler_registry", "event_loop",
-])
-async def test_public_getters_accept_no_core_and_share_components(name):
-    getter = getattr(factory, "get_" + name)
-    async_getter = getattr(factory, "aget_" + name)
-    assert not inspect.signature(getter).parameters
-    assert not inspect.signature(async_getter).parameters
-    assert not inspect.signature(start_core).parameters
-    assert not inspect.signature(stop_core).parameters
-    assert getter() is await async_getter()
-    with pytest.raises(TypeError):
-        getter(factory._get_core())
-
-
-def event(name="factory.event"):
-    return ApixEvent(name, EventType.INFO, name, None, 0)
-
-
-async def test_stop_without_a_core_does_not_construct_one(fresh_core):
-    import apixis
-    import apixis.core
-
-    assert apixis.stop_core is apixis.core.stop_core is stop_core
-    await stop_core()
-    await stop_core()
+@pytest.mark.parametrize(
+    "getter",
+    [
+        get_core,
+        get_event_registry,
+        get_event_pipe,
+        get_handler_registry,
+        get_event_loop,
+    ],
+)
+def test_getters_require_explicit_creation(fresh_core, getter):
+    with pytest.raises(RuntimeError, match="create_core"):
+        getter()
     assert factory._core is None
 
 
-@pytest.mark.parametrize("startup_state", ["not_scheduled", "scheduled", "running"])
-async def test_stop_cancels_automatic_startup(fresh_core, monkeypatch, startup_state):
-    core = factory._get_core()
-    entered = asyncio.Event()
-    original_start = core.event_pipe.start
+async def test_start_requires_creation_but_stop_and_close_are_safe(fresh_core):
+    with pytest.raises(RuntimeError, match="create_core"):
+        await start_core()
+    await stop_core()
+    await close_core()
+    assert factory._core is None
 
-    async def slow_start():
-        await original_start()
-        entered.set()
-        await asyncio.Event().wait()
 
-    if startup_state == "running":
-        monkeypatch.setattr(core.event_pipe, "start", slow_start)
-    if startup_state != "not_scheduled":
-        get_event_pipe()
-    if startup_state == "running":
-        await asyncio.wait_for(entered.wait(), 1)
-
-    await asyncio.wait_for(stop_core(), 1)
-    await asyncio.sleep(0)
-    assert not core.event_pipe.is_running
-    assert not core.event_loop._started
+def test_create_is_synchronous_idempotent_and_does_not_start(fresh_core):
+    core = create_core()
+    assert isinstance(core, ApixisCore)
+    assert core.state is CoreState.CREATED
+    assert create_core() is core
+    assert get_core() is core
+    assert not core.event_loop.is_running
+    assert not core.event_pipe.closed
     assert core.event_loop._event_consumer_task is None
-    if startup_state != "not_scheduled":
-        assert core.start_task.cancelled()
+    assert core.event_pipe._blocked_puts == set()
 
 
-async def test_start_waits_for_stop_to_finish(fresh_core, monkeypatch):
-    await start_core()
-    core = factory._core
-    entered, release = asyncio.Event(), asyncio.Event()
-    original_stop = core.event_loop.stop
-
-    async def slow_stop():
-        await original_stop()
-        entered.set()
-        await release.wait()
-
-    monkeypatch.setattr(core.event_loop, "stop", slow_stop)
-    stopping = asyncio.create_task(stop_core())
-    starting = None
-    try:
-        await asyncio.wait_for(entered.wait(), 1)
-        starting = asyncio.create_task(start_core())
-        await asyncio.sleep(0)
-        assert not starting.done()
-        release.set()
-        await asyncio.wait_for(asyncio.gather(stopping, starting), 1)
-        assert core.started
-        assert core.event_loop._event_consumer_task is not None
-    finally:
-        release.set()
-        await asyncio.gather(stopping, *([starting] if starting else []), return_exceptions=True)
-
-
-@pytest.mark.parametrize("failure", [RuntimeError, asyncio.CancelledError])
-async def test_stop_resets_pipe_when_consumer_stop_fails(fresh_core, monkeypatch, failure):
-    await start_core()
-    core = factory._core
-    original_stop = core.event_loop.stop
-
-    async def fail_stop():
-        await original_stop()
-        raise failure("consumer stop failed")
-
-    with monkeypatch.context() as patch:
-        patch.setattr(core.event_loop, "stop", fail_stop)
-        with pytest.raises(failure):
-            await stop_core()
-    assert not core.event_pipe.is_running
-    assert not core.event_loop._started
-    await start_core()
-    assert core.started
-
-
-def test_default_core_uses_configured_chain_cache_limit(fresh_core, monkeypatch):
-    monkeypatch.setattr(factory, "HANDLER_CHAIN_CACHE_SIZE", 3)
-    handlers = get_handler_registry()
-    for index in range(12):
-        assert handlers.get_handlers_chain_for_event(f"cache.{index}") == []
-    assert list(handlers.cached_chain) == ["cache.9", "cache.10", "cache.11"]
-
-
-@pytest.mark.parametrize("exit_mode", ["before_run", "waiting", "failure"])
-@pytest.mark.parametrize("async_getter", [False, True])
-async def test_getters_restart_an_exited_consumer(
-    fresh_core, monkeypatch, exit_mode, async_getter,
+async def test_getters_neither_create_tasks_nor_start_consumption(
+    fresh_core, monkeypatch
 ):
-    """Consumer completion clears startup state without an explicit stop call."""
+    core = create_core()
+    startup = AsyncMock()
+    monkeypatch.setattr(core.event_loop, "start", startup)
+    before = asyncio.all_tasks()
+    assert get_event_registry() is core.event_registry
+    assert get_event_pipe() is core.event_pipe
+    assert get_handler_registry() is core.handler_registry
+    assert get_event_loop() is core.event_loop
+    assert asyncio.all_tasks() == before
+    await asyncio.sleep(0)
+    startup.assert_not_awaited()
+    assert core.state is CoreState.CREATED
+
+
+def test_creation_uses_configured_cache_size(fresh_core, monkeypatch):
+    core_module = importlib.import_module("apixis.core.event.core")
+    monkeypatch.setattr(core_module, "HANDLER_CHAIN_CACHE_SIZE", 3)
+    core = create_core()
+    assert core.handler_registry._cache_size == 3
+
+
+async def test_start_stop_and_getters_preserve_components_and_queued_events(
+    fresh_core, wait_for_dispatch
+):
+    core = create_core()
+    components = (
+        core.event_registry,
+        core.event_pipe,
+        core.handler_registry,
+        core.event_loop,
+    )
+    seen = []
+
+    @subscribe("queued.*")
+    async def receive(event):
+        seen.append(event.event_name)
+
+    await post_event(event_name="queued.before_start")
+    assert core.event_pipe.qsize() == 1
+    assert seen == []
+    await asyncio.gather(*(start_core() for _ in range(8)))
+    assert core.state is CoreState.RUNNING
+    await wait_for_dispatch(core.event_loop)
+    await asyncio.gather(*(stop_core() for _ in range(8)))
+    assert core.state is CoreState.STOPPED
+    await post_event(event_name="queued.paused")
+    for getter in (
+        get_core,
+        get_event_registry,
+        get_event_pipe,
+        get_handler_registry,
+        get_event_loop,
+    ):
+        getter()
+    await asyncio.sleep(0)
+    assert seen == ["queued.before_start"]
+    assert core.event_pipe.qsize() == 1
+    assert core.state is CoreState.STOPPED
     await start_core()
-    loop = get_event_loop()
-    pipe = get_event_pipe()
-    consumer = loop._event_consumer_task
-    if exit_mode == "failure":
-        get = pipe.get
-
-        async def fail_once():
-            monkeypatch.setattr(pipe, "get", get)
-            raise RuntimeError("consumer input failed")
-
-        monkeypatch.setattr(pipe, "get", fail_once)
-    else:
-        if exit_mode == "waiting":
-            await asyncio.sleep(0)
-        consumer.cancel()
-    await asyncio.gather(consumer, return_exceptions=True)
-
-    if async_getter:
-        restarted_pipe = await factory.aget_event_pipe()
-    else:
-        restarted_pipe = get_event_pipe()
-    assert restarted_pipe is pipe
-
-    received = asyncio.Event()
-
-    @subscribe("factory.restarted")
-    async def receive(message):
-        received.set()
-
-    try:
-        await pipe.post_event(event_type=EventType.INFO, event_name="factory.restarted")
-        await asyncio.wait_for(received.wait(), 1)
-    finally:
-        unsubscribe(receive.__name__)
+    await wait_for_dispatch(core.event_loop)
+    assert seen == ["queued.before_start", "queued.paused"]
+    assert components == (
+        core.event_registry,
+        core.event_pipe,
+        core.handler_registry,
+        core.event_loop,
+    )
 
 
-def test_getters_construct_without_running_asyncio(fresh_core):
-    first = components()
-    assert all(a is b for a, b in zip(first, components()))
-    assert not get_event_loop()._started
-    get_event_pipe().put_nowait(event())
-    assert get_event_pipe().get_nowait().event_name == "factory.event"
-    get_event_pipe().task_done()
-
-
-async def test_construction_order_and_no_recursive_getters(fresh_core, monkeypatch):
-    order = []
-    with monkeypatch.context() as patch:
-        for name in ("ApixEventRegistry", "ApixEventPipe", "ApixHandlerRegistry", "ApixEventLoop"):
-            constructor = getattr(factory, name)
-
-            def construct(*args, _name=name, _constructor=constructor, **kwargs):
-                order.append(_name)
-                return _constructor(*args, **kwargs)
-
-            patch.setattr(factory, name, construct)
-
-        def unexpected_getter():
-            raise AssertionError("Construction and startup must use injected dependencies")
-
-        for name in ("get_event_registry", "get_event_pipe", "get_handler_registry", "get_event_loop"):
-            patch.setattr(factory, name, unexpected_getter)
+@pytest.mark.parametrize(
+    "failure", [RuntimeError("start failed"), asyncio.CancelledError()]
+)
+async def test_failed_start_can_retry_without_recreating_components(
+    fresh_core, monkeypatch, failure
+):
+    core = create_core()
+    original = core.event_loop.start
+    monkeypatch.setattr(core.event_loop, "start", AsyncMock(side_effect=failure))
+    with pytest.raises(type(failure)):
         await start_core()
-    assert order == ["ApixEventRegistry", "ApixEventPipe", "ApixHandlerRegistry", "ApixEventLoop"]
-    assert get_event_loop()._started
-
-
-async def test_repeated_create_preserves_components_subscriptions_and_pending_events(fresh_core, wait_for_dispatch):
-    first = components()
-    calls = []
-
-    @subscribe("factory.*")
-    async def receive(message):
-        calls.append(message.event_name)
-
-    try:
-        get_event_pipe().put_nowait(event("factory.before_start"))
-        await start_core()
-        workers = get_event_loop()._event_consumer_task
-        await start_core()
-        assert workers == get_event_loop()._event_consumer_task
-        await wait_for_dispatch(get_event_loop())
-        registry, pipe, handlers, loop = first
-        await asyncio.gather(stop_core(), stop_core())
-        assert not pipe.is_running
-        assert loop._event_consumer_task is None
-        await pipe.put(event("factory.after_stop"))
-        assert not loop._started
-        await start_core()
-        await wait_for_dispatch(get_event_loop())
-        assert all(a is b for a, b in zip(first, components()))
-        assert calls == ["factory.before_start", "factory.after_stop"]
-        assert get_event_registry().get_registered_events() == frozenset(calls)
-    finally:
-        unsubscribe(receive.__name__)
-
-
-@pytest.mark.parametrize("failure", [RuntimeError, asyncio.CancelledError])
-async def test_failed_start_can_retry_with_the_same_components(fresh_core, monkeypatch, failure):
-    first = components()
-    original_start = get_event_pipe().start
-    attempts = 0
-
-    async def start():
-        nonlocal attempts
-        attempts += 1
-        if attempts == 1:
-            raise failure("startup failed")
-        await original_start()
-
-    monkeypatch.setattr(get_event_pipe(), "start", start)
-    with pytest.raises(failure):
-        await start_core()
-    assert not get_event_loop()._started
+    assert core.state is CoreState.STOPPED
+    assert get_core() is core
+    monkeypatch.setattr(core.event_loop, "start", original)
     await start_core()
-    assert all(a is b for a, b in zip(first, components()))
-    assert get_event_loop()._started
+    assert core.state is CoreState.RUNNING
 
 
-async def test_independent_components_keep_dispatch_and_observations_isolated(wait_for_dispatch):
-    cores = []
-    observed = [[], []]
-    for index in range(2):
-        registry = ApixEventRegistry()
-        pipe = ApixEventPipe()
-        handlers = ApixHandlerRegistry(registry)
-        loop = ApixEventLoop(handlers, pipe, registry)
-
-        async def receive(message, target=observed[index]):
-            target.append(message.event_name)
-
-        handler = ApixEventHandler(receive)
-        handler.subscribe = ["isolated.*"]
-        handler.priority = 1
-        handlers.register_handler(handler)
-        cores.append((registry, pipe, handlers, loop))
-    try:
-        for index, (registry, pipe, handlers, loop) in enumerate(cores):
-            await pipe.start()
-            await loop.start()
-            await pipe.put(event(f"isolated.{index}"))
-        for index, (registry, pipe, handlers, loop) in enumerate(cores):
-            await wait_for_dispatch(loop)
-            assert registry.get_registered_events() == frozenset({f"isolated.{index}"})
-            assert handlers.get_unmatched_subscriptions("receive") == []
-        assert observed == [["isolated.0"], ["isolated.1"]]
-    finally:
-        for registry, pipe, handlers, loop in cores:
-            await loop.stop()
-            await pipe.stop()
-
-
-@pytest.mark.parametrize("getter_name", [
-    "get_event_registry", "get_event_pipe", "get_handler_registry", "get_event_loop",
-])
-async def test_each_getter_restarts_the_same_core(getter_name, fresh_core, wait_for_dispatch):
-    """One synchronous getter is sufficient to resume queued local events."""
+async def test_start_waits_for_a_concurrent_stop(fresh_core, monkeypatch):
+    core = create_core()
     await start_core()
-    registry, pipe, handlers, loop = components()
-    await loop.stop()
-    await pipe.stop()
-    await pipe.put(event("factory.automatic"))
-    component = getattr(factory, getter_name)()
-    await wait_for_dispatch(loop)
-    assert registry.get_registered_events() == frozenset({"factory.automatic"})
-    assert getattr(factory, getter_name)() is component
-
-
-async def test_getters_share_one_startup_attempt(fresh_core, monkeypatch, wait_for_dispatch):
-    """Repeated getters do not schedule a second startup during slow startup."""
-    core = factory._get_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original_start = core.event_pipe.start
-    attempts = 0
+    original = core.event_loop.stop
 
-    async def slow_start():
-        nonlocal attempts
-        attempts += 1
+    async def stop():
         entered.set()
         await release.wait()
-        await original_start()
+        await original()
 
-    monkeypatch.setattr(core.event_pipe, "start", slow_start)
+    monkeypatch.setattr(core.event_loop, "stop", stop)
+    stopping = asyncio.create_task(stop_core())
+    await entered.wait()
+    starting = asyncio.create_task(start_core())
+    await asyncio.sleep(0)
+    assert not starting.done()
+    release.set()
+    await asyncio.gather(stopping, starting)
+    assert core.state is CoreState.RUNNING
+
+
+async def test_consumer_exit_updates_state_and_requires_explicit_restart(fresh_core):
+    core = create_core()
+    await start_core()
+    task = core.event_loop._event_consumer_task
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    assert core.state is CoreState.STOPPED
+    get_event_loop()
+    assert core.event_loop._event_consumer_task is None
+    await start_core()
+    assert core.state is CoreState.RUNNING
+
+
+async def test_close_is_terminal_and_create_replaces_only_closed_instances(fresh_core):
+    core = create_core()
+    await start_core()
+    await asyncio.gather(*(close_core() for _ in range(8)))
+    assert core.state is CoreState.CLOSED
+    assert get_core() is core
+    await stop_core()
+    with pytest.raises(CoreClosedError):
+        await start_core()
+    replacement = create_core()
+    assert replacement is not core
+    assert replacement.state is CoreState.CREATED
+    assert replacement.event_pipe is not core.event_pipe
+    assert core.event_pipe.closed
+    assert core.handler_registry.closed
+
+
+async def test_graph_invocation_never_implicitly_starts_consumption(fresh_core):
+    core = create_core()
+    graph = (
+        GraphManager()
+        .add_node(lambda state: {"value": state["value"] + 1}, "increment")
+        .compile_graph("increment")
+    )
+    invocation = asyncio.create_task(graph.invoke({"value": 1}))
     try:
-        components()
-        await asyncio.wait_for(entered.wait(), 1)
-        for _ in range(8):
-            components()
-        release.set()
-        await core.event_pipe.put(event("factory.shared_start"))
-        await wait_for_dispatch(core.event_loop)
-        assert attempts == 1
-    finally:
-        release.set()
-
-
-async def test_graph_invocation_starts_core_through_getters(fresh_core):
-    """Graph invocation and restart require no explicit runtime startup."""
-    from apixis.core.graph import NodeGraph
-
-    graph = NodeGraph({}, None)
-    try:
-        assert await asyncio.wait_for(graph.invoke({"value": 1}), 1) == {"value": 1}
-        core = factory._core
-        await core.event_loop.stop()
-        await core.event_pipe.stop()
-        assert await asyncio.wait_for(graph.invoke({"value": 2}), 1) == {"value": 2}
+        await asyncio.sleep(0)
+        assert not invocation.done()
+        assert not core.event_loop.is_running
+        await start_core()
+        assert await asyncio.wait_for(invocation, 1) == {"value": 2}
+        assert get_event_runtime_status().state is CoreState.RUNNING
     finally:
         graph.decompose()
-
-
-async def test_explicit_start_returns_when_restart_has_signalled_started(fresh_core, monkeypatch, wait_for_dispatch):
-    """Startup is a signal, not a barrier for every ongoing startup task."""
-    await start_core()
-    core = factory._core
-    await core.event_pipe.stop()
-    entered, release = asyncio.Event(), asyncio.Event()
-    original_start = core.event_pipe.start
-
-    async def slow_start():
-        await original_start()
-        entered.set()
-        await release.wait()
-
-    monkeypatch.setattr(core.event_pipe, "start", slow_start)
-    waiter = None
-    try:
-        get_event_pipe()
-        await asyncio.wait_for(entered.wait(), 1)
-        waiter = asyncio.create_task(start_core())
-        await asyncio.wait_for(waiter, 1)
-        # The startup signal is sufficient to use the already-running core.
-        assert not release.is_set()
-        await core.event_pipe.put(event("factory.restart_signalled"))
-        await wait_for_dispatch(core.event_loop)
-        assert "factory.restart_signalled" in core.event_registry.get_registered_events()
-    finally:
-        release.set()
-        if waiter is not None:
-            await asyncio.gather(waiter, return_exceptions=True)
+        await asyncio.gather(invocation, return_exceptions=True)

@@ -5,17 +5,17 @@ from uuid import uuid4
 
 from typing import Any, Callable
 
-from apixis.core.event.base import suspend_process
 from apixis.core.graph.context.manager import get_graph_context
 from apixis.core.graph.context.graph_context import GraphContext
 from apixis.core.graph.utils.namespace import (
     get_graph_interrupted_name,
     get_graph_namespace,
 )
-from apixis.core.event import ApixEvent, ApixEventHandler, EventType, subscribe
-from apixis.core.event.factory import aget_event_pipe
+from apixis.core.event import ApixEvent, ApixEventHandler, EventType, post_and_wait, subscribe
 from apixis.core.graph.interrupter.block import Block
-from apixis.core.utils.exception import GraphNodeError
+from apixis.core.utils.exception import (
+    BlockHookNotRegisteredError, BlockNotResolvedError, GraphNodeError,
+)
 from apixis.core.utils.validation import validate_number
 
 
@@ -28,25 +28,35 @@ async def interrupt(
     timeout: float | None = None,
     context: GraphContext | None = None,
 ) -> Any:
-    """
-    Send data and while in graph loop and block the agent graph at the same time.
-    Can be called from inside any graph node.
+    """Publish an interruption, await foreground hooks, then await its Block.
+
+    A hook must resolve/fail/cancel the Block or accept it before returning.
+    Accepted Blocks may be completed later by external application code.
+    No fallback handler is installed: post_and_wait supplies the processed
+    observation and this function validates the completed foreground dispatch.
 
     Args:
         data: Optional chunk data.
-        timeout: Optional timeout in seconds for the blocking wait. If None, wait indefinitely.
+        timeout: Optional timeout in seconds covering publication, foreground
+            hook processing and the final Block response. None waits indefinitely.
         context: Optional graph context, if the interruption is not within a :class:`NodeFunction`,
             it is required.
 
-    This method will post a :class:`Block` by event pipe, not by stream writer.
-    To receive a :class:`Block` posted by this method, it is required to register a handler
-    for get_graph_interrupted_name(namespace) and get the Block from event context.
+    Register hooks through graph.add_interrupted_hook() or interrupted_hook().
+    Ordinary event handlers may also consume the Block from event.context at
+    get_graph_interrupted_name(namespace).
 
     Raises:
-        BlockHookNotRegisteredError: If the graph's default interruption handler
-            finds no preceding core execution in event.seen. Register a hook
-            through graph.add_interrupted_hook() or interrupted_hook() so it
-            executes before the default handler.
+        BlockHookNotRegisteredError: If foreground processing finishes without
+            a business handler executing. Register a hook through
+            graph.add_interrupted_hook() or interrupted_hook().
+        BlockNotResolvedError: If hooks return without completing or accepting
+            the Block for deferred processing.
+        GraphNodeError: If an upstream event handler fails before the hook runs.
+            A hook's own failure propagates as its original exception.
+        asyncio.CancelledError: If this node or its Block is cancelled.
+            External Block.cancel() also aborts this graph attempt at its last
+            checkpoint. Only this function's own deadline returns None.
     """
 
     if timeout is not None:
@@ -89,24 +99,39 @@ async def interrupt(
 
     completion.add_done_callback(close_block)
     try:
-        await (await aget_event_pipe()).post_event(
-            event_type=EventType.WORKFLOW,
-            event_name=get_graph_interrupted_name(namespace, missing_ok=True),
-            context=block,
-        )
-        async with suspend_process():
-            if timeout is None:
+        timeout_scope = asyncio.timeout(timeout)
+        try:
+            async with timeout_scope:
+                event = await post_and_wait(
+                    event_type=EventType.WORKFLOW,
+                    event_name=get_graph_interrupted_name(namespace, missing_ok=True),
+                    context=block,
+                )
+                if event is not None and not block.done:
+                    if event.has_error:
+                        block.fail(GraphNodeError(
+                            "Graph interruption failed in an event handler",
+                            errors=list(event.error_stack),
+                        ))
+                    elif event.accepted:
+                        block.cancel()
+                    elif not event.seen:
+                        block.fail(BlockHookNotRegisteredError(
+                            f"Graph namespace `{namespace}` emitted a Block without a "
+                            "registered interruption hook. Register graph.add_interrupted_hook() "
+                            "or interrupted_hook(namespace=...) before calling interrupt()."
+                        ))
+                    elif not block.accepted:
+                        block.fail(BlockNotResolvedError(
+                            f"Graph namespace `{namespace}` emitted a Block that was neither "
+                            "resolved nor accepted by its interruption handlers."
+                        ))
                 return await block
-            timeout_scope = asyncio.timeout(timeout)
-            try:
-                async with timeout_scope:
-                    return await block
-            except TimeoutError:
-                # A hook may fail the block with TimeoutError itself. Only this
-                # interruption's own deadline is converted into a None result.
-                if not timeout_scope.expired():
-                    raise
-                return None
+        except TimeoutError:
+            # A hook can fail the Block with its own TimeoutError.
+            if not timeout_scope.expired():
+                raise
+            return None
     except asyncio.CancelledError:
         # External ``Block.cancel()`` aborts the owning graph attempt at its
         # last committed snapshot. The CancelledError is then re-raised to
@@ -122,64 +147,29 @@ async def interrupt(
         completion.remove_done_callback(close_block)
         if not block.done:
             block.cancel()
+        if not future.cancelled():
+            # Dispatch cancellation may win after a hook has failed the Block.
+            future.exception()
 
 
-class BlockEventHandler(ApixEventHandler):
-    """Adapt a Block callback and its event lifecycle notifications together.
+def create_interrupted_handler(func: InterruptedHandler) -> ApixEventHandler:
+    """Adapt a Block callback and preserve its own exception for the waiting node."""
+    if not callable(func):
+        raise TypeError("Interrupted hook must be callable.")
 
-    Both graph defaults and user hooks use this adapter for lifecycle cleanup.
-    The default handler uses event.seen to detect prior core execution,
-    regardless of whether the preceding handler uses this adapter.
-    """
+    @wraps(func)
+    async def dispatch_block(event: ApixEvent) -> None:
+        block = event.context
+        if not isinstance(block, Block):
+            raise TypeError("Interrupted graph events must carry a Block context.")
+        if not block.done:
+            await func(block)
 
-    def __init__(self, func: InterruptedHandler) -> None:
-        if not callable(func):
-            raise TypeError("Interrupted hook must be callable.")
+    async def on_failure(event: ApixEvent, error: Exception) -> None:
+        if isinstance(event.context, Block):
+            event.context.fail(error)
 
-        @wraps(func)
-        async def dispatch_block(event: ApixEvent) -> None:
-            block = event.context
-            if not isinstance(block, Block):
-                raise TypeError("Interrupted graph events must carry a Block context.")
-            if not block.done:
-                await func(block)
-
-        async def on_failure(event: ApixEvent, error: Exception) -> None:
-            """Deliver this handler's own failure to its waiting node."""
-            block = event.context
-            if isinstance(block, Block):
-                block.fail(error)
-
-        async def on_has_error(event: ApixEvent) -> None:
-            """Deliver upstream failures to the node awaiting this block."""
-            block = event.context
-            if isinstance(block, Block):
-                block.fail(
-                    GraphNodeError(
-                        "Graph interruption failed in a preceding event handler",
-                        errors=list(event.error_stack),
-                    )
-                )
-
-        async def on_accepted(event: ApixEvent) -> None:
-            """Cancel an unhandled block when its event is accepted upstream."""
-            block = event.context
-            if isinstance(block, Block) and not block.done:
-                block.cancel()
-
-        async def on_cancelled(event: ApixEvent) -> None:
-            """Propagate runtime cancellation without treating it as a user abort."""
-            block = event.context
-            if isinstance(block, Block):
-                block.fail(asyncio.CancelledError())
-
-        super().__init__(
-            dispatch_block,
-            on_accepted=on_accepted,
-            on_has_error=on_has_error,
-            on_error=on_failure,
-            on_cancelled=on_cancelled,
-        )
+    return ApixEventHandler(dispatch_block, on_error=on_failure)
 
 
 def interrupted_hook(
@@ -204,7 +194,7 @@ def interrupted_hook(
     event_name = get_graph_interrupted_name(namespace, missing_ok=True)
 
     def decorator(func: InterruptedHandler) -> InterruptedHandler:
-        subscribe(event_name, exist_ok=exist_ok)(BlockEventHandler(func))
+        subscribe(event_name, exist_ok=exist_ok)(create_interrupted_handler(func))
         return func
 
     return decorator

@@ -18,6 +18,7 @@ pip install apixis
 
 | 功能 | 文档 |
 | --- | --- |
+| 创建、启动、暂停、恢复和关闭 core | [五阶段生命周期](./core/runtime-lifecycle.md) |
 | 发布事件、管理共享事件系统 | [事件 API](./core/event/README.md) |
 | 等待事件，或先订阅回包再发布请求 | [事件 API：wait_event 与 expect_event](./core/event/README.md#等待事件) |
 | 订阅、排序、替换 handler，处理错误与取消 | [事件处理器](./core/event/handlers.md) |

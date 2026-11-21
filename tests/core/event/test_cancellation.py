@@ -284,7 +284,7 @@ async def test_cancelling_one_background_task_does_not_cancel_other_handlers():
         await runtime._dispatch_event(event, [registry.registry["background"], registry.registry["foreground"]])
         await asyncio.wait_for(entered[1].wait(), 1)
         foreground_core.assert_awaited_once_with(event)
-        second_background, = runtime._background_handler_tasks - {first_background}
+        second_background, = runtime._background_handler_tasks.keys() - {first_background}
         second_background.cancel()
         with pytest.raises(asyncio.CancelledError):
             await second_background

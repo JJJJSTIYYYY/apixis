@@ -1,6 +1,7 @@
 """Public event types, queues, registries, and subscription helpers."""
 
 from apixis.core.event.base import (
+    CoreState,
     EventLoopStatus,
     EventRuntimeStatus,
     EventType,
@@ -18,6 +19,7 @@ from apixis.core.event.event_pipe import (
     ApixEventPipe,
 )
 from apixis.core.utils.exception import (
+    CoreClosedError,
     EventHandlerNotRegisteredError,
     EventHandlerAlreadyRegisteredError,
     GraphNodeError,
@@ -28,18 +30,17 @@ from apixis.core.event.handler_registry import (
     ApixHandlerRegistry,
 )
 from apixis.core.event.factory import (
+    create_core,
+    get_core,
     get_event_runtime_status,
     start_core,
     stop_core,
+    close_core,
     get_event_registry,
     get_event_pipe,
     get_handler_registry,
     get_event_loop,
-    aget_event_registry,
-    aget_event_pipe,
-    aget_handler_registry,
-    aget_event_loop,
-    EventCore,
+    ApixisCore,
 )
 from apixis.core.event.subscription import (
     get_unmatched_subscriptions,
@@ -61,20 +62,21 @@ from apixis.core.event.event_registry import (
 )
 
 __all__ = [
+    "CoreState",
+    "CoreClosedError",
+    "create_core",
+    "get_core",
     "get_event_runtime_status",
     "EventRuntimeStatus",
     "EventLoopStatus",
     "start_core",
     "stop_core",
+    "close_core",
     "get_event_registry",
     "get_event_pipe",
     "get_handler_registry",
     "get_event_loop",
-    "aget_event_registry",
-    "aget_event_pipe",
-    "aget_handler_registry",
-    "aget_event_loop",
-    "EventCore",
+    "ApixisCore",
     "EventType",
     "ApixEvent",
     "ApixEventError",

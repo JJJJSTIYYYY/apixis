@@ -27,7 +27,7 @@ async def runtime(monkeypatch, request):
     pipe = event_pipe.ApixEventPipe(maxsize=2)
     handlers = factory.ApixHandlerRegistry(registry)
     loop = event_loop.ApixEventLoop(handlers, pipe, registry)
-    core = factory.EventCore(registry, pipe, handlers, loop)
+    core = factory.ApixisCore(registry, pipe, handlers, loop)
     monkeypatch.setattr(factory, "_core", core)
     await factory.start_core()
     running_loop = asyncio.get_running_loop()
@@ -37,15 +37,7 @@ async def runtime(monkeypatch, request):
     try:
         yield pipe, loop
     finally:
-        await loop.stop()
-        tasks = list(loop._dispatch_tasks | loop._background_handler_tasks)
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-        await pipe.clear()
-        await pipe.stop()
-        for name in tuple(handlers.registry):
-            handlers.unregister_handler(name)
+        await core.close_core()
         running_loop.set_exception_handler(previous_handler)
         assert not callback_errors, callback_errors
 
@@ -326,7 +318,7 @@ async def test_explicit_start_during_stop_keeps_restarted_consumers_alive(runtim
     await asyncio.wait_for(stopping, 1)
     await wait_for_dispatch(loop)
     assert completed == ["child"]
-    assert loop._started
+    assert loop.is_running
 
 
 async def test_task_creation_failure_does_not_block_later_events(runtime, monkeypatch, wait_for_dispatch):
@@ -675,8 +667,8 @@ async def test_stop_core_preserves_active_work_and_full_queue(
         await asyncio.wait_for(entered.wait(), 1)
         await asyncio.wait_for(factory.stop_core(), 1)
         assert not finished.is_set()
-        assert not pipe.is_running
-        assert not loop._started
+        assert not pipe.closed
+        assert not loop.is_running
         for index in range(pipe.maxsize):
             await pipe.post_event(event_type=EventType.INFO, event_name=f"queued.{index}")
         assert pipe.full()

@@ -91,6 +91,16 @@ async def test_wait_event_received_resolves_before_foreground_processing(
         unsubscribe(process.__name__)
 
 
+@pytest.mark.parametrize("point", ["received", "processed"])
+async def test_waiting_does_not_record_a_business_handler_execution(point):
+    async with expect_event("observation.only", point=point) as waiter:
+        await post_event(event_name="observation.only")
+        event = await waiter.wait()
+    assert event.seen == []
+    assert event.error_stack == []
+    assert not event.accepted
+
+
 async def test_wait_event_processed_resolves_after_foreground_processing(
     wait_for_dispatch,
 ):
@@ -322,8 +332,11 @@ async def test_expect_event_processed_observes_terminal_events(
             event_type=EventType.INFO, event_name="job.finished",
         )
         event = await waiter.wait()
-        assert event.accepted is (upstream_state == "accepted")
-        assert event.has_error is (upstream_state in {"error", "cancelled"})
+        if upstream_state == "cancelled":
+            assert event is None
+        else:
+            assert event.accepted is (upstream_state == "accepted")
+            assert event.has_error is (upstream_state == "error")
     await wait_for_dispatch(get_event_loop())
 
 
@@ -605,9 +618,12 @@ async def test_expect_event_collects_terminal_events(state, wait_for_dispatch):
                 event_type=EventType.INFO, event_name=name,
             )
         events = await waiter.wait()
-        for event in events.values():
-            assert event.accepted is (state == "accepted")
-            assert event.has_error is (state in {"error", "cancelled"})
+        if state == "cancelled":
+            assert events is None
+        else:
+            for event in events.values():
+                assert event.accepted is (state == "accepted")
+                assert event.has_error is (state == "error")
     await wait_for_dispatch(get_event_loop())
 
 
@@ -666,25 +682,19 @@ async def test_wait_event_partial_collection_cleanup(exit_mode, wait_for_dispatc
     assert set(registry.registry) == registered
 
 
-async def test_expect_event_registers_multiple_handlers_without_yielding(monkeypatch):
+async def test_expect_event_registers_multiple_handlers_without_yielding():
     registry = get_handler_registry()
     registered = set(registry.registry)
-    register = registry.register_wait_handler
     observed = []
-
-    def register_and_schedule_observer(handler, **kwargs):
-        register(handler, **kwargs)
-        asyncio.get_running_loop().call_soon(
-            lambda: observed.append(set(registry.registry) - registered)
-        )
-
-    monkeypatch.setattr(registry, "register_wait_handler", register_and_schedule_observer)
+    asyncio.get_running_loop().call_soon(
+        lambda: observed.append(set(registry.registry) - registered)
+    )
     async with expect_event(["job.first", "job.second"]):
         assert not observed
         installed = set(registry.registry) - registered
         assert len(installed) == 2
         await asyncio.sleep(0)
-        assert observed == [installed, installed]
+        assert observed == [installed]
     assert set(registry.registry) == registered
 
 
@@ -692,7 +702,7 @@ async def test_expect_event_registers_multiple_handlers_without_yielding(monkeyp
 async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypatch):
     registry = get_handler_registry()
     registered = set(registry.registry)
-    register = registry.register_wait_handler
+    register = registry._add_waiter_handler
     calls = 0
 
     def fail_second_registration(handler, **kwargs):
@@ -702,7 +712,7 @@ async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypa
             raise ValueError("registration failed")
         register(handler, **kwargs)
 
-    monkeypatch.setattr(registry, "register_wait_handler", fail_second_registration)
+    monkeypatch.setattr(registry, "_add_waiter_handler", fail_second_registration)
     with pytest.raises(ValueError, match="registration failed"):
         if interface == "context":
             async with expect_event(["job.first", "job.second"]):
@@ -711,6 +721,7 @@ async def test_wait_registration_failure_rolls_back_handlers(interface, monkeypa
             await wait_event(["job.first", "job.second"])
     assert calls == 2
     assert set(registry.registry) == registered
+    assert not registry._waiter_cache.waiters
 
 
 @pytest.mark.parametrize("event_names", [[], set(), [""], ["job.first", ""], [None]])

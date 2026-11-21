@@ -1,11 +1,11 @@
-"""Every compiled graph owns interruption cleanup and a missing-hook fallback."""
+"""Interruption requests validate foreground processing through post_and_wait."""
 
 import asyncio
 
 import pytest
 
 from apixis.core.event.factory import get_event_pipe, get_handler_registry
-from apixis.core.event import get_handler, subscribe, unsubscribe
+from apixis.core.event import expect_event, get_handler, subscribe, unsubscribe
 from apixis.core.graph import GLOBALNS, GraphManager
 from apixis.core.graph.interrupter import interrupt, interrupted_hook
 from apixis.core.graph.utils.namespace import get_graph_interrupted_name
@@ -21,8 +21,8 @@ async def run_graph(graph, context, mode):
 
 @pytest.mark.parametrize("namespace", [None, GLOBALNS, "named-review"])
 @pytest.mark.parametrize("name", [None, "custom_review_hook"])
-async def test_owned_hook_name_is_public_and_distinct_from_fallback(namespace, name):
-    """User hook lookup and cleanup never target the internal fallback."""
+async def test_owned_hook_name_is_public_without_an_internal_fallback(namespace, name):
+    """Graph compilation installs no interruption handler before a user hook."""
     async def review(state):
         return {"answer": await interrupt()}
 
@@ -33,27 +33,20 @@ async def test_owned_hook_name_is_public_and_distinct_from_fallback(namespace, n
              .compile_graph(entry_point="review", using_namespace=namespace))
     event_name = get_graph_interrupted_name(graph)
     registry = get_handler_registry()
-    [fallback_name] = registry.get_handlers_chain_for_event(event_name)
-    fallback = get_handler(fallback_name)
-    assert fallback_name != event_name
+    assert registry.get_handlers_chain_for_event(event_name) == []
     assert get_handler(event_name) is None
 
     handler_name = name or event_name
     assert graph.add_interrupted_hook(capture, name=name) is capture
     assert capture.__name__ == "capture"
     assert get_handler(handler_name) is not None
-    assert get_handler(handler_name) is not fallback
-    assert get_handler(fallback_name) is fallback
-    assert registry.get_handlers_chain_for_event(event_name) == [
-        handler_name, fallback_name,
-    ]
+    assert registry.get_handlers_chain_for_event(event_name) == [handler_name]
 
     async with asyncio.timeout(1):
         assert await graph.invoke({}) == {"answer": "approved"}
         await get_event_pipe().join()
     graph.decompose()
     assert get_handler(handler_name) is None
-    assert get_handler(fallback_name) is None
     assert registry.get_handlers_chain_for_event(event_name) == []
 
 
@@ -86,7 +79,7 @@ async def test_default_owned_hook_can_reuse_callback_across_graphs():
 
 
 async def test_public_hook_name_can_be_registered_before_graph_compilation():
-    """A preexisting user hook does not collide with fallback registration."""
+    """Graph compilation preserves a preexisting user hook."""
     namespace = "preexisting-review"
     event_name = get_graph_interrupted_name(namespace)
 
@@ -137,6 +130,93 @@ async def test_missing_hook_fails_without_waiting_for_timeout(mode, namespace, t
         graph.decompose()
 
 
+async def test_other_waiters_do_not_count_as_interruption_hooks():
+    async def review(state):
+        await interrupt()
+
+    graph = GraphManager().add_node(review).compile_graph("review")
+    event_name = get_graph_interrupted_name(graph)
+    try:
+        async with expect_event(event_name, point="received") as received:
+            async with expect_event(event_name, point="processed") as processed:
+                with pytest.raises(BlockHookNotRegisteredError):
+                    await graph.invoke({})
+                before = await received.wait()
+                after = await processed.wait()
+                assert before is after
+                assert after.seen == []
+                assert after.error_stack == []
+    finally:
+        graph.decompose()
+
+
+async def test_interrupt_waits_for_all_foreground_hooks_before_resuming():
+    processing, release, resumed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def review(state):
+        answer = await interrupt()
+        resumed.set()
+        return {"answer": answer}
+
+    graph = GraphManager().add_node(review).compile_graph("review")
+
+    @graph.add_interrupted_hook
+    async def resolve(block):
+        block.resolve("approved")
+
+    @subscribe(get_graph_interrupted_name(graph), priority=-1)
+    async def finish_processing(event):
+        processing.set()
+        await release.wait()
+
+    task = asyncio.create_task(graph.invoke({}))
+    try:
+        async with asyncio.timeout(1):
+            await processing.wait()
+            assert not resumed.is_set()
+            assert not task.done()
+            release.set()
+            assert await task == {"answer": "approved"}
+            assert resumed.is_set()
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        unsubscribe(finish_processing.__name__)
+        graph.decompose()
+
+
+async def test_interrupt_deadline_includes_foreground_hook_processing():
+    entered, release = asyncio.Event(), asyncio.Event()
+    blocks = []
+
+    async def review(state):
+        return {"answer": await interrupt(timeout=0.02)}
+
+    graph = GraphManager().add_node(review).compile_graph("review")
+
+    @graph.add_interrupted_hook
+    async def hold(block):
+        blocks.append(block)
+        entered.set()
+        await release.wait()
+        block.resolve("too late")
+
+    task = asyncio.create_task(graph.invoke({}))
+    try:
+        async with asyncio.timeout(1):
+            await entered.wait()
+            assert await task == {"answer": None}
+            assert blocks[0].cancelled
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        graph.decompose()
+
+
 @pytest.mark.parametrize("registration", ["owned", "standalone_before", "standalone_after"])
 @pytest.mark.parametrize("accepted", [True, False])
 async def test_deferred_hook_must_accept_its_block(registration, accepted):
@@ -168,7 +248,7 @@ async def test_deferred_hook_must_accept_its_block(registration, accepted):
     try:
         async with asyncio.timeout(1):
             block = await blocks.get()
-            # Allow the default handler to run after capture() has returned.
+            # Allow processed waiting to observe capture() returning.
             await asyncio.sleep(0)
             assert block.accepted is accepted
             if accepted:
@@ -208,7 +288,7 @@ async def test_plain_observer_must_accept_block_for_deferred_resolution(subscrip
     graph = GraphManager().add_node(review).compile_graph(entry_point="review")
 
     event_name = get_graph_interrupted_name(graph.namespace, missing_ok=True)
-    [fallback_name] = get_handler_registry().get_handlers_chain_for_event(event_name)
+    assert get_handler_registry().get_handlers_chain_for_event(event_name) == []
     pattern = event_name if subscription == "exact" else get_graph_interrupted_name("*", missing_ok=True)
 
     @subscribe(pattern, priority=10)
@@ -225,7 +305,7 @@ async def test_plain_observer_must_accept_block_for_deferred_resolution(subscrip
             event = await events.get()
             # Interruption dispatch finishes while the graph still awaits its Block.
             await asyncio.sleep(0)
-            assert event.seen == [observe.__name__, fallback_name]
+            assert event.seen == [observe.__name__]
             assert event.context.accepted is accepted
             if accepted:
                 assert not event.context.done
@@ -245,7 +325,7 @@ async def test_plain_observer_must_accept_block_for_deferred_resolution(subscrip
         graph.decompose()
 
 
-async def test_filtered_hook_does_not_suppress_fallback():
+async def test_filtered_hook_is_detected_as_missing_after_processing():
     """A matching registration alone is insufficient when its core has not run."""
     called = []
 
@@ -318,7 +398,7 @@ async def test_default_validation_runs_after_low_priority_hooks(
         graph.decompose()
 
 
-async def test_simultaneous_graphs_keep_seen_and_fallback_independent():
+async def test_simultaneous_graphs_keep_processed_hook_validation_independent():
     """A handled interruption in one graph cannot mask a missing hook in another."""
     async def review(state):
         return {"answer": await interrupt()}
@@ -343,7 +423,7 @@ async def test_simultaneous_graphs_keep_seen_and_fallback_independent():
 
 
 @pytest.mark.parametrize("mode", ["invoke", "stream"])
-@pytest.mark.parametrize("action", ["error", "accept", "cancel"])
+@pytest.mark.parametrize("action", ["error", "accept"])
 async def test_default_handles_upstream_termination_without_user_hook(mode, action):
     blocks = []
     continued = []
@@ -360,8 +440,6 @@ async def test_default_handles_upstream_termination_without_user_hook(mode, acti
         blocks.append(event.context)
         if action == "error":
             raise ValueError("plugin failed")
-        if action == "cancel":
-            raise asyncio.CancelledError()
         event.accept()
 
     context = graph.create_context({"value": "initial"})
@@ -371,12 +449,11 @@ async def test_default_handles_upstream_termination_without_user_hook(mode, acti
                 result = await run_graph(graph, context, mode)
                 assert result == ({"value": "initial"} if mode == "invoke" else [])
             else:
-                error = GraphNodeError if action == "error" else asyncio.CancelledError
-                with pytest.raises(error):
+                with pytest.raises(GraphNodeError):
                     await run_graph(graph, context, mode)
             await get_event_pipe().join()
         assert context.status == ("failed" if action == "error" else "aborted")
-        assert context.completion.cancelled() is (action == "cancel")
+        assert not context.completion.cancelled()
         assert len(blocks) == 1 and blocks[0].done
         assert continued == []
     finally:
@@ -400,35 +477,28 @@ async def test_node_can_recover_from_missing_hook_error():
         graph.decompose()
 
 
-async def test_default_registration_collision_releases_partial_graph_and_namespace():
+async def test_graph_compilation_does_not_reserve_interruption_fallback_names():
     event_name = get_graph_interrupted_name("collision", missing_ok=True)
     manager = GraphManager()
-    probe = manager.compile_graph(entry_point=None, using_namespace="collision")
-    [fallback_name] = get_handler_registry().get_handlers_chain_for_event(event_name)
-    probe.decompose()
+    fallback_name = "__graph_interrupted_fallback__collision"
 
     async def unrelated(event):
         pass
 
-    # Occupy the fallback handler's internal name to force the second
-    # listener registration to fail after graph dispatch has been registered.
     unrelated.__name__ = fallback_name
     subscribe(event_name)(unrelated)
+    graph = manager.compile_graph(entry_point=None, using_namespace="collision")
     try:
-        from apixis.core.utils.exception import EventHandlerAlreadyRegisteredError
-        with pytest.raises(EventHandlerAlreadyRegisteredError):
-            manager.compile_graph(entry_point=None, using_namespace="collision")
         assert get_handler(fallback_name).core_func is unrelated
+        assert get_handler_registry().get_handlers_chain_for_event(event_name) == [fallback_name]
+        async with asyncio.timeout(1):
+            assert await graph.invoke({}) == {}
     finally:
+        graph.decompose()
         unsubscribe(fallback_name)
 
-    graph = manager.compile_graph(entry_point=None, using_namespace="collision")
-    async with asyncio.timeout(1):
-        assert await graph.invoke({}) == {}
-    graph.decompose()
 
-
-async def test_decomposition_removes_default_and_namespace_reuse_restores_it():
+async def test_decomposition_removes_owned_hook_and_namespace_reuse_does_not_restore_it():
     async def review(state):
         await interrupt()
         return state
