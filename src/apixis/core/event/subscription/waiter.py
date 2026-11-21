@@ -179,10 +179,16 @@ class EventWaiter:
     async def _cancel(self, event_name: str, event: ApixEvent) -> None:
         """Complete a matching cancellation with None, never a partial event.
 
-        Cancelled events keep predicate-based request correlation.
+        Cancelled events respect the fixed deadline and predicate-based correlation.
         An already terminal Future keeps its result, exception or cancellation.
         """
         if not self.active or self._events[event_name] is not None:
+            return
+        if (
+            self._deadline is not None
+            and asyncio.get_running_loop().time() >= self._deadline
+        ):
+            self._expire()
             return
         if self._predicate is not None:
             try:

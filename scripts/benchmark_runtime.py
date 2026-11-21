@@ -580,7 +580,6 @@ async def run_worker(args):
                 "rounds": rounds,
             }
     core = await fresh_core(128)
-    core = await fresh_core(128)
     for name in ("state/large-snapshots", "state/large-no-snapshots"):
         if selected:
             break

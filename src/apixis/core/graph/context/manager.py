@@ -61,6 +61,9 @@ def get_current_namespace() -> str:
 def get_stream_writer() -> StreamWriter:
     """Return the writer bound to the graph node currently being executed.
 
+    Cached handles also discard new chunks once the invocation terminates.
+    Chunks queued before termination remain available to the stream consumer.
+
     Raises:
         RuntimeError: If called outside a graph node execution context.
     """

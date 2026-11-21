@@ -159,7 +159,13 @@ class GraphContext:
         self._transition_to("running")
         self.run_id = run_id
         self.completion = completion
-        self.stream_writer = stream_writer
+
+        def send(chunk: Any) -> None:
+            # Cached handles obey the same terminal boundary as fresh lookups.
+            if self.is_active:
+                stream_writer(chunk)
+
+        self.stream_writer = StreamWriter(send)
         self._on_terminal = on_terminal
 
     def _set_target_node(self, target_node_name: str | list[str]) -> None:

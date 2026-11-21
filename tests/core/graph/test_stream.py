@@ -20,6 +20,76 @@ async def _collect(graph, state):
     return [chunk async for chunk in graph.stream(state)]
 
 
+@pytest.mark.parametrize("after_stream_closed", [False, True])
+async def test_cached_writer_discards_new_chunks_after_abort(after_stream_closed):
+    release = asyncio.Event()
+    finished = asyncio.Event()
+    errors = []
+
+    async def node(state):
+        writer = get_stream_writer()
+        writer("before")
+        await release.wait()
+        try:
+            writer("after-abort")
+            writer.write("also-after-abort")
+            get_stream_writer()("new-handle-after-abort")
+        except RuntimeError as error:
+            errors.append(error)
+        finally:
+            finished.set()
+        return {}
+
+    graph = GraphManager().add_node(node).compile_graph(entry_point="node")
+    context = graph.create_context({})
+    stream = graph.stream(graph_context=context)
+    try:
+        assert await anext(stream) == "before"
+        await graph.abort(context)
+        if not after_stream_closed:
+            release.set()
+            await asyncio.wait_for(finished.wait(), 1)
+        assert [chunk async for chunk in stream] == []
+        if after_stream_closed:
+            release.set()
+            await asyncio.wait_for(finished.wait(), 1)
+        assert errors == []
+    finally:
+        release.set()
+        await stream.aclose()
+
+
+@pytest.mark.parametrize("outcome", ["finished", "failed"])
+async def test_cached_writer_discards_chunks_after_completion(outcome):
+    writers = []
+
+    def node(state):
+        writer = get_stream_writer()
+        writers.append(writer)
+        writer("before")
+        if outcome == "failed":
+            raise ValueError("node failed")
+        return {}
+
+    graph = GraphManager().add_node(node).compile_graph(entry_point="node")
+    context = graph.create_context({})
+    chunks = []
+
+    async def collect():
+        async for chunk in graph.stream(graph_context=context):
+            chunks.append(chunk)
+
+    if outcome == "failed":
+        with pytest.raises(ValueError, match="node failed"):
+            await collect()
+    else:
+        await collect()
+    assert context.status == outcome
+    assert chunks == ["before"]
+    writers[0]("late")
+    writers[0].write("also late")
+
+
 async def test_sync_node_emits_chunks_in_write_order():
     """The callable and method writer APIs preserve chunk order."""
 

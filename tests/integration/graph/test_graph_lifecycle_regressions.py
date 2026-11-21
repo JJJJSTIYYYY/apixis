@@ -23,6 +23,7 @@ async def test_rejected_bind_preserves_original_run_resources(terminal):
     completion = asyncio.get_running_loop().create_future()
     writer = noop_stream_writer()
     context._bind(run_id="original", completion=completion, stream_writer=writer)
+    bound_writer = context.stream_writer
     if terminal == "finished":
         context._finish()
     elif terminal == "failed":
@@ -41,7 +42,7 @@ async def test_rejected_bind_preserves_original_run_resources(terminal):
         )
     assert context.run_id == "original"
     assert context.completion is completion
-    assert context.stream_writer is writer
+    assert context.stream_writer is bound_writer
     assert context.status == (terminal or "running")
     assert not attempted_completion.done()
     if terminal is None:

@@ -6,9 +6,44 @@ import weakref
 
 import pytest
 
-from apixis import EventWaiter, expect_event, post_event
+from apixis import EventWaiter, expect_event, post_event, subscribe
 from apixis.core.event.factory import get_event_loop, get_handler_registry
 from apixis.core.event.subscription import waiter as waiter_module
+
+
+@pytest.mark.parametrize("time_out", [0, -1])
+async def test_event_cancellation_checks_deadline_before_timer_runs(sample_event, time_out):
+    predicate_calls = []
+    with pytest.raises(TimeoutError):
+        async with expect_event(
+            sample_event.event_name,
+            point="processed",
+            time_out=time_out,
+            predicate=lambda event: predicate_calls.append(event) or True,
+        ) as waiter:
+            # No scheduling point: the timeout callback has not run yet.
+            await waiter._cancel(sample_event.event_name, sample_event)
+            await waiter.wait()
+    assert predicate_calls == []
+    assert waiter._registry is None
+    assert waiter._timeout_handle is None
+
+
+async def test_processed_cancellation_cannot_win_over_zero_timeout():
+    @subscribe("deadline.cancel")
+    async def cancel(event):
+        raise asyncio.CancelledError
+
+    async with expect_event("deadline.cancel", point="processed", time_out=0) as waiter:
+        await post_event(event_name="deadline.cancel")
+        with pytest.raises(TimeoutError):
+            await waiter.wait()
+
+
+async def test_core_finish_keeps_none_result_before_timeout_callback():
+    async with expect_event("deadline.close", time_out=0) as waiter:
+        waiter.finish()
+        assert await waiter.wait() is None
 
 
 @pytest.mark.parametrize("outcome", ["result", "timeout", "cancel", "close", "finish"])
