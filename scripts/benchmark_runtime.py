@@ -97,8 +97,8 @@ async def run_worker(args):
     async def drain(core):
         async with asyncio.timeout(30):
             while True:
-                await core.event_pipe.join()
-                tasks = tuple(core.event_loop._dispatch_tasks)
+                await factory.get_event_pipe().join()
+                tasks = tuple(factory.get_event_loop()._dispatch_tasks)
                 if not tasks:
                     return
                 await asyncio.gather(*tasks, return_exceptions=True)
@@ -109,10 +109,10 @@ async def run_worker(args):
         if hasattr(core, "close_core"):
             await core.close_core()
         else:
-            await core.event_loop.stop()
-            await core.event_pipe.stop()
-        assert not core.event_loop._dispatch_tasks
-        semaphore = core.event_loop._event_semaphore
+            await factory.get_event_loop().stop()
+            await factory.get_event_pipe().stop()
+        assert not factory.get_event_loop()._dispatch_tasks
+        semaphore = factory.get_event_loop()._event_semaphore
         assert semaphore._value == getattr(semaphore, "capacity", semaphore._bound_value)
 
     async def fresh_core(capacity):
@@ -129,7 +129,7 @@ async def run_worker(args):
             await factory.start_core()
         else:
             await factory.start_core(core)
-        semaphore = core.event_loop._event_semaphore
+        semaphore = factory.get_event_loop()._event_semaphore
         assert getattr(semaphore, "capacity", semaphore._bound_value) == capacity
         return core
 
@@ -255,7 +255,7 @@ async def run_worker(args):
             entry._subscribe = (pattern,)
         else:
             entry.subscribe = [pattern]
-        entry.priority = priority
+        setattr(entry, "_priority" if hasattr(entry, "_priority") else "priority", priority)
         return entry
 
     def registry_round(kind):
@@ -286,13 +286,13 @@ async def run_worker(args):
             entry = new_handler(f"waiter{index}", f"unrelated.{index}")
             started = time.perf_counter()
             registry.register_handler(entry)
-            registry.unregister_handler(entry.name)
+            registry.unregister_handler(entry.__name__)
             samples.append(time.perf_counter() - started)
         return {"seconds": statistics.median(samples), "operations": 1, "retained_names": len(registry.cached_chain)}
 
     async def event_round(kind, core):
-        core.handler_registry.clear()
-        pipe = core.event_pipe
+        factory.get_handler_registry().clear()
+        pipe = factory.get_event_pipe()
         observed = 0
 
         async def receive(event):
@@ -301,7 +301,7 @@ async def run_worker(args):
             observed += 1
 
         entry = new_handler("benchmark_receive", "benchmark.publish", receive)
-        core.handler_registry.register_handler(entry)
+        factory.get_handler_registry().register_handler(entry)
         publisher = pipe.post_event if kind == "cached-pipe" else subscription.post_event
         started = time.perf_counter()
         for index in range(args.events):
@@ -314,14 +314,14 @@ async def run_worker(args):
                 "operations": args.events, "events_per_second": args.events / (finished - started)}
 
     async def request_reply_round(core):
-        core.handler_registry.clear()
-        pipe = core.event_pipe
+        factory.get_handler_registry().clear()
+        pipe = factory.get_event_pipe()
 
         async def respond(event):
             await pipe.post_event(event_type=EventType.INFO, event_name="benchmark.reply", context=event.context)
 
         entry = new_handler("benchmark_respond", "benchmark.request", respond)
-        core.handler_registry.register_handler(entry)
+        factory.get_handler_registry().register_handler(entry)
         started = time.perf_counter()
         for index in range(2048):
             expect = getattr(subscription, "expect_event", subscription.wait_for_event)
@@ -331,7 +331,7 @@ async def run_worker(args):
                 assert result.context == index
         finished = time.perf_counter()
         await drain(core)
-        assert list(core.handler_registry.registry) == [entry.name]
+        assert list(factory.get_handler_registry().registry) == [entry.__name__]
         return {"seconds": finished - started, "operations": 2048,
                 "roundtrips_per_second": 2048 / (finished - started)}
 
@@ -342,7 +342,8 @@ async def run_worker(args):
         half exact and half glob patterns; waits also split across both points.
         Counting is a separate pass so instrumentation cannot bias timings.
         """
-        registry = core.handler_registry
+        registry = factory.get_handler_registry()
+        pipe = factory.get_event_pipe()
         registry.clear()
         event_name = "benchmark.mixed.ready"
         patterns = (event_name, "benchmark.mixed.*")
@@ -387,7 +388,7 @@ async def run_worker(args):
                     for number in range(waiting)
                 ]
                 tasks = [asyncio.create_task(waiter.get_result()) for waiter in waiters]
-                await core.event_pipe.post_event(
+                await pipe.post_event(
                     event_type=EventType.INFO, event_name=event_name, context=index,
                 )
                 if tasks:
@@ -413,9 +414,9 @@ async def run_worker(args):
                 del registry._resolve_handler_chain
         assert observed == normal * args.mixed_events
         assert set(registry.registry) == names
-        assert not core.event_loop._dispatch_tasks
-        assert not core.event_loop._background_handler_tasks
-        assert core.event_loop._event_semaphore._value == 128
+        assert not factory.get_event_loop()._dispatch_tasks
+        assert not factory.get_event_loop()._background_handler_tasks
+        assert factory.get_event_loop()._event_semaphore._value == 128
         if audit:
             separate_cache = hasattr(registry, "get_subscription_chain_for_event")
             assert builds == (1 if waiting == 0 or separate_cache else args.mixed_events)
@@ -427,9 +428,10 @@ async def run_worker(args):
                 "handler_invocations": args.mixed_listeners * args.mixed_events}
 
     def getter_round(core):
+        pipe = factory.get_event_pipe()
         started = time.perf_counter()
         for _ in range(200000):
-            assert factory.get_event_pipe() is core.event_pipe
+            assert factory.get_event_pipe() is pipe
         return {"seconds": time.perf_counter() - started, "operations": 200000}
 
     async def lifecycle_round(kind):
@@ -438,6 +440,7 @@ async def run_worker(args):
             await stop(previous)
         factory._core = None
         core = factory.create_core()
+        create_components = getattr(type(core), "_create_core", None) or type(core).create_core
         try:
             if kind == "close-waiters":
                 waiters = [subscription.EventWaiter(f"never.{index}") for index in range(256)]
@@ -445,7 +448,7 @@ async def run_worker(args):
                 await core.close_core()
                 seconds = time.perf_counter() - started
                 assert all(waiter._future.result() is None for waiter in waiters)
-                assert not core.handler_registry.registry
+                assert not factory.get_handler_registry().registry
                 return {"seconds": seconds, "operations": len(waiters), "closures": 1}
             if kind == "start-stop":
                 await core.stop_core()
@@ -455,7 +458,7 @@ async def run_worker(args):
                     await core.start_core()
                     await core.stop_core()
                 else:
-                    local = type(core).create_core()
+                    local = create_components()
                     await local.close_core()
             seconds = time.perf_counter() - started
             assert core.state.value == ("stopped" if kind == "start-stop" else "created")
@@ -522,7 +525,7 @@ async def run_worker(args):
             gc.collect()
             rounds.append(await event_round(kind, core))
         report["scenarios"][f"event/{kind}"] = {
-            "workload": {"events": args.events, "queue_capacity": core.event_pipe.maxsize},
+            "workload": {"events": args.events, "queue_capacity": factory.get_event_pipe().maxsize},
             "capacity": 128, "rounds": rounds,
         }
     if wanted("event/request-reply"):
@@ -557,7 +560,7 @@ async def run_worker(args):
                 "received_waiters": waiting // 2, "processed_waiters": waiting // 2,
                 "matching": "half exact, half glob in each listener category",
                 "normal_registration": "persistent", "wait_registration": "each event",
-                "queue_capacity": core.event_pipe.maxsize,
+                "queue_capacity": factory.get_event_pipe().maxsize,
             },
             "capacity": 128, "rounds": rounds,
             "cache_audit": await mixed_wait_round(core, percent, audit=True),

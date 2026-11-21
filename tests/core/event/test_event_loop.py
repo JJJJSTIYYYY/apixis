@@ -11,7 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from apixis.core.event import ApixEventPipe, get_event_registry
+from apixis.core.event.event_pipe import ApixEventPipe
+from apixis.core.event.factory import get_event_registry
 
 from apixis.core.event.base import ApixEvent, EventType, ApixEventHandler
 from apixis.core.event.handler_registry import ApixHandlerRegistry
@@ -49,10 +50,10 @@ def _make_handler_entry(
         time_out=time_out,
         background=background,
     )
-    entry.id = f"id_{name}"
-    entry.name = name
+    entry._id = f"id_{name}"
+    entry._name = name
     entry._subscribe = tuple(subscribe or ["test.event"])
-    entry.priority = priority
+    entry._priority = priority
     entry._register_order = register_order
     return entry
 
@@ -93,7 +94,7 @@ class TestStartStop:
             await asyncio.Future()
 
         handler = _make_handler_entry(callback=run)
-        handler.on_cancelled = cleanup
+        handler._on_cancelled = cleanup
         registry.register_handler(handler)
         loop = asyncio.get_running_loop()
         original_factory = loop.get_task_factory()

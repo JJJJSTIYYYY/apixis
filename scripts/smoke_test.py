@@ -12,7 +12,6 @@ import apixis
 from apixis import (
     EventType,
     GraphManager,
-    get_event_pipe,
     post_and_wait,
     create_core,
     start_core,
@@ -36,6 +35,13 @@ async def main() -> None:
     assert not hasattr(apixis, "aget_event_pipe")
     assert not hasattr(apixis, "ThreadEventWaiter")
     assert not hasattr(apixis, "post_event_threadsafe")
+    for name in (
+        "ApixisCore", "ApixEventHandler", "ApixEventLoop", "ApixEventPipe",
+        "ApixEventRegistry", "ApixHandlerRegistry", "get_handler",
+        "get_event_pipe", "get_event_loop", "get_event_registry",
+        "get_handler_registry", "acquire_namespace", "release_namespace",
+    ):
+        assert not hasattr(apixis, name)
 
     create_core()
     observed = []
@@ -53,7 +59,6 @@ async def main() -> None:
         .compile_graph(entry_point="increment")
     )
     await start_core()
-    pipe = get_event_pipe()
     try:
         async with asyncio.timeout(5):
             result = await post_and_wait(
@@ -64,7 +69,6 @@ async def main() -> None:
             assert result.context == {"ok": True}
             assert observed == [{"ok": True}]
             assert await graph.invoke({"value": 1}) == {"value": 2}
-            await pipe.join()
     finally:
         graph.decompose()
         unsubscribe(receive.__name__)

@@ -1,0 +1,277 @@
+{
+  "review_completed_at": "2026-11-21T16:06:26.019442+00:00",
+  "baseline_commit": "a93d34e0d96751db4a16386a114a994c47884af9",
+  "version": "3.0.0",
+  "python": "3.12.12",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+  "runtime_scripts_tests_unchanged_since_baseline": true,
+  "source_modules_reviewed": 46,
+  "source_inventory": [
+    {
+      "file": "src/apixis/__init__.py",
+      "sha256": "2e45055243d7a47e2a86c9de240cad060c8d4edbac7b978c355782e945af5f4e"
+    },
+    {
+      "file": "src/apixis/_version.py",
+      "sha256": "ce6c3e90184157c7621c8605c4bd346888050bd83f335bd4aa1a9579e6dc205d"
+    },
+    {
+      "file": "src/apixis/core/__init__.py",
+      "sha256": "a2d6a50c0a48f39592382589ab283a7c3b91681003181adf41f32059799374ba"
+    },
+    {
+      "file": "src/apixis/core/config/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "src/apixis/core/config/base.py",
+      "sha256": "d88bdc95e32f7f4404322f4ee26018cdf831aa18740b346289778e21baa020f8"
+    },
+    {
+      "file": "src/apixis/core/config/core_config.py",
+      "sha256": "c9f3f5ae9e99b61af18090674f38445e34911e57ffbe1f60f2773c3d3c2c47e9"
+    },
+    {
+      "file": "src/apixis/core/event/__init__.py",
+      "sha256": "624cb0e2fae21da0847d5d403bcbb4785dc6b5a756019a845841055d08ff71bd"
+    },
+    {
+      "file": "src/apixis/core/event/base/__init__.py",
+      "sha256": "571dd16c9621c352be60c04066a069f59ab5405d5ef35f4a11c8b58c4ca71d9d"
+    },
+    {
+      "file": "src/apixis/core/event/base/event.py",
+      "sha256": "4dc461c73e282d8178a87900838b9724c847550c9db52f7524ac95ed0b7061f4"
+    },
+    {
+      "file": "src/apixis/core/event/base/handler.py",
+      "sha256": "c748f87f495101e01e41e7f8ddf90b23d437214f86678ab4923f32236c4358a4"
+    },
+    {
+      "file": "src/apixis/core/event/base/process.py",
+      "sha256": "e01ffac07c49aba578b1a449835168cf747aefa1c09c8859047f2f17a6781d71"
+    },
+    {
+      "file": "src/apixis/core/event/base/status.py",
+      "sha256": "867ddc68eba3db0d7cfd9ad8ef3207a2c699f015659058a9444bfdc51d0779db"
+    },
+    {
+      "file": "src/apixis/core/event/core.py",
+      "sha256": "11910bd1a77118552348790aed9da05a294dd0c5efcaa1cf4cd51399a9446c0d"
+    },
+    {
+      "file": "src/apixis/core/event/event_loop.py",
+      "sha256": "73e05e0e9df0ccbd4765c77c7610a523d626c16848d9a1c07580125f785159c0"
+    },
+    {
+      "file": "src/apixis/core/event/event_pipe.py",
+      "sha256": "0f0073cec515098c2fecb6f44235be2d01ae40d6aa335e499e266754cecaf977"
+    },
+    {
+      "file": "src/apixis/core/event/event_registry.py",
+      "sha256": "183aa7c5552dc5aac87d39cf27e121469b61a9caac1544e5aff1f71d32173325"
+    },
+    {
+      "file": "src/apixis/core/event/factory.py",
+      "sha256": "0beaa804f49ce7d8460bde493535ed687ea3a72ca50df69d8171ee1fcb4fbf20"
+    },
+    {
+      "file": "src/apixis/core/event/handler_registry/__init__.py",
+      "sha256": "43c31550e7ab23107c05792c2cfd718887e533e6c7a0950eb28cc65fb05ce533"
+    },
+    {
+      "file": "src/apixis/core/event/handler_registry/matching.py",
+      "sha256": "127bbacfa95997c1248d1667d23c45302ff40ea9023f64a1855ac993acd23e94"
+    },
+    {
+      "file": "src/apixis/core/event/handler_registry/registry.py",
+      "sha256": "c5ab61b37995ce41fb4d20ac51c32a5300bbf3c4b1f8362f22ff340344e00fbf"
+    },
+    {
+      "file": "src/apixis/core/event/handler_registry/waiter_cache.py",
+      "sha256": "81e3d11ae465c950c5ba80d9d9628d1b29e17493d53477a7ce4a9e32d864f032"
+    },
+    {
+      "file": "src/apixis/core/event/subscription/__init__.py",
+      "sha256": "95464b44405406a7c415d5a691ce7de78afd022b8435012209348490bc40bcc7"
+    },
+    {
+      "file": "src/apixis/core/event/subscription/publication.py",
+      "sha256": "7ede53e2db9641eb13e7b18a1264ab74ebf5a337a423bd5894600d880c63e1b5"
+    },
+    {
+      "file": "src/apixis/core/event/subscription/subscriber.py",
+      "sha256": "142ab2de7e4e0db29a9685b75420ebfcb380204e5ed3e49212a9191ac4601efd"
+    },
+    {
+      "file": "src/apixis/core/event/subscription/waiter.py",
+      "sha256": "a706bbdcf59b1f34b856051d68106e1a2db64c47f5be7395f48d6449b29ad732"
+    },
+    {
+      "file": "src/apixis/core/graph/__init__.py",
+      "sha256": "ecf5079c26bd4f7211608cbf11798a50beaed093d63653337c26f726dade9381"
+    },
+    {
+      "file": "src/apixis/core/graph/base.py",
+      "sha256": "b6796222f90f89f7afa0f6785bd26cdf91899dbcd3e1bb3967cede594980f6d2"
+    },
+    {
+      "file": "src/apixis/core/graph/context/__init__.py",
+      "sha256": "a025f60f36e49bedd03fe5ce5266491d7b8acfb363099a841c5347012ed58d5f"
+    },
+    {
+      "file": "src/apixis/core/graph/context/graph_context.py",
+      "sha256": "0c8624b4766442cfe4c176f0c479f99849dc0639a3b49591281607d18e5f1178"
+    },
+    {
+      "file": "src/apixis/core/graph/context/manager.py",
+      "sha256": "027d2c4183becfd3a9ccab818c9dcc3985cf1d1f314b9a34675b9f6fc3f4c414"
+    },
+    {
+      "file": "src/apixis/core/graph/context/stream_writer.py",
+      "sha256": "c5937ab4b2ff4f4b2e5a2f114a22c1505012bf3c5cdf2b0aa78d5c998967d813"
+    },
+    {
+      "file": "src/apixis/core/graph/graph_manager.py",
+      "sha256": "0918ad356d208179deacd49ef40b46eba62522f562d2ef14b847d8db4f5aede3"
+    },
+    {
+      "file": "src/apixis/core/graph/interrupter/__init__.py",
+      "sha256": "01e5d8ec7f175a90b48dcb8e50f9bcafe92e4258926d9a283717fb72dd4f4948"
+    },
+    {
+      "file": "src/apixis/core/graph/interrupter/block.py",
+      "sha256": "a045034d34a217794b9096f0bf24ccea28e2ce96e3386226e8e11560b66dd4c4"
+    },
+    {
+      "file": "src/apixis/core/graph/interrupter/graph_interrupter.py",
+      "sha256": "4639a49b969a598a37e9df0f15f2338fec153ce7ef14b52709cbb2c36586f726"
+    },
+    {
+      "file": "src/apixis/core/graph/node.py",
+      "sha256": "2a22fa3d06f1ec898951deecae3c85610a59e5779629496031e2b2c0d01e9a88"
+    },
+    {
+      "file": "src/apixis/core/graph/node_graph.py",
+      "sha256": "9e97cdca3ac8a4f056809dcaf9ee4ccd6bde2d7fba998f7a04a0fed806b94732"
+    },
+    {
+      "file": "src/apixis/core/graph/utils/__init__.py",
+      "sha256": "0e87e54c3894eec224965c0927112de3468f3091d583a02161c13590b32aa8c3"
+    },
+    {
+      "file": "src/apixis/core/graph/utils/namespace.py",
+      "sha256": "9a3b203febb93b2fc443e93102774a2f6bd6199f13ca58db80f375d569c391a3"
+    },
+    {
+      "file": "src/apixis/core/graph/utils/state.py",
+      "sha256": "3a56d81ddc15af9743e269ecbd613d28460229156bb99e2dac486a8df87fc3bb"
+    },
+    {
+      "file": "src/apixis/core/graph/utils/validate.py",
+      "sha256": "7d0dae92ab13f8a53c5d0eac8405d8d9304d6951976128d3ad87eae1e22506a6"
+    },
+    {
+      "file": "src/apixis/core/utils/__init__.py",
+      "sha256": "5b037569aebdaa71adf5e56983c58e5e9e7c02c502dd7793033360119fa6d6e9"
+    },
+    {
+      "file": "src/apixis/core/utils/exception.py",
+      "sha256": "805f2e7740e8cf7514753347045df62ad6cd57df86f1c42a36c1695ba2132b5c"
+    },
+    {
+      "file": "src/apixis/core/utils/logger.py",
+      "sha256": "0dcc25fa98fb300f890029796ba783c637b9d301898c614d16f69d3e6f383682"
+    },
+    {
+      "file": "src/apixis/core/utils/semaphore.py",
+      "sha256": "fd759d7ca6f444ebf2f825875719b23e03c2a42abaaafa5110a7449cb24d47ae"
+    },
+    {
+      "file": "src/apixis/core/utils/validation.py",
+      "sha256": "f4f41f215f9fa03653e6f34561bc77d8efc9e365d2889160d9cda76a0bbf95a3"
+    }
+  ],
+  "checks": {
+    "full_pytest": {
+      "exit_code": 0,
+      "passed": 1552,
+      "elapsed_seconds": 137.59,
+      "asyncio_debug": true,
+      "branch_coverage": true,
+      "warnings": 18,
+      "warnings_reason": "record_property versus xunit2, caused by requested JUnit XML output",
+      "log": "pytest-output.txt",
+      "command": "COVERAGE_FILE=/tmp/apixis-audit-20261121.coverage .venv/bin/python -m pytest -q --asyncio-debug --maxfail=1 -o faulthandler_timeout=45 --cov=apixis --cov-branch --cov-report=json:/tmp/apixis-audit-20261121-coverage.json --cov-report=term-missing:skip-covered --junitxml=/tmp/apixis-audit-20261121-tests.xml"
+    },
+    "coverage": {
+      "covered_lines": 2489,
+      "num_statements": 2563,
+      "percent_covered": 96.15045548045842,
+      "percent_covered_display": "96",
+      "missing_lines": 74,
+      "excluded_lines": 14,
+      "percent_statements_covered": 97.11275848614905,
+      "percent_statements_covered_display": "97",
+      "num_branches": 840,
+      "num_partial_branches": 45,
+      "covered_branches": 783,
+      "missing_branches": 57,
+      "percent_branches_covered": 93.21428571428571,
+      "percent_branches_covered_display": "93"
+    },
+    "eager_pytest": {
+      "exit_code": 0,
+      "passed": 182,
+      "elapsed_seconds": 0.81,
+      "log": "eager-output.txt",
+      "command": "PYTHONPATH=docs/performance/data/2026-11-20-lifecycle:src .venv/bin/python -m pytest -p eager_plugin -q --asyncio-debug --maxfail=1 -o faulthandler_timeout=20 tests/core/event/test_lifecycle_callbacks.py tests/core/event/test_factory.py tests/core/event/test_close_core.py tests/core/event/test_event_loop.py tests/core/graph/test_interrupter.py tests/integration/graph/test_core_close.py tests/core/graph/test_handler_groups.py"
+    },
+    "lifecycle_matrix": {
+      "scenarios": 972,
+      "factories": [
+        "default",
+        "eager"
+      ],
+      "failures": 0,
+      "exit_code": 0,
+      "command": ".venv/bin/python docs/audits/data/2026-11-22/lifecycle_matrix.py",
+      "note": "Instrumented component entry adds one scheduling turn and checks startup/stop do not overlap; not an exhaustive scheduler exploration."
+    },
+    "cache_audit": {
+      "exit_code": 0,
+      "scenarios": 13,
+      "existing_registration_checks": 2,
+      "command": ".venv/bin/python scripts/audit_handler_chain_cache.py --output /tmp/apixis-audit-20261122-cache.json",
+      "result": "cache-audit.json",
+      "note": "Existing checks do not include handler rename."
+    },
+    "diagnostic_probes": {
+      "exit_code": 0,
+      "cases": 8,
+      "asserted_observations": true,
+      "command": ".venv/bin/python docs/audits/data/2026-11-22/reproduce_findings.py",
+      "result": "findings.json",
+      "exit_semantics": "Zero means probes completed; observed defects are recorded in findings.json."
+    },
+    "public_exports": {
+      "count": 84,
+      "undefined": [],
+      "duplicate_names": []
+    },
+    "event_imports_graph": [],
+    "markdown_missing_local_files": [],
+    "ruff": {
+      "exit_code": 0,
+      "command": ".venv/bin/python -m ruff check ."
+    }
+  },
+  "limitations": [
+    "Local Python 3.12 only; no 3.13/3.14 rerun.",
+    "No new package installation validation.",
+    "No new paired performance measurement.",
+    "Coverage and lifecycle matrix do not establish absence of dependency cycles.",
+    "Application coroutines can suppress cancellation; no forced termination guarantee."
+  ]
+}

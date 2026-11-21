@@ -4,7 +4,8 @@ import asyncio
 
 import pytest
 
-from apixis.core.graph import NodeGraph, get_graph_namespace
+from apixis.core.graph import NodeGraph
+from apixis.core.graph.utils.namespace import get_graph_namespace
 from uuid import uuid4
 
 from apixis.core.graph.context import (

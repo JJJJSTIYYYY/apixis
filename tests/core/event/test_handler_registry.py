@@ -39,12 +39,12 @@ def make_entry(
 ) -> ApixEventHandler:
     """Create one valid handler registry entry."""
     entry = ApixEventHandler(AsyncMock() if callback is None else callback)
-    entry.name = name
+    entry._name = name
     entry._register_order = 0
     entry._subscribe = tuple(["event.*"] if subscribe_patterns is None else subscribe_patterns)
     entry._filter_event = tuple([] if filter_event is None else filter_event)
-    entry.priority = priority
-    entry.between_handlers = between_handlers
+    entry._priority = priority
+    entry._between_handlers = between_handlers
     return entry
 
 
@@ -73,7 +73,7 @@ async def test_instance_registration_routes_patterns_and_unregisters_all_subscri
     core = AsyncMock()
     handler = make_entry("instance", callback=core)
     assert handler.register("Build.*", "ready", "Build.*", filter_event=["Build.private.*"]) is handler
-    assert get_handler_registry().get_handler(handler.name) is handler
+    assert get_handler_registry().get_handler(handler._name) is handler
     assert handler._subscribe == ('Build.*', 'ready')
 
     for name in ("Build.done", "ready", "Build.private.done", "build.done"):
@@ -82,7 +82,7 @@ async def test_instance_registration_routes_patterns_and_unregisters_all_subscri
     assert sorted(call.args[0].event_name for call in core.await_args_list) == ["Build.done", "ready"]
 
     assert handler.unregister() is None
-    assert get_handler_registry().get_handler(handler.name) is None
+    assert get_handler_registry().get_handler(handler._name) is None
     for name in ("Build.done", "ready"):
         await pipe.post_event(event_type=EventType.INFO, event_name=name)
     await wait_for_dispatch(loop)
@@ -96,13 +96,13 @@ def test_instance_reregistration_replaces_patterns_filters_and_ordering():
     first = make_entry("first").register("event.*", priority=10)
     last = make_entry("last").register("event.*", priority=1)
     middle = make_entry("middle").register(
-        "event.*", between_handlers=(first.name, last.name), filter_event=["event.skip"],
+        "event.*", between_handlers=(first._name, last._name), filter_event=["event.skip"],
     )
     assert get_handler_registry().get_handlers_chain_for_event("event.one") == ["first", "middle", "last"]
     assert get_handler_registry().get_handlers_chain_for_event("event.skip") == ["first", "last"]
     middle.register("other.*")
-    assert middle.priority == 1
-    assert middle.between_handlers is None
+    assert middle._priority == 1
+    assert middle._between_handlers is None
     assert middle._filter_event == ()
     assert get_handler_registry().get_handlers_chain_for_event("event.one") == ["first", "last"]
     assert get_handler_registry().get_handlers_chain_for_event("other.one") == ["middle"]
@@ -122,9 +122,9 @@ def test_failed_instance_registration_preserves_existing_settings(patterns, opti
     ).register("old.*", priority=10)
     with pytest.raises(error):
         handler.register(*patterns, **options)
-    assert get_handler_registry().get_handler(handler.name) is handler
+    assert get_handler_registry().get_handler(handler._name) is handler
     assert handler._subscribe == ('old.*',)
-    assert (handler.priority, handler.time_out, handler.background) == (10, 5, False)
+    assert (handler._priority, handler._time_out, handler._background) == (10, 5, False)
     assert get_handler_registry().get_handlers_chain_for_event("old.one") == ["instance"]
     assert get_handler_registry().get_handlers_chain_for_event("new.one") == []
 
@@ -142,12 +142,12 @@ def test_instance_reregistration_preserves_execution_options():
     handler.register("old.*", priority=10)
     handler.register("new.*", filter_event=["new.skip"])
 
-    assert handler.stop_when_error is False
-    assert handler.time_out == 2
-    assert handler.background is True
+    assert handler._stop_when_error is False
+    assert handler._time_out == 2
+    assert handler._background is True
     assert handler._subscribe == ('new.*',)
     assert handler._filter_event == ('new.skip',)
-    assert handler.priority == 1
+    assert handler._priority == 1
 
 
 def test_matching_configuration_is_private_and_public_reregistration_is_isolated():
@@ -510,10 +510,10 @@ def test_global_subscribe_builds_full_handler_metadata():
     assert entry is not None
     assert entry._subscribe == ('event.*',)
     assert entry._filter_event == ('event.skip',)
-    assert entry.priority == 2.5
-    assert entry.stop_when_error is False
-    assert entry.time_out is None
-    assert entry.background is True
+    assert entry._priority == 2.5
+    assert entry._stop_when_error is False
+    assert entry._time_out is None
+    assert entry._background is True
 
 
 def test_global_subscribe_defaults_priority_and_preserves_decorated_function():
@@ -523,7 +523,7 @@ def test_global_subscribe_defaults_priority_and_preserves_decorated_function():
     decorated = subscribe("event.one")(handler)
 
     assert decorated is handler
-    assert get_handler_registry().get_handler("handler").priority == 1
+    assert get_handler_registry().get_handler("handler")._priority == 1
 
 
 def test_global_subscribe_replaces_by_handler_name():
@@ -536,7 +536,7 @@ def test_global_subscribe_replaces_by_handler_name():
 
     replacement.__name__ = "handler"
     assert subscribe("event.two")(replacement) is replacement
-    assert get_handler_registry().get_handler("handler").core_func is replacement
+    assert get_handler_registry().get_handler("handler")._core_func is replacement
 
     with pytest.raises(EventHandlerAlreadyRegisteredError):
         subscribe("event.two", exist_ok=False)(replacement)
@@ -668,21 +668,21 @@ def test_failed_instance_replacement_preserves_registration_and_cache(options):
     async def core(event):
         pass
     entry = ApixEventHandler(core, on_error=AsyncMock(), background=True)
-    entry.name = "handler"
+    entry._name = "handler"
     subscribe("event.*", priority=5)(entry)
     metadata_fields = (
-        "_subscribe", "_filter_event", "priority", "between_handlers",
-        "background", "stop_when_error", "time_out",
+        "_subscribe", "_filter_event", "_priority", "_between_handlers",
+        "_background", "_stop_when_error", "_time_out",
     )
     old_metadata = {name: deepcopy(getattr(entry, name)) for name in metadata_fields}
-    old_on_error = entry.on_error
+    old_on_error = entry._on_error
     chain = registry.get_handlers_chain_for_event("event.one")
     with pytest.raises((ValueError, TypeError, EventHandlerNotRegisteredError,
                         EventHandlerAlreadyRegisteredError)):
         subscribe("other.*", background=False, **options)(entry)
     assert registry.get_handler("handler") is entry
     assert {name: getattr(entry, name) for name in old_metadata} == old_metadata
-    assert entry.on_error is old_on_error
+    assert entry._on_error is old_on_error
     assert registry.priority_buckets == {5: ["handler"]}
     assert registry.cached_chain["event.one"] is chain
 
@@ -762,8 +762,8 @@ async def test_dequeue_resolves_chain_before_dispatch_task_starts(runtime, monke
     dispatch_started, release = asyncio.Event(), asyncio.Event()
     dispatch = loop._dispatch_event
     async def delayed_dispatch(event, chain):
-        assert [handler.name for handler in chain] == registry.cached_chain[event.event_name]
-        assert all(handler is registry.registry[handler.name] for handler in chain)
+        assert [handler._name for handler in chain] == registry.cached_chain[event.event_name]
+        assert all(handler is registry.registry[handler._name] for handler in chain)
         dispatch_started.set()
         await release.wait()
         return await dispatch(event, chain)
@@ -831,7 +831,7 @@ async def test_background_keeps_captured_target_when_task_starts(runtime, change
     pipe, loop = runtime
     old, new = AsyncMock(), AsyncMock()
     entry = ApixEventHandler(old, background=True)
-    entry.name = "target"
+    entry._name = "target"
     subscribe("event.*")(entry)
     event = ApixEvent("id", EventType.INFO, "event.one", None, 0)
     # Creation is synchronous; mutate registration before yielding to the task.
@@ -842,7 +842,7 @@ async def test_background_keeps_captured_target_when_task_starts(runtime, change
         unsubscribe("target")
     else:
         replacement = ApixEventHandler(new, background=True)
-        replacement.name = "target"
+        replacement._name = "target"
         subscribe(*patterns, filter_event=filters)(replacement)
     await asyncio.wait_for(asyncio.gather(*tasks), 1)
     old.assert_awaited_once_with(event)
@@ -955,10 +955,10 @@ async def test_stop_preserves_started_calls_and_explicit_start_resumes(runtime, 
 @pytest.mark.parametrize("timeout", [0, -1])
 def test_replacement_can_disable_existing_instance_timeout(timeout):
     entry = ApixEventHandler(AsyncMock(), time_out=30)
-    entry.name = "handler"
+    entry._name = "handler"
     subscribe("event.*")(entry)
     subscribe("event.*", time_out=timeout)(entry)
-    assert get_handler_registry().get_handler("handler").time_out is None
+    assert get_handler_registry().get_handler("handler")._time_out is None
 
 
 async def test_explicit_start_consumes_existing_ready_events(runtime):

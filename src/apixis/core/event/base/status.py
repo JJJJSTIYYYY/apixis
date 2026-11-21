@@ -11,6 +11,9 @@ class CoreState(str, Enum):
     startup scheduling is unconfirmed; RUNNING follows its first scheduling
     turn. STOPPING waits for consumption to stop, without stopping handlers.
     CLOSING and CLOSED permanently reject new event work.
+    Interrupted operations retain their last state and may be retried.
+    STARTED, STOPPED and CLOSED can reenter their corresponding ING state;
+    repeating closure never reopens admission.
     """
 
     CREATED = "created"

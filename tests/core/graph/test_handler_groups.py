@@ -5,10 +5,18 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from apixis import (
-    ApixEventHandler, GLOBALNS, NodeGraph, get_graph_interrupted_name,
-    get_handler, get_handler_meta, get_handler_registry,
-    interrupted_hook, release_namespace, subscribe, unsubscribe,
+    NodeGraph,
+    get_graph_interrupted_name,
+    get_handler_meta,
+    interrupted_hook,
+    subscribe,
+    unsubscribe,
 )
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.graph.base import GLOBALNS
+from apixis.core.event.subscription.subscriber import get_handler
+from apixis.core.event.factory import get_handler_registry
+from apixis.core.graph.utils.namespace import release_namespace
 
 
 @pytest.mark.parametrize("namespace", [None, GLOBALNS, "global", "agent"])
@@ -131,6 +139,6 @@ def test_replacement_gets_its_own_group_and_repeated_cleanup_is_harmless():
     old.decompose()
     release_namespace(old)
     assert get_handler(new.dispatch_name) is dispatch
-    assert get_handler("new.hook").group == new.handler_group
+    assert get_handler("new.hook")._group == new.handler_group
     new.decompose()
     assert new.handler_group not in registry._group_handlers

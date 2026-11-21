@@ -15,9 +15,14 @@ from typing import Annotated, TypedDict
 import pytest
 
 from apixis.core.event import (
-    ApixEvent, ApixEventPipe, EventType, EventWaiter,
-    wait_event, subscribe, expect_event,
+    ApixEvent,
+    EventType,
+    EventWaiter,
+    wait_event,
+    subscribe,
+    expect_event,
 )
+from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event import core as core_module
 from apixis.core.event.base import handler_chain_token_context
 from apixis.core.graph import (
@@ -75,11 +80,11 @@ async def stress_runtime(cleanup_event_runtime, monkeypatch):
 async def _drain(core):
     """Include tail plugins and background handlers that can publish more work."""
     while True:
-        await core.event_pipe.join()
+        await core._event_pipe.join()
         tasks = tuple(
-            core.event_loop._dispatch_tasks | core.event_loop._background_handler_tasks
+            core._event_loop._dispatch_tasks | core._event_loop._background_handler_tasks
         )
-        if not tasks and core.event_loop._pending_dispatch is None and core.event_pipe.empty():
+        if not tasks and core._event_loop._pending_dispatch is None and core._event_pipe.empty():
             return
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -87,14 +92,14 @@ async def _drain(core):
 
 
 def _assert_drained(core, registered):
-    assert core.event_pipe.empty()
-    assert core.event_loop._pending_dispatch is None
-    assert not core.event_loop._dispatch_tasks
-    assert not core.event_loop._background_handler_tasks
-    semaphore = core.event_loop._event_semaphore
+    assert core._event_pipe.empty()
+    assert core._event_loop._pending_dispatch is None
+    assert not core._event_loop._dispatch_tasks
+    assert not core._event_loop._background_handler_tasks
+    semaphore = core._event_loop._event_semaphore
     assert semaphore._value == semaphore._bounded
     assert not any(not waiter.done() for waiter in (semaphore._waiters or ()))
-    assert set(core.handler_registry.registry) == registered
+    assert set(core._handler_registry.registry) == registered
 
 
 async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, record_property):
@@ -114,33 +119,33 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
     contexts = []
     ready = 0
     all_ready, release = asyncio.Event(), asyncio.Event()
-    original_put = core.event_pipe.put
+    original_put = core._event_pipe.put
 
     async def track_put(event):
         stats["events"] += 1
-        if core.event_pipe.full():
+        if core._event_pipe.full():
             stats["blocked_publications"] += 1
-        if core.event_loop._event_semaphore._value == 0:
+        if core._event_loop._event_semaphore._value == 0:
             stats["saturated_publications"] += 1
         await original_put(event)
-        stats["queue_peak"] = max(stats["queue_peak"], core.event_pipe.qsize())
+        stats["queue_peak"] = max(stats["queue_peak"], core._event_pipe.qsize())
 
     # Runtime probes are temporary test instrumentation; publication still uses
     # the real bounded pipe, semaphore, dispatcher, handlers, and waiters.
-    core.event_pipe.put = track_put
+    core._event_pipe.put = track_put
 
     def observe(label):
         request = _request.get()
         assert request is not None
         assert get_graph_context().state["request"] == request
         stats["dispatch_peak"] = max(
-            stats["dispatch_peak"], len(core.event_loop._dispatch_tasks),
+            stats["dispatch_peak"], len(core._event_loop._dispatch_tasks),
         )
         node_visits[request, label] += 1
         return request
 
     async def post(name, payload):
-        await core.event_pipe.post_event(
+        await core._event_pipe.post_event(
             event_type=EventType.TRANSIENT, event_name=name, context=payload,
         )
 
@@ -275,7 +280,7 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         assert handler_chain_token_context.get() is None
         plugins["background"][request] += 1
 
-    registered = set(core.handler_registry.registry)
+    registered = set(core._handler_registry.registry)
     expected_visits = ["start", "left", "branch-0", "branch-1", "branch-2", "finish"]
 
     async def run(graph_index, call_index):
@@ -333,22 +338,22 @@ async def test_many_graphs_and_callers_with_nested_event_waits(stress_runtime, r
         assert stats["events"] == total * 37
         assert stats["blocked_publications"] > 0
         assert stats["saturated_publications"] > 0
-        assert stats["queue_peak"] == core.event_pipe.maxsize
+        assert stats["queue_peak"] == core._event_pipe.maxsize
         assert not any(graph._contexts for graph in [*graphs, *children])
         _assert_drained(core, registered)
         assert _request.get() is None
         for name, value in {
             "parent_graphs": graph_count, "child_graphs": graph_count,
             "calls_per_graph": calls_per_graph, "invocations": total,
-            "dispatch_capacity": core.event_loop._event_semaphore._bounded,
-            "queue_capacity": core.event_pipe.maxsize,
+            "dispatch_capacity": core._event_loop._event_semaphore._bounded,
+            "queue_capacity": core._event_pipe.maxsize,
             "node_executions": total * 7, "rpc_round_trips": total * 7,
             "seconds": round(perf_counter() - started, 4), **stats,
         }.items():
             record_property(name, value)
     finally:
         release.set()
-        core.event_pipe.put = original_put
+        core._event_pipe.put = original_put
 
 
 async def test_many_waiting_callers_recover_after_cancellation_timeout_and_restart(
@@ -390,7 +395,7 @@ async def test_many_waiting_callers_recover_after_cancellation_timeout_and_resta
         GraphManager().add_node(node).compile_graph("node")
         for _ in range(graph_count)
     ]
-    registered = set(core.handler_registry.registry)
+    registered = set(core._handler_registry.registry)
     counts = Counter()
 
     async def run(graph, context, mode):
@@ -422,13 +427,13 @@ async def test_many_waiting_callers_recover_after_cancellation_timeout_and_resta
             await all_waiting.wait()
             assert len(scopes) == total
             # All node handlers have lent their slots while waiting for events.
-            assert len(core.event_loop._dispatch_tasks) >= total
+            assert len(core._event_loop._dispatch_tasks) >= total
             if wave == 0:
-                await core.event_loop.stop()
-                for index in range(core.event_pipe.maxsize):
+                await core._event_loop.stop()
+                for index in range(core._event_pipe.maxsize):
                     name = f"recovery.filler.{index}"
-                    core.event_pipe.put_nowait(ApixEvent(name, EventType.TRANSIENT, name, None, 0))
-                assert core.event_pipe.full()
+                    core._event_pipe.put_nowait(ApixEvent(name, EventType.TRANSIENT, name, None, 0))
+                assert core._event_pipe.full()
                 for task, context, action in zip(tasks, contexts, actions, strict=True):
                     if action == "cancel":
                         task.cancel()
@@ -437,13 +442,13 @@ async def test_many_waiting_callers_recover_after_cancellation_timeout_and_resta
                 # Let scheduled cancellations/deadlines fire while consumption
                 # is paused, including while terminal events encounter a full pipe.
                 await asyncio.sleep(0)
-                await core.event_loop.start()
+                await core._event_loop.start()
 
             # Late replies also reach cancelled attempts; stale node results
             # must not commit, leak listeners, or obstruct the healthy cohort.
             for context in contexts:
                 request = context.state["request"]
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT,
                     event_name=f"recovery.reply.{request}", context=request,
                 )

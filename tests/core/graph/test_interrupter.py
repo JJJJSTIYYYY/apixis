@@ -9,7 +9,8 @@ from apixis.core.graph import Command
 
 from apixis.core.event import ApixEvent, EventType, unsubscribe
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.graph import GLOBALNS, GraphManager
+from apixis.core.graph import GraphManager
+from apixis.core.graph.base import GLOBALNS
 from apixis.core.graph.context import apix_graph_context
 from apixis.core.graph.interrupter import Block, interrupt, interrupted_hook
 from apixis.core.graph.utils.namespace import get_graph_interrupted_name
@@ -70,7 +71,7 @@ async def test_deferred_block_releases_capacity_for_its_reply_handler(
     from apixis import post_event, subscribe
     from apixis.core.graph.interrupter import graph_interrupter as implementation
 
-    assert cleanup_event_runtime.event_loop._event_semaphore.capacity == event_runtime_capacity
+    assert cleanup_event_runtime._event_loop._event_semaphore.capacity == event_runtime_capacity
 
     waiting = asyncio.Event()
     blocks = []

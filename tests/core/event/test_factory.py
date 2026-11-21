@@ -8,7 +8,6 @@ import pytest
 import pytest_asyncio
 
 from apixis import (
-    ApixisCore,
     CoreClosedError,
     CoreState,
     GraphManager,
@@ -16,15 +15,18 @@ from apixis import (
     close_core,
     create_core,
     get_core,
-    get_event_loop,
-    get_event_pipe,
-    get_event_registry,
     get_event_runtime_status,
-    get_handler_registry,
     post_event,
     start_core,
     stop_core,
     subscribe,
+)
+from apixis.core.event.core import ApixisCore
+from apixis.core.event.factory import (
+    get_event_loop,
+    get_event_pipe,
+    get_event_registry,
+    get_handler_registry,
 )
 from apixis.core.event import factory
 
@@ -60,7 +62,6 @@ async def wait_for_state(core, state):
 def test_lifecycle_exports(module_name):
     module = importlib.import_module(module_name)
     for name in (
-        "ApixisCore",
         "CoreState",
         "create_core",
         "get_core",
@@ -71,6 +72,7 @@ def test_lifecycle_exports(module_name):
         assert getattr(module, name) is globals()[name]
         assert name in module.__all__
     assert not hasattr(module, "EventCore")
+    assert not hasattr(module, "ApixisCore")
     assert not any(name.startswith("aget_") for name in module.__all__)
 
 
@@ -115,10 +117,10 @@ def test_create_is_synchronous_idempotent_and_does_not_start(fresh_core):
     assert core.state is CoreState.CREATED
     assert create_core() is core
     assert get_core() is core
-    assert not core.event_loop.is_running
-    assert not core.event_pipe.closed
-    assert core.event_loop._event_consumer_task is None
-    assert core.event_pipe._blocked_puts == set()
+    assert not core._event_loop.is_running
+    assert not core._event_pipe.closed
+    assert core._event_loop._event_consumer_task is None
+    assert core._event_pipe._blocked_puts == set()
 
 
 async def test_getters_neither_create_tasks_nor_start_consumption(
@@ -126,12 +128,12 @@ async def test_getters_neither_create_tasks_nor_start_consumption(
 ):
     core = create_core()
     startup = AsyncMock()
-    monkeypatch.setattr(core.event_loop, "start", startup)
+    monkeypatch.setattr(core._event_loop, "start", startup)
     before = asyncio.all_tasks()
-    assert get_event_registry() is core.event_registry
-    assert get_event_pipe() is core.event_pipe
-    assert get_handler_registry() is core.handler_registry
-    assert get_event_loop() is core.event_loop
+    assert get_event_registry() is core._event_registry
+    assert get_event_pipe() is core._event_pipe
+    assert get_handler_registry() is core._handler_registry
+    assert get_event_loop() is core._event_loop
     assert asyncio.all_tasks() == before
     await asyncio.sleep(0)
     startup.assert_not_awaited()
@@ -142,7 +144,7 @@ def test_creation_uses_configured_cache_size(fresh_core, monkeypatch):
     core_module = importlib.import_module("apixis.core.event.core")
     monkeypatch.setattr(core_module, "HANDLER_CHAIN_CACHE_SIZE", 3)
     core = create_core()
-    assert core.handler_registry._cache_size == 3
+    assert core._handler_registry._cache_size == 3
 
 
 def test_core_state_covers_each_lifecycle_phase():
@@ -156,13 +158,13 @@ async def test_start_reports_created_task_before_confirming_consumption(
     fresh_core, monkeypatch,
 ):
     core = create_core()
-    original_start = core.event_loop.start
+    original_start = core._event_loop.start
 
     async def start_consumer():
         assert core.state is CoreState.STARTING
         return await original_start()
 
-    monkeypatch.setattr(core.event_loop, "start", start_consumer)
+    monkeypatch.setattr(core._event_loop, "start", start_consumer)
     loop = asyncio.get_running_loop()
     original_factory = loop.get_task_factory()
     loop.set_task_factory(None)
@@ -201,7 +203,7 @@ async def test_start_caller_cancel_and_concurrent_close(fresh_core, action):
             await close_core()
             await starting
             assert core.state is CoreState.CLOSED
-            assert not core.event_loop.is_running
+            assert not core._event_loop.is_running
     finally:
         loop.set_task_factory(original_factory)
 
@@ -212,7 +214,7 @@ async def test_start_callers_share_operation_and_cancellation_is_local(
 ):
     core = create_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.start
+    original = core._event_loop.start
     calls = 0
 
     async def blocked_start():
@@ -224,7 +226,7 @@ async def test_start_callers_share_operation_and_cancellation_is_local(
             raise RuntimeError("startup failed")
         return await original()
 
-    monkeypatch.setattr(core.event_loop, "start", blocked_start)
+    monkeypatch.setattr(core._event_loop, "start", blocked_start)
     first = asyncio.create_task(start_core())
     await entered.wait()
     operation = core._start_task
@@ -241,7 +243,7 @@ async def test_start_callers_share_operation_and_cancellation_is_local(
         if failure:
             with pytest.raises(RuntimeError, match="startup failed"):
                 await second
-            assert core.state is CoreState.STOPPED
+            assert core.state is CoreState.STARTING
         else:
             await second
             assert core.state is CoreState.RUNNING
@@ -257,8 +259,8 @@ async def test_close_joins_startup_and_callers_share_cleanup(
 ):
     core = create_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.start
-    cleanup = AsyncMock(wraps=core.event_loop.close)
+    original = core._event_loop.start
+    cleanup = AsyncMock(wraps=core._event_loop.close)
 
     async def blocked_start():
         consumer = None
@@ -270,8 +272,8 @@ async def test_close_joins_startup_and_callers_share_cleanup(
             raise RuntimeError("startup failed")
         return consumer if consumer is not None else await original()
 
-    monkeypatch.setattr(core.event_loop, "start", blocked_start)
-    monkeypatch.setattr(core.event_loop, "close", cleanup)
+    monkeypatch.setattr(core._event_loop, "start", blocked_start)
+    monkeypatch.setattr(core._event_loop, "close", cleanup)
     starting = asyncio.create_task(start_core())
     await entered.wait()
     first = asyncio.create_task(close_core())
@@ -280,8 +282,8 @@ async def test_close_joins_startup_and_callers_share_cleanup(
     second = asyncio.create_task(close_core())
     try:
         await asyncio.sleep(0)
-        assert core.event_pipe.closed
-        assert core.handler_registry.closed
+        assert core._event_pipe.closed
+        assert core._handler_registry.closed
         assert core._close_task is operation
         assert not operation.done()
         cleanup.assert_not_awaited()
@@ -300,13 +302,13 @@ async def test_close_joins_startup_and_callers_share_cleanup(
             assert isinstance(result[0], expected)
         await second
         assert core.state is CoreState.CLOSED
-        assert not core.event_loop.is_running
+        assert not core._event_loop.is_running
         assert core._start_task is None
         assert core._stop_task is None
         assert core._close_task is None
         cleanup.assert_awaited_once()
         await close_core()
-        cleanup.assert_awaited_once()
+        assert cleanup.await_count == 2
     finally:
         release.set()
         await asyncio.gather(starting, first, second, return_exceptions=True)
@@ -315,7 +317,7 @@ async def test_close_joins_startup_and_callers_share_cleanup(
 async def test_stop_joins_startup_before_a_queued_restart(fresh_core, monkeypatch):
     core = create_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.start
+    original = core._event_loop.start
     calls = 0
 
     async def blocked_start():
@@ -327,7 +329,7 @@ async def test_stop_joins_startup_before_a_queued_restart(fresh_core, monkeypatc
             await release.wait()
         return consumer
 
-    monkeypatch.setattr(core.event_loop, "start", blocked_start)
+    monkeypatch.setattr(core._event_loop, "start", blocked_start)
     starting = asyncio.create_task(start_core())
     await entered.wait()
     stopping = asyncio.create_task(stop_core())
@@ -341,7 +343,7 @@ async def test_stop_joins_startup_before_a_queued_restart(fresh_core, monkeypatc
         await asyncio.gather(starting, stopping, restart)
         assert calls == 2
         assert core.state is CoreState.RUNNING
-        assert core.event_loop.is_running
+        assert core._event_loop.is_running
     finally:
         release.set()
         await asyncio.gather(starting, stopping, restart, return_exceptions=True)
@@ -353,7 +355,7 @@ async def test_start_stop_steps_are_serialized_despite_cancelled_callers(
     core = lifecycle_core
     start_entered, start_release = asyncio.Event(), asyncio.Event()
     stop_entered, stop_release = asyncio.Event(), asyncio.Event()
-    original_start, original_stop = core.event_loop.start, core.event_loop.stop
+    original_start, original_stop = core._event_loop.start, core._event_loop.stop
     steps = []
 
     async def blocked_start():
@@ -366,15 +368,15 @@ async def test_start_stop_steps_are_serialized_despite_cancelled_callers(
         return consumer
 
     async def blocked_stop():
-        assert core._start_task.done()
+        assert core._start_task is None or core._start_task.done()
         steps.append("stop.enter")
         stop_entered.set()
         await stop_release.wait()
         await original_stop()
         steps.append("stop.exit")
 
-    monkeypatch.setattr(core.event_loop, "start", blocked_start)
-    monkeypatch.setattr(core.event_loop, "stop", blocked_stop)
+    monkeypatch.setattr(core._event_loop, "start", blocked_start)
+    monkeypatch.setattr(core._event_loop, "stop", blocked_stop)
     starting = asyncio.create_task(core.start_core())
     await start_entered.wait()
     cancelled_stop = asyncio.create_task(core.stop_core())
@@ -404,7 +406,7 @@ async def test_start_stop_steps_are_serialized_despite_cancelled_callers(
             "start.enter", "start.exit",
         ]
         assert core.state is CoreState.RUNNING
-        assert core.event_loop.is_running
+        assert core._event_loop.is_running
     finally:
         start_release.set()
         stop_release.set()
@@ -413,34 +415,36 @@ async def test_start_stop_steps_are_serialized_despite_cancelled_callers(
 
 @pytest.mark.parametrize("operation", ["start", "stop"])
 @pytest.mark.parametrize("failure_type", [RuntimeError, asyncio.CancelledError])
-async def test_lifecycle_cleanup_failure_does_not_prevent_restart(
+async def test_lifecycle_logging_failure_retains_progress_and_allows_retry(
     lifecycle_core, monkeypatch, operation, failure_type,
 ):
     core = lifecycle_core
     if operation == "stop":
         await core.start_core()
-    failure = failure_type("stop logging failed")
+    failure = failure_type("lifecycle logging failed")
 
     def fail_logging(message):
         if message == "Worker started." and operation == "start":
-            raise RuntimeError("startup logging failed")
-        if message == "Worker stopped.":
+            raise failure
+        if message == "Worker stopped." and operation == "stop":
             raise failure
 
     with monkeypatch.context() as logging_patch:
         logging_patch.setattr(Logger, "_info", fail_logging)
         with pytest.raises(failure_type):
             await getattr(core, f"{operation}_core")()
-    assert core.state is CoreState.STOPPED
-    assert not core.event_loop.is_running
+    assert core.state is (CoreState.STARTING if operation == "start" else CoreState.STOPPING)
+    assert core._event_loop.is_running is (operation == "start")
+    await getattr(core, f"{operation}_core")()
+    assert core.state is (CoreState.RUNNING if operation == "start" else CoreState.STOPPED)
     await core.start_core()
     assert core.state is CoreState.RUNNING
-    assert core.event_loop.is_running
+    assert core._event_loop.is_running
     await core.stop_core()
     assert core.state is CoreState.STOPPED
     await core.start_core()
     assert core.state is CoreState.RUNNING
-    assert core.event_loop.is_running
+    assert core._event_loop.is_running
 
 
 async def test_repeated_pause_resume_preserves_queued_events(
@@ -455,19 +459,19 @@ async def test_repeated_pause_resume_preserves_queued_events(
 
     await core.start_core()
     for cycle in range(10):
-        previous_consumer = core.event_loop._event_consumer_task
+        previous_consumer = core._event_loop._event_consumer_task
         await asyncio.gather(*(core.stop_core() for _ in range(4)))
         assert core.state is CoreState.STOPPED
         assert previous_consumer.done()
         await post_event(event_name="lifecycle.resume", context=cycle)
         await asyncio.sleep(0)
         assert seen == list(range(cycle))
-        assert core.event_pipe.qsize() == 1
+        assert core._event_pipe.qsize() == 1
         await asyncio.gather(*(core.start_core() for _ in range(4)))
         assert core.state is CoreState.RUNNING
-        assert core.event_loop.is_running
-        assert core.event_loop._event_consumer_task is not previous_consumer
-        await wait_for_dispatch(core.event_loop)
+        assert core._event_loop.is_running
+        assert core._event_loop._event_consumer_task is not previous_consumer
+        await wait_for_dispatch(core._event_loop)
         assert seen == list(range(cycle + 1))
 
 
@@ -485,11 +489,11 @@ async def test_stop_before_first_start_preserves_queued_work(
     await core.stop_core()
     assert core.state is CoreState.STOPPED
     assert core._stop_task.done()
-    assert core.event_loop._event_consumer_task is None
-    assert core.event_pipe.qsize() == 1
+    assert core._event_loop._event_consumer_task is None
+    assert core._event_pipe.qsize() == 1
     assert seen == []
     await core.start_core()
-    await wait_for_dispatch(core.event_loop)
+    await wait_for_dispatch(core._event_loop)
     assert core.state is CoreState.RUNNING
     assert seen == [42]
 
@@ -500,14 +504,14 @@ async def test_close_waits_for_shared_stop_and_rejects_queued_restart(
     core = create_core()
     await start_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.stop
+    original = core._event_loop.stop
 
     async def blocked_stop():
         entered.set()
         await release.wait()
         await original()
 
-    monkeypatch.setattr(core.event_loop, "stop", blocked_stop)
+    monkeypatch.setattr(core._event_loop, "stop", blocked_stop)
     stopping = asyncio.create_task(stop_core())
     await entered.wait()
     operation = core._stop_task
@@ -535,10 +539,10 @@ async def test_start_stop_and_getters_preserve_components_and_queued_events(
 ):
     core = create_core()
     components = (
-        core.event_registry,
-        core.event_pipe,
-        core.handler_registry,
-        core.event_loop,
+        core._event_registry,
+        core._event_pipe,
+        core._handler_registry,
+        core._event_loop,
     )
     seen = []
 
@@ -547,11 +551,11 @@ async def test_start_stop_and_getters_preserve_components_and_queued_events(
         seen.append(event.event_name)
 
     await post_event(event_name="queued.before_start")
-    assert core.event_pipe.qsize() == 1
+    assert core._event_pipe.qsize() == 1
     assert seen == []
     await asyncio.gather(*(start_core() for _ in range(8)))
     assert core.state is CoreState.RUNNING
-    await wait_for_dispatch(core.event_loop)
+    await wait_for_dispatch(core._event_loop)
     await asyncio.gather(*(stop_core() for _ in range(8)))
     assert core.state is CoreState.STOPPED
     await post_event(event_name="queued.paused")
@@ -565,16 +569,16 @@ async def test_start_stop_and_getters_preserve_components_and_queued_events(
         getter()
     await asyncio.sleep(0)
     assert seen == ["queued.before_start"]
-    assert core.event_pipe.qsize() == 1
+    assert core._event_pipe.qsize() == 1
     assert core.state is CoreState.STOPPED
     await start_core()
-    await wait_for_dispatch(core.event_loop)
+    await wait_for_dispatch(core._event_loop)
     assert seen == ["queued.before_start", "queued.paused"]
     assert components == (
-        core.event_registry,
-        core.event_pipe,
-        core.handler_registry,
-        core.event_loop,
+        core._event_registry,
+        core._event_pipe,
+        core._handler_registry,
+        core._event_loop,
     )
 
 
@@ -585,13 +589,13 @@ async def test_failed_start_can_retry_without_recreating_components(
     fresh_core, monkeypatch, failure
 ):
     core = create_core()
-    original = core.event_loop.start
-    monkeypatch.setattr(core.event_loop, "start", AsyncMock(side_effect=failure))
+    original = core._event_loop.start
+    monkeypatch.setattr(core._event_loop, "start", AsyncMock(side_effect=failure))
     with pytest.raises(type(failure)):
         await start_core()
-    assert core.state is CoreState.STOPPED
+    assert core.state is CoreState.STARTING
     assert get_core() is core
-    monkeypatch.setattr(core.event_loop, "start", original)
+    monkeypatch.setattr(core._event_loop, "start", original)
     await start_core()
     assert core.state is CoreState.RUNNING
 
@@ -600,14 +604,14 @@ async def test_start_waits_for_a_concurrent_stop(fresh_core, monkeypatch):
     core = create_core()
     await start_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.stop
+    original = core._event_loop.stop
 
     async def stop():
         entered.set()
         await release.wait()
         await original()
 
-    monkeypatch.setattr(core.event_loop, "stop", stop)
+    monkeypatch.setattr(core._event_loop, "stop", stop)
     stopping = asyncio.create_task(stop_core())
     await entered.wait()
     assert core.state is CoreState.STOPPING
@@ -622,19 +626,19 @@ async def test_start_waits_for_a_concurrent_stop(fresh_core, monkeypatch):
 async def test_consumer_exit_updates_state_and_requires_explicit_restart(fresh_core):
     core = create_core()
     await start_core()
-    task = core.event_loop._event_consumer_task
+    task = core._event_loop._event_consumer_task
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     assert core.state is CoreState.STOPPED
     get_event_loop()
-    assert core.event_loop._event_consumer_task is None
+    assert core._event_loop._event_consumer_task is None
     await start_core()
     assert core.state is CoreState.RUNNING
 
 
 async def test_consumer_failure_updates_state_and_allows_restart(fresh_core, monkeypatch):
     core = create_core()
-    original_get = core.event_pipe.get
+    original_get = core._event_pipe.get
     failure = RuntimeError("consumer failed")
     release = asyncio.Event()
 
@@ -642,16 +646,16 @@ async def test_consumer_failure_updates_state_and_allows_restart(fresh_core, mon
         await release.wait()
         raise failure
 
-    monkeypatch.setattr(core.event_pipe, "get", fail_get)
+    monkeypatch.setattr(core._event_pipe, "get", fail_get)
 
     await start_core()
-    consumer = core.event_loop._event_consumer_task
+    consumer = core._event_loop._event_consumer_task
     release.set()
     assert await asyncio.gather(consumer, return_exceptions=True) == [failure]
     assert core.state is CoreState.STOPPED
-    assert not core.event_loop.is_running
+    assert not core._event_loop.is_running
 
-    monkeypatch.setattr(core.event_pipe, "get", original_get)
+    monkeypatch.setattr(core._event_pipe, "get", original_get)
     await start_core()
     assert core.state is CoreState.RUNNING
 
@@ -660,28 +664,28 @@ async def test_start_replaces_finished_consumer_before_its_completion_callbacks(
     fresh_core, monkeypatch,
 ):
     core = create_core()
-    original_get = core.event_pipe.get
+    original_get = core._event_pipe.get
     release = asyncio.Event()
 
     async def fail_get():
         await release.wait()
         raise RuntimeError("consumer failed")
 
-    monkeypatch.setattr(core.event_pipe, "get", fail_get)
+    monkeypatch.setattr(core._event_pipe, "get", fail_get)
     loop = asyncio.get_running_loop()
     original_factory = loop.get_task_factory()
     loop.set_task_factory(None)
     try:
         await start_core()
-        consumer = core.event_loop._event_consumer_task
+        consumer = core._event_loop._event_consumer_task
         release.set()
         await asyncio.sleep(0)
         assert consumer.done()
         assert core.state is CoreState.RUNNING
-        monkeypatch.setattr(core.event_pipe, "get", original_get)
+        monkeypatch.setattr(core._event_pipe, "get", original_get)
         await start_core()
-        assert core.event_loop._event_consumer_task is not consumer
-        assert core.event_loop.is_running
+        assert core._event_loop._event_consumer_task is not consumer
+        assert core._event_loop.is_running
         assert core.state is CoreState.RUNNING
     finally:
         loop.set_task_factory(original_factory)
@@ -702,7 +706,7 @@ async def test_stop_publishes_task_before_logging_can_request_restart(
     try:
         loop.set_task_factory(None)
         await core.start_core()
-        consumer = core.event_loop._event_consumer_task
+        consumer = core._event_loop._event_consumer_task
         consumer.cancel()
         await asyncio.sleep(0)
         assert consumer.done()
@@ -714,7 +718,7 @@ async def test_stop_publishes_task_before_logging_can_request_restart(
             await asyncio.gather(*restarts)
         await core.start_core()
         assert core.state is CoreState.RUNNING
-        assert core.event_loop.is_running
+        assert core._event_loop.is_running
     finally:
         loop.set_task_factory(original_factory)
         await asyncio.gather(*restarts, return_exceptions=True)
@@ -725,9 +729,9 @@ async def test_consumer_finishing_during_start_leaves_core_stopped(
     fresh_core, monkeypatch, failure,
 ):
     core = create_core()
-    original_consumer = core.event_loop._event_consumer_loop
+    original_consumer = core._event_loop._event_consumer_loop
     monkeypatch.setattr(
-        core.event_loop, "_event_consumer_loop",
+        core._event_loop, "_event_consumer_loop",
         AsyncMock(side_effect=failure, return_value=None),
     )
     loop = asyncio.get_running_loop()
@@ -739,13 +743,13 @@ async def test_consumer_finishing_during_start_leaves_core_stopped(
         loop.set_task_factory(original_factory)
 
     assert core.state is CoreState.STOPPED
-    assert not core.event_loop.is_running
+    assert not core._event_loop.is_running
     # Delayed completion callbacks must not stop the replacement consumer.
-    monkeypatch.setattr(core.event_loop, "_event_consumer_loop", original_consumer)
+    monkeypatch.setattr(core._event_loop, "_event_consumer_loop", original_consumer)
     await start_core()
     await asyncio.sleep(0)
     assert core.state is CoreState.RUNNING
-    assert core.event_loop.is_running
+    assert core._event_loop.is_running
 
 
 async def test_close_is_terminal_and_create_replaces_only_closed_instances(fresh_core):
@@ -760,9 +764,9 @@ async def test_close_is_terminal_and_create_replaces_only_closed_instances(fresh
     replacement = create_core()
     assert replacement is not core
     assert replacement.state is CoreState.CREATED
-    assert replacement.event_pipe is not core.event_pipe
-    assert core.event_pipe.closed
-    assert core.handler_registry.closed
+    assert replacement._event_pipe is not core._event_pipe
+    assert core._event_pipe.closed
+    assert core._handler_registry.closed
 
 
 async def test_graph_invocation_never_implicitly_starts_consumption(fresh_core):
@@ -776,7 +780,7 @@ async def test_graph_invocation_never_implicitly_starts_consumption(fresh_core):
     try:
         await asyncio.sleep(0)
         assert not invocation.done()
-        assert not core.event_loop.is_running
+        assert not core._event_loop.is_running
         await start_core()
         assert await asyncio.wait_for(invocation, 1) == {"value": 2}
         assert get_event_runtime_status().state is CoreState.RUNNING

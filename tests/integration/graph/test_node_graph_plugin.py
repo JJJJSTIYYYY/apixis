@@ -7,11 +7,8 @@ from apixis.core.graph.base import _END
 from apixis.core.event import ApixEvent, unsubscribe, subscribe
 from apixis.core.event.factory import get_handler_registry
 from apixis.core.event.factory import get_event_pipe
-from apixis.core.graph import (
-    GLOBALNS,
-    GraphManager,
-    get_graph_dispatch_name,
-)
+from apixis.core.graph import GraphManager, get_graph_dispatch_name
+from apixis.core.graph.base import GLOBALNS
 from apixis.core.graph.utils.namespace import get_graph_interrupted_name
 
 
@@ -73,11 +70,11 @@ async def test_subscribe_inserts_plugin_before_node_graph_listener(namespace):
     ]
 
     plugin_meta = get_handler_registry().get_handler(plugin_demo_enrichment.__name__)
-    assert plugin_meta.between_handlers == (
+    assert plugin_meta._between_handlers == (
         plugin_demo_authentication.__name__,
         graph.dispatch_name,
     )
-    assert plugin_meta.priority is None
+    assert plugin_meta._priority is None
 
     assert await graph.invoke({"pipeline": []}) == {
         "pipeline": [

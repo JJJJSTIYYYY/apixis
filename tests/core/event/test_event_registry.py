@@ -7,7 +7,9 @@ from unittest.mock import Mock
 import pytest
 
 import apixis.core.event as event_package
-from apixis.core.event import ApixEventLoop, ApixHandlerRegistry, ApixEventHandler
+from apixis.core.event.event_loop import ApixEventLoop
+from apixis.core.event.handler_registry import ApixHandlerRegistry
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.base import ApixEvent, EventType
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.event_registry import ApixEventRegistry
@@ -25,9 +27,9 @@ def make_event(event_name: str) -> ApixEvent:
     )
 
 
-def test_event_registry_class_and_factory_getter_are_exported():
-    assert event_package.ApixEventRegistry is ApixEventRegistry
-    assert event_package.get_event_registry() is get_event_registry()
+def test_event_registry_class_and_factory_getter_are_internal():
+    assert not hasattr(event_package, "ApixEventRegistry")
+    assert not hasattr(event_package, "get_event_registry")
     assert ApixEventRegistry() is not get_event_registry()
 
 
@@ -119,7 +121,7 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
 
     handler = ApixEventHandler(receive)
     handler._subscribe = ('runtime.*',)
-    handler.priority = 1
+    handler._priority = 1
     handlers.register_handler(handler)
     event = make_event(name)
     event.event_type = event_type

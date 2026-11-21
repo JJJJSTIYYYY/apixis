@@ -41,7 +41,7 @@ async def test_close_terminates_graph_invocations_and_streams(
             if phase == "running":
                 await entered.wait()
             else:
-                while core.event_pipe.empty():
+                while core._event_pipe.empty():
                     await asyncio.sleep(0)
             await close_core()
         done, _ = await asyncio.wait({task}, timeout=0.1)
@@ -52,7 +52,7 @@ async def test_close_terminates_graph_invocations_and_streams(
         assert context.completion.cancelled()
         assert entered.is_set() == (phase == "running")
         assert core.state is CoreState.CLOSED
-        assert core.event_pipe.empty()
+        assert core._event_pipe.empty()
     finally:
         if not task.done():
             task.cancel()
@@ -78,7 +78,7 @@ async def test_closed_pipe_cancels_graph_when_next_dispatch_cannot_be_published(
 
     graph = GraphManager().add_nodes([first, downstream]).compile_graph("first")
     context = graph.create_context({})
-    original_post = core.event_pipe.post_event
+    original_post = core._event_pipe.post_event
 
     async def post_event(**kwargs):
         if kwargs["event_name"] == graph.dispatch_name and context.steps == 1:
@@ -86,7 +86,7 @@ async def test_closed_pipe_cancels_graph_when_next_dispatch_cannot_be_published(
             await release.wait()
         await original_post(**kwargs)
 
-    monkeypatch.setattr(core.event_pipe, "post_event", post_event)
+    monkeypatch.setattr(core._event_pipe, "post_event", post_event)
 
     async def call():
         if mode == "invoke":
@@ -98,7 +98,7 @@ async def test_closed_pipe_cancels_graph_when_next_dispatch_cannot_be_published(
     try:
         async with asyncio.timeout(2):
             await publishing.wait()
-        core.event_pipe.close()
+        core._event_pipe.close()
         release.set()
         done, _ = await asyncio.wait({task}, timeout=0.5)
         assert task in done, "Rejected dispatch publication left the graph pending."
@@ -165,7 +165,7 @@ async def test_close_completes_all_queued_invocations_across_graphs(cleanup_even
     tasks = [asyncio.create_task(call(graph, context)) for graph, context in contexts]
     try:
         async with asyncio.timeout(1):
-            while core.event_pipe.qsize() != len(tasks):
+            while core._event_pipe.qsize() != len(tasks):
                 await asyncio.sleep(0)
             await close_core()
         done, _ = await asyncio.wait(tasks, timeout=0.1)
@@ -186,7 +186,7 @@ async def test_close_completes_all_queued_invocations_across_graphs(cleanup_even
 @pytest.mark.parametrize("mode", ["invoke", "stream"])
 async def test_close_completes_graph_waiting_for_dispatch_capacity(cleanup_event_runtime, mode):
     core = cleanup_event_runtime
-    assert core.event_loop._event_semaphore.capacity == 1
+    assert core._event_loop._event_semaphore.capacity == 1
     entered = asyncio.Event()
 
     @subscribe("occupy.capacity")
@@ -213,15 +213,15 @@ async def test_close_completes_graph_waiting_for_dispatch_capacity(cleanup_event
     task = asyncio.create_task(call())
     try:
         async with asyncio.timeout(1):
-            while core.event_loop._pending_dispatch is None:
+            while core._event_loop._pending_dispatch is None:
                 await asyncio.sleep(0)
-            assert core.event_loop._pending_dispatch[0].context is context
+            assert core._event_loop._pending_dispatch[0].context is context
             await close_core()
         done, _ = await asyncio.wait({task}, timeout=0.1)
         assert task in done
         assert task.cancelled()
         assert context.completion.cancelled()
-        assert core.event_loop._pending_dispatch is None
+        assert core._event_loop._pending_dispatch is None
     finally:
         if not task.done():
             task.cancel()
@@ -256,7 +256,7 @@ async def test_graph_cannot_silently_move_to_a_new_core(cleanup_event_runtime):
     try:
         with pytest.raises(CoreClosedError, match="closed event core"):
             await graph.invoke({})
-        assert replacement.event_pipe.empty()
+        assert replacement._event_pipe.empty()
     finally:
         graph.decompose()
 
@@ -282,6 +282,6 @@ async def test_old_graph_cleanup_does_not_touch_the_replacement_registry(
     try:
         await start_core()
         assert await asyncio.wait_for(current.invoke({}), 1) == {"new": True}
-        assert current.handler_group in replacement.handler_registry._group_handlers
+        assert current.handler_group in replacement._handler_registry._group_handlers
     finally:
         current.decompose()

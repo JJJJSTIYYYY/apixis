@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from apixis.core.event import ApixEventPipe, get_event_registry
+from apixis.core.event.event_pipe import ApixEventPipe
+from apixis.core.event.factory import get_event_registry
 
-from apixis.core.event import ApixEvent, ApixEventError, ApixEventHandler, EventType
+from apixis.core.event import ApixEvent, ApixEventError, EventType
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.factory import get_handler_registry
 from apixis.core.event.subscription import get_handler_meta, subscribe
@@ -30,7 +32,7 @@ async def test_execution_state_matrix(has_error, accepted, stop_when_error):
     calls = []
 
     async def core(event):
-        assert event.seen == [handler.name]
+        assert event.seen == [handler._name]
         calls.append("core")
 
     async def on_error(event):
@@ -51,7 +53,7 @@ async def test_execution_state_matrix(has_error, accepted, stop_when_error):
     elif not (has_error and stop_when_error):
         expected.append("core")
     assert calls == expected
-    assert event.seen == ([handler.name] if "core" in expected else [])
+    assert event.seen == ([handler._name] if "core" in expected else [])
 
 
 async def test_own_core_failure_never_calls_own_error_notification():
@@ -178,12 +180,12 @@ async def test_cancellation_records_only_foreground_errors_and_preserves_excepti
         await handler(event)
     assert caught.value is original
     on_error.assert_not_awaited()
-    assert event.seen == ([handler.name] if phase == "core_func" else [])
+    assert event.seen == ([handler._name] if phase == "core_func" else [])
     if background:
         assert event.error_stack == before
         return
     assert event.error_stack[:-1] == before
-    assert event.error_stack[-1].handler_name == handler.name
+    assert event.error_stack[-1].handler_name == handler._name
     assert event.error_stack[-1].phase == phase
     assert event.error_stack[-1].exception_type == "CancelledError"
     assert event.error_stack[-1].message == "callback cancelled"
@@ -223,11 +225,11 @@ async def test_subscribe_decorates_callable_handler_and_overrides_options(regist
     assert decorated is handler
     assert registry.get_handler("core") is handler
     assert handler.__name__ == "core"
-    assert handler.on_has_error is notification
-    assert handler.stop_when_error is (False if use_defaults else True)
-    assert handler.time_out == (42 if use_defaults else 3)
-    assert handler.background is (True if use_defaults else False)
-    assert handler.priority == 8
+    assert handler._on_has_error is notification
+    assert handler._stop_when_error is (False if use_defaults else True)
+    assert handler._time_out == (42 if use_defaults else 3)
+    assert handler._background is (True if use_defaults else False)
+    assert handler._priority == 8
     assert handler._subscribe == ('contract.*',)
     assert get_handler_meta("missing") is None
     event = make_event()
@@ -241,7 +243,7 @@ async def test_subscribe_duplicate_replaces_registered_instance_options(registry
 
     handler = subscribe("contract.*", background=True)(ApixEventHandler(core))
     subscribe("other.*", background=False)(handler)
-    assert handler.background is False
+    assert handler._background is False
     assert handler._subscribe == ('other.*',)
 
 
@@ -264,7 +266,7 @@ async def test_dispatch_notifies_all_later_handlers_after_failure_and_acceptance
 
     for index in range(3):
         handler = ApixEventHandler(core, notify_accepted, notify_error)
-        handler.name = f"later_{index}"
+        handler._name = f"later_{index}"
         subscribe("contract.*")(handler)
     event = make_event()
     await ApixEventLoop(registry, ApixEventPipe(), get_event_registry())._dispatch_event(
@@ -308,7 +310,7 @@ async def test_background_failure_before_next_core_is_still_log_only(registry):
 async def test_background_handler_checks_acceptance_when_it_starts(registry):
     core, accepted = AsyncMock(), AsyncMock()
     handler = ApixEventHandler(core, on_accepted=accepted)
-    handler.name = "background"
+    handler._name = "background"
     subscribe("contract.*", priority=10, background=True)(handler)
 
     @subscribe("contract.*")
@@ -461,7 +463,7 @@ async def test_subscribe_preserves_on_error_and_later_handler_observes_failure(r
 
     handler = ApixEventHandler(core, on_error=on_error)
     assert subscribe("contract.*", priority=10)(handler) is handler
-    assert handler.on_error is on_error
+    assert handler._on_error is on_error
 
     async def later_core(event):
         calls.append("later core")
@@ -539,7 +541,7 @@ async def test_set_core_func_preserves_identity_options_and_error_callback(regis
     failure = ValueError("replacement failed")
     on_error = AsyncMock()
     handler = ApixEventHandler(original, on_error=on_error, name="stable-name", time_out=2)
-    identity = handler.id
+    identity = handler._id
     if registered:
         handler.register("contract.*", priority=8, filter_event=["contract.excluded"])
 
@@ -548,15 +550,15 @@ async def test_set_core_func_preserves_identity_options_and_error_callback(regis
         raise failure
 
     handler.set_core_func(replacement)
-    assert handler.id == identity
-    assert handler.name == "stable-name"
-    assert handler.time_out == 2
+    assert handler._id == identity
+    assert handler._name == "stable-name"
+    assert handler._time_out == 2
     event = make_event()
     if registered:
-        assert registry.get_handler(handler.name) is handler
-        assert registry.get_handlers_chain_for_event("contract.event") == [handler.name]
+        assert registry.get_handler(handler._name) is handler
+        assert registry.get_handlers_chain_for_event("contract.event") == [handler._name]
         assert registry.get_handlers_chain_for_event("contract.excluded") == []
-        assert handler.priority == 8
+        assert handler._priority == 8
         await ApixEventLoop(registry, ApixEventPipe(), get_event_registry())._dispatch_event(event, [handler])
     else:
         await handler(event)
@@ -610,4 +612,4 @@ def test_handler_entry_defaults_to_infinite_wait():
     """A directly constructed handler also defaults to no timeout."""
     entry = ApixEventHandler(_handler)
 
-    assert entry.time_out is None
+    assert entry._time_out is None

@@ -98,8 +98,8 @@ class TestApixEventPipeEvents:
         self, cleanup_event_runtime, wait_for_dispatch,
     ):
         core = cleanup_event_runtime
-        pipe = core.event_pipe
-        await core.event_loop.stop()
+        pipe = core._event_pipe
+        await core._event_loop.stop()
         observed = {}
 
         @subscribe("context.*", priority=10)
@@ -119,8 +119,8 @@ class TestApixEventPipeEvents:
         finally:
             _publication_context.reset(token)
 
-        await core.event_loop.start()
-        await wait_for_dispatch(core.event_loop)
+        await core._event_loop.start()
+        await wait_for_dispatch(core._event_loop)
         assert observed == {
             "context.first": ["first", "handler"],
             "context.second": ["second", "handler"],
@@ -144,14 +144,14 @@ class TestApixEventPipeEvents:
         reference = weakref.ref(request)
         token = _publication_context.set(request)
         try:
-            await cleanup_event_runtime.event_pipe.post_event(
+            await cleanup_event_runtime._event_pipe.post_event(
                 event_type=EventType.INFO, event_name="context.retained",
             )
         finally:
             _publication_context.reset(token)
         del request
 
-        await wait_for_dispatch(cleanup_event_runtime.event_loop)
+        await wait_for_dispatch(cleanup_event_runtime._event_loop)
         gc.collect()
         assert len(events) == 1
         assert reference() is None

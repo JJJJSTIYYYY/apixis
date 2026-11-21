@@ -4,9 +4,11 @@ import asyncio
 
 import pytest
 
-from apixis import (
-    EventType, EventWaiter, get_event_loop, get_event_pipe,
-    get_handler_meta, get_handler_registry, subscribe,
+from apixis import EventType, EventWaiter, get_handler_meta, subscribe
+from apixis.core.event.factory import (
+    get_event_loop,
+    get_event_pipe,
+    get_handler_registry,
 )
 from apixis.core.event.subscription import waiter as waiter_module
 

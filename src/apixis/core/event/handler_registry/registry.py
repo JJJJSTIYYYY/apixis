@@ -56,7 +56,7 @@ class ApixHandlerRegistry:
         # its previous group entry without scanning unrelated groups.
         self._handler_groups: dict[str, str] = {}
         # Sort keys use the actual bucket priority, including relative insertions
-        # whose public handler.priority is None. Removal leaves ordinals intact.
+        # whose _priority is None. Removal leaves ordinals intact.
         self._handler_order: dict[str, tuple[float, int]] = {}
         self._bucket_next_order: dict[float, int] = {}
         self._register_order = 0
@@ -126,10 +126,14 @@ class ApixHandlerRegistry:
 
         The snapshot permits finish() to unregister the waiter and its listeners.
         Already terminal Futures retain their result, exception or cancellation.
+        Their close() retries any interrupted listener removal.
         """
         for waiter in tuple(self._waiter_cache.waiters):
             if waiter.active:
                 waiter.finish()
+            else:
+                # A previous release may have failed after completing the Future.
+                waiter.close()
 
     def clear(self) -> None:
         """Remove registrations and cached chains without changing observations.
@@ -314,8 +318,8 @@ class ApixHandlerRegistry:
         received, processed = self._waiter_cache.get(event_name)
         if not received and not processed:
             return chain
-        return [*(handler.name for handler in received), *chain,
-                *(handler.name for handler in processed)]
+        return [*(handler._name for handler in received), *chain,
+                *(handler._name for handler in processed)]
 
     def get_handlers_for_event(self, event_name: str) -> list[ApixEventHandler]:
         """Capture received listeners, ordinary handlers, then processed listeners.
@@ -337,18 +341,18 @@ class ApixHandlerRegistry:
         """Install identity, group membership and registration order."""
         handler._register_order = self._register_order
         self._register_order += 1
-        self.registry[handler.name] = handler
-        self._group_handlers.setdefault(handler.group, set()).add(handler.name)
-        self._handler_groups[handler.name] = handler.group
+        self.registry[handler._name] = handler
+        self._group_handlers.setdefault(handler._group, set()).add(handler._name)
+        self._handler_groups[handler._name] = handler._group
 
     def _add_waiter_handler(
         self, handler: ApixEventHandler, *, point: Literal['received', 'processed'],
         waiter: WaiterLifecycle,
     ) -> None:
         """Install one prevalidated handler belonging to a wait collection."""
-        if handler.name in self.registry:
+        if handler._name in self.registry:
             raise EventHandlerAlreadyRegisteredError(
-                f"Handler `{handler.name}` already registered."
+                f"Handler `{handler._name}` already registered."
             )
         self._add_handler_record(handler)
         self._waiter_cache.index_handler(handler, point, waiter)
@@ -373,10 +377,10 @@ class ApixHandlerRegistry:
                 glob_patterns.append(pattern)
             else:
                 exact_names.append(pattern)
-                self._exact_subscriptions.setdefault(pattern, set()).add(handler.name)
-        self._handler_exact_names[handler.name] = tuple(exact_names)
+                self._exact_subscriptions.setdefault(pattern, set()).add(handler._name)
+        self._handler_exact_names[handler._name] = tuple(exact_names)
         if glob_patterns:
-            self._glob_subscriptions[handler.name] = tuple(glob_patterns)
+            self._glob_subscriptions[handler._name] = tuple(glob_patterns)
 
     def _unindex_handler_patterns(self, handler_name: str) -> None:
         for event_name in self._handler_exact_names.pop(handler_name):
@@ -394,22 +398,22 @@ class ApixHandlerRegistry:
             raise CoreClosedError("The handler registry is closed.")
         if not isinstance(handler_entry, ApixEventHandler):
             raise TypeError("handler_entry must be an ApixEventHandler instance.")
-        if not handler_entry.name:
+        if not handler_entry._name:
             raise ValueError("Handler name cannot be empty.")
-        validate_non_empty_string(handler_entry.group, "Handler group")
-        if handler_entry.name in self.registry and not exist_ok:
+        validate_non_empty_string(handler_entry._group, "Handler group")
+        if handler_entry._name in self.registry and not exist_ok:
             raise EventHandlerAlreadyRegisteredError(
-                f"Handler `{handler_entry.name}` already registered."
+                f"Handler `{handler_entry._name}` already registered."
             )
-        if not callable(handler_entry.core_func):
+        if not callable(handler_entry._core_func):
             raise TypeError("Handler core_func must be callable.")
-        if handler_entry.on_accepted is not None and not callable(handler_entry.on_accepted):
+        if handler_entry._on_accepted is not None and not callable(handler_entry._on_accepted):
             raise TypeError("Handler on_accepted must be callable.")
-        if handler_entry.on_has_error is not None and not callable(handler_entry.on_has_error):
+        if handler_entry._on_has_error is not None and not callable(handler_entry._on_has_error):
             raise TypeError("Handler on_has_error must be callable.")
-        if handler_entry.on_error is not None and not callable(handler_entry.on_error):
+        if handler_entry._on_error is not None and not callable(handler_entry._on_error):
             raise TypeError("Handler on_error must be callable.")
-        if handler_entry.on_cancelled is not None and not callable(handler_entry.on_cancelled):
+        if handler_entry._on_cancelled is not None and not callable(handler_entry._on_cancelled):
             raise TypeError("Handler on_cancelled must be callable.")
         subscriptions = self._normalise_patterns(
             handler_entry._subscribe,
@@ -425,7 +429,7 @@ class ApixHandlerRegistry:
         self, handler: ApixEventHandler, subscriptions: list[str], filters: list[str],
     ) -> None:
         """Remove the old registration and record its validated replacement."""
-        self.unregister_handler(handler.name, missing_ok=True)
+        self.unregister_handler(handler._name, missing_ok=True)
         handler._subscribe = tuple(subscriptions)
         handler._filter_event = tuple(filters)
         self._add_handler_record(handler)
@@ -441,27 +445,27 @@ class ApixHandlerRegistry:
         indexes. Their observation points are not part of ordinary registration.
         """
         subscriptions, filters = self._prepare_handler_registration(handler_entry, exist_ok=exist_ok)
-        if handler_entry.priority is not None and handler_entry.between_handlers is not None:
+        if handler_entry._priority is not None and handler_entry._between_handlers is not None:
             raise ValueError(
                 "between_handlers and priority cannot be set together."
             )
 
-        between_handlers = handler_entry.between_handlers
+        between_handlers = handler_entry._between_handlers
         if between_handlers is not None:
             bucket_priority = self._validate_between_handlers(
                 between_handlers,
-                handler_name=handler_entry.name
+                handler_name=handler_entry._name
             )
         else:
-            priority = handler_entry.priority
+            priority = handler_entry._priority
             bucket_priority = validate_number(priority, "Handler priority")
 
         self._replace_handler_record(handler_entry, subscriptions, filters)
         bucket = self.priority_buckets.setdefault(bucket_priority, [])
         if between_handlers is None:
-            bucket.append(handler_entry.name)
+            bucket.append(handler_entry._name)
             ordinal = self._bucket_next_order.get(bucket_priority, 0)
-            self._handler_order[handler_entry.name] = -bucket_priority, ordinal
+            self._handler_order[handler_entry._name] = -bucket_priority, ordinal
             self._bucket_next_order[bucket_priority] = ordinal + 1
         else:
             left_name, right_name = between_handlers
@@ -469,7 +473,7 @@ class ApixHandlerRegistry:
                 insert_index = bucket.index(right_name)
             else:
                 insert_index = bucket.index(left_name) + 1
-            bucket.insert(insert_index, handler_entry.name)
+            bucket.insert(insert_index, handler_entry._name)
             # Relative insertion is uncommon and already shifts this bucket's
             # list. Reindex only this bucket; ordinary append/removal stays local.
             for ordinal, name in enumerate(bucket):
@@ -479,10 +483,10 @@ class ApixHandlerRegistry:
         self._invalidate_matching_chains(handler_entry)
 
         Logger.debug(
-            f"Registered handler `{handler_entry.name}`, "
-            f"group={handler_entry.group}, "
-            f"priority={handler_entry.priority}, "
-            f"between_handlers={handler_entry.between_handlers}"
+            f"Registered handler `{handler_entry._name}`, "
+            f"group={handler_entry._group}, "
+            f"priority={handler_entry._priority}, "
+            f"between_handlers={handler_entry._between_handlers}"
         )
 
     def unregister_handler(self, handler_name: str, *, missing_ok: bool = False) -> None:

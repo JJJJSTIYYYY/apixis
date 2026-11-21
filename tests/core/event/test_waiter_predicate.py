@@ -35,7 +35,7 @@ async def test_predicates_isolate_concurrent_same_name_replies(
                 assert set(result) == set(patterns)
                 assert all(event.context["request_id"] == index for event in result.values())
                 assert len({id(event) for event in result.values()}) == 1
-    assert not cleanup_event_runtime.handler_registry.registry
+    assert not cleanup_event_runtime._handler_registry.registry
 
 
 async def test_name_filters_run_before_predicate(cleanup_event_runtime):
@@ -66,7 +66,7 @@ async def test_predicate_preserves_first_matches_across_rejected_events(cleanup_
         result = await asyncio.wait_for(waiter.get_result(), 1)
         assert result["job.*"].context["value"] == "first"
         assert result["saved"].context["value"] == "saved"
-        assert not cleanup_event_runtime.handler_registry.registry
+        assert not cleanup_event_runtime._handler_registry.registry
     finally:
         waiter.close()
 
@@ -93,9 +93,9 @@ async def test_predicate_failure_reaches_waiter_without_failing_event_dispatch(
             assert raised.value is failure
             result = await asyncio.wait_for(independent.get_result(), 1)
             assert not result.has_error
-    await wait_for_dispatch(cleanup_event_runtime.event_loop)
+    await wait_for_dispatch(cleanup_event_runtime._event_loop)
     assert handled == [result]
-    assert set(cleanup_event_runtime.handler_registry.registry) == {"ordinary"}
+    assert set(cleanup_event_runtime._handler_registry.registry) == {"ordinary"}
 
 
 async def async_predicate(event):
@@ -141,7 +141,7 @@ async def test_predicate_runs_on_runtime_loop_and_propagates_result_or_error(
     task = asyncio.create_task(worker())
     try:
         async with asyncio.timeout(3):
-            while not core.handler_registry.waiter_count:
+            while not core._handler_registry.waiter_count:
                 await asyncio.sleep(0)
         await post_event(event_name="job.reply", context=0)
         await post_event(event_name="job.reply", context=7)
@@ -152,7 +152,7 @@ async def test_predicate_runs_on_runtime_loop_and_propagates_result_or_error(
         else:
             assert (await asyncio.wait_for(task, 3)).context == 7
         assert seen == [(owner, 0), (owner, 7)]
-        assert not core.handler_registry.registry
+        assert not core._handler_registry.registry
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

@@ -123,16 +123,17 @@ class ApixEventLoop:
         raised again by stop. Errors in the stop operation itself propagate.
         """
         task = self._event_consumer_task
-        self._event_consumer_task = None
 
         if task is None:
             return
 
         # A concurrent start() may create a replacement; only stop this worker.
-        task.cancel()
+        if not task.cancelling():
+            task.cancel()
 
         # Consumer failures are reported once by _on_consumer_done.
-        await asyncio.gather(task, return_exceptions=True)
+        # Keep ownership until completion, even if the stop operation is cancelled.
+        await asyncio.shield(asyncio.gather(task, return_exceptions=True))
 
         Logger.info("Worker stopped.")
 
@@ -159,10 +160,10 @@ class ApixEventLoop:
         # await them. This does not notify discarded events.
         await self._registry.cancel_waiters()
         while self._dispatch_tasks or self._background_handler_tasks:
-            await asyncio.gather(
+            await asyncio.shield(asyncio.gather(
                 *self._dispatch_tasks, *self._background_handler_tasks,
                 return_exceptions=True,
-            )
+            ))
             # gather() can complete synchronously for already-done tasks.
             # Their ownership callbacks must run before inspecting the sets.
             await asyncio.sleep(0)
@@ -289,7 +290,7 @@ class ApixEventLoop:
             for handler in handler_chain:
                 if event.cancelled and asyncio.current_task().cancelling():
                     raise asyncio.CancelledError
-                if handler.background:
+                if handler._background:
                     self._create_background_handler_task(
                         handler,
                         event,
@@ -308,7 +309,7 @@ class ApixEventLoop:
             # Notify the same captured foreground handlers in chain order.
             event.cancelled = True
             for handler in handler_chain:
-                if not handler.background:
+                if not handler._background:
                     try:
                         await handler.notify_cancelled(event, time_out=5.0)
                     except (Exception, asyncio.CancelledError):

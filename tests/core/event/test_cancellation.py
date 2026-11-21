@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from apixis.core.event import ApixEventPipe, get_event_registry
+from apixis.core.event.event_pipe import ApixEventPipe
+from apixis.core.event.factory import get_event_registry
 
-from apixis.core.event import (
-    ApixEvent, ApixEventHandler, EventType, close_core, post_and_wait, subscribe,
-)
+from apixis.core.event import ApixEvent, EventType, close_core, post_and_wait, subscribe
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 
@@ -28,9 +28,9 @@ def isolate_registry():
 def register(registry, name, core_func, **kwargs):
     """Register a handler through the public registry contract."""
     handler = ApixEventHandler(core_func, **kwargs)
-    handler.name = name
+    handler._name = name
     handler._subscribe = ('cancel.test',)
-    handler.priority = 1
+    handler._priority = 1
     registry.register_handler(handler)
     return handler
 
@@ -424,14 +424,14 @@ def test_on_cancelled_registration_validation_and_replacement():
     registry = ApixHandlerRegistry(get_event_registry())
     cleanup = AsyncMock()
     handler = register(registry, "handler", AsyncMock(), on_cancelled=cleanup)
-    assert registry.get_handler("handler").on_cancelled is cleanup
+    assert registry.get_handler("handler")._on_cancelled is cleanup
     with pytest.raises(ValueError, match="on_cancelled"):
         handler.add_on_cancelled_callback(AsyncMock(), exist_ok=False)
     with pytest.raises(TypeError):
         handler.add_on_cancelled_callback(1)
     replacement = AsyncMock()
     handler.add_on_cancelled_callback(replacement)
-    assert handler.on_cancelled is replacement
-    handler.on_cancelled = 1
+    assert handler._on_cancelled is replacement
+    handler._on_cancelled = 1
     with pytest.raises(TypeError, match="on_cancelled"):
         registry.register_handler(handler, exist_ok=True)

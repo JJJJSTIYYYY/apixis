@@ -57,7 +57,7 @@ asyncio.run(main())
 import asyncio
 
 from apixis import (
-    EventType, create_core, get_event_pipe, start_core, close_core, subscribe, unsubscribe,
+    EventType, create_core, post_event, start_core, close_core, subscribe, unsubscribe,
 )
 
 
@@ -70,10 +70,9 @@ async def main() -> None:
         print(event.event_name, event.context)
         handled.set()
 
-    pipe = get_event_pipe()
     try:
         await start_core()
-        await pipe.post_event(
+        await post_event(
             event_type=EventType.INFO,
             event_name="app.started",
             context={"ready": True},
@@ -87,7 +86,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`subscribe()` 注册异步处理函数，`post_event()` 创建并发布事件。示例使用 `asyncio.Event` 等待应用需要的处理结果；`pipe.join()` 只等待队列项目完成交接，不表示所有 handler 已执行结束。
+`subscribe()` 注册异步处理函数，`post_event()` 创建并发布事件。示例使用 `asyncio.Event` 等待应用需要的处理结果；等待本次事件全部前台处理结束可使用 `post_and_wait()`。
 
 共享 event core 服务整个应用，由应用入口显式创建、启动和关闭。stop 仅暂停队列消费，start 恢复消费；getter 不创建或启动组件。详见[五阶段生命周期](./core/runtime-lifecycle.md)。继续阅读：[事件 API](./core/event/README.md)、[事件处理器](./core/event/handlers.md)。
 

@@ -4,12 +4,13 @@ import asyncio
 
 import pytest
 
-from apixis import ApixisCore, CoreClosedError, CoreState
+from apixis import CoreClosedError, CoreState
+from apixis.core.event.core import ApixisCore
 
 
 @pytest.mark.parametrize("phase", ["created", "running", "stopped"])
 async def test_close_callbacks_run_once_in_registration_order(phase):
-    core = ApixisCore.create_core()
+    core = ApixisCore._create_core()
     seen = []
     core.add_close_task_done_callback(lambda task: seen.append((1, task, core.state)))
     core.add_close_task_done_callback(lambda task: seen.append((2, task, core.state)))
@@ -31,16 +32,16 @@ async def test_close_callbacks_run_once_in_registration_order(phase):
 
 
 async def test_close_callbacks_can_be_added_and_removed_during_cleanup(monkeypatch):
-    core = ApixisCore.create_core()
+    core = ApixisCore._create_core()
     entered, release = asyncio.Event(), asyncio.Event()
-    original = core.event_loop.close
+    original = core._event_loop.close
 
     async def blocked():
         entered.set()
         await release.wait()
         await original()
 
-    monkeypatch.setattr(core.event_loop, "close", blocked)
+    monkeypatch.setattr(core._event_loop, "close", blocked)
     seen = []
 
     def removed(task):
@@ -65,7 +66,7 @@ async def test_close_callbacks_can_be_added_and_removed_during_cleanup(monkeypat
 
 
 async def test_callback_exception_does_not_skip_later_callbacks_or_closure():
-    core = ApixisCore.create_core()
+    core = ApixisCore._create_core()
     errors, seen = [], []
     loop = asyncio.get_running_loop()
     previous = loop.get_exception_handler()
@@ -87,16 +88,16 @@ async def test_callback_exception_does_not_skip_later_callbacks_or_closure():
         loop.set_exception_handler(previous)
 
 
-async def test_failed_close_notifies_once_and_late_registration_is_scheduled(monkeypatch):
-    core = ApixisCore.create_core()
-    original = core.handler_registry.close
+async def test_close_callbacks_follow_each_attempt_and_release_after_success(monkeypatch):
+    core = ApixisCore._create_core()
+    original = core._handler_registry.close
     error = RuntimeError("cleanup failed")
     seen = []
 
     async def fail():
         raise error
 
-    monkeypatch.setattr(core.handler_registry, "close", fail)
+    monkeypatch.setattr(core._handler_registry, "close", fail)
     core.add_close_task_done_callback(lambda task: seen.append(task.exception()))
     try:
         with pytest.raises(RuntimeError) as raised:
@@ -106,17 +107,22 @@ async def test_failed_close_notifies_once_and_late_registration_is_scheduled(mon
         assert seen == [error]
         with pytest.raises(RuntimeError):
             await core.close_core()
-        assert seen == [error]
+        assert seen == [error, error]
         core.add_close_task_done_callback(lambda task: seen.append("late"))
-        assert seen == [error]
+        assert seen == [error, error]
         await asyncio.sleep(0)
-        assert seen == [error, "late"]
+        assert seen == [error, error, "late"]
+        monkeypatch.setattr(core._handler_registry, "close", original)
+        await core.close_core()
+        assert seen == [error, error, "late", None, "late"]
+        await core.close_core()
+        assert seen == [error, error, "late", None, "late"]
     finally:
         await original()
 
 
 async def test_only_close_callback_registration_is_exposed_and_creates_no_tasks():
-    core = ApixisCore.create_core()
+    core = ApixisCore._create_core()
     before = asyncio.all_tasks()
     with pytest.raises(TypeError):
         core.add_close_task_done_callback(None)

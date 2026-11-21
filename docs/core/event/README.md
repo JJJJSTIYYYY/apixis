@@ -6,20 +6,20 @@
 
 完整契约见[五阶段生命周期](../runtime-lifecycle.md)：**create → start → running → stop → close**。
 
-- `create_core() -> ApixisCore`：同步创建组件，不启动消费；已有未关闭实例时返回同一实例。
+- `create_core()`：同步创建组件，不启动消费；已有未关闭实例时返回同一实例。
 - `await start_core()`：启动或恢复已有 core 的队列消费，不创建组件。
 - `await stop_core()`：只停止队列消费，已安排的 handler chain 和后台 handler 继续执行；组件、队列、注册和等待器保留。
 - `await close_core()`：立即永久禁入，等待已有启动/停止收尾后取消运行任务；队列与 `_pending_dispatch` 直接删除，运行中的链沿既有 `on_cancelled` 清理，剩余等待器完成为 `None` 后汇合任务。
 
 启动/停止可反复切换。close 完成后旧实例不能启动，需要显式再次 create，重新注册应用处理器和图。
 
-`get_core()`、`get_event_registry()`、`get_event_pipe()`、`get_handler_registry()`、`get_event_loop()` 都只同步读取，不创建、不启动、不恢复。创建前调用 getter 或 start 抛出 `RuntimeError`。异步 getter 已移除。
+`get_core()` 同步返回已有 core，用于读取 state 和添加/移除关闭完成回调，不创建、不启动、不恢复。组件实例和组件 getter 不属于公开 API。创建前调用 get_core 或 start 抛出 `RuntimeError`。
 
 ```python
-from apixis import create_core, start_core, close_core, get_event_pipe
+from apixis import create_core, start_core, close_core, get_core
 
 create_core()
-pipe = get_event_pipe()
+core = get_core()
 try:
     await start_core()
     # 注册/发布与图执行使用这组共享组件。
@@ -93,43 +93,26 @@ ApixEvent(
 
 ## 发布事件
 
-使用全局 `post_event()`，或缓存共享 `ApixEventPipe`：
+使用 `post_event()` 发布事件：
 
 ```python
-from apixis import EventType, create_core, get_event_pipe, post_event, start_core
+from apixis import EventType, create_core, post_event, start_core
 
 create_core()
 await start_core()
-pipe = get_event_pipe()
 
 await post_event(
     event_type=EventType.INFO,
     event_name="job.created",
     context={"job_id": 42},
 )
-await pipe.join()
 ```
 
 `post_event()` 会创建 `ApixEvent` 并放入本地队列；本地队列满时等待空位。
 
-发布时捕获当前 `ContextVar` 绑定，整条前台 handler chain 在该快照中执行，后台 handler 继承启动时的绑定。发布者之后的 `set/reset` 不影响已发布事件，handler 的绑定修改也不回写发布者；变量值中的可变对象仍按引用共享。直接使用 `put()` / `put_nowait()` 注入手工构造的事件不捕获发布者上下文。
+发布时捕获当前 `ContextVar` 绑定，整条前台 handler chain 在该快照中执行，后台 handler 继承启动时的绑定。发布者之后的 `set/reset` 不影响已发布事件，handler 的绑定修改也不回写发布者；变量值中的可变对象仍按引用共享。
 
-`pipe.join()` 等待队列项目完成交接，不等待 handler 执行结束。需要等待本次前台处理时使用 `post_and_wait()`；需要监听结果事件时使用 `wait_event()` 或 `expect_event()`；也可以由处理器通过应用自己的结果对象或信号通知调用方，完整示例见[快速开始](../../quickstart.md)。
-
-## `ApixEventPipe` 常用接口
-
-```python
-await pipe.put(event)
-await pipe.post_event(...)
-pipe.put_nowait(event)
-
-event = await pipe.get()
-pipe.task_done()
-await pipe.join()
-await pipe.clear()
-```
-
-事件管道直接使用有界 `asyncio.Queue`，详见[事件队列](./channels.md)。
+需要等待本次前台处理时使用 `post_and_wait()`；需要监听结果事件时使用 `wait_event()` 或 `expect_event()`。也可以由处理器通过应用自己的结果对象或信号通知调用方，完整示例见[快速开始](../../quickstart.md)。队列容量和暂停恢复语义见[事件队列](./channels.md)。
 
 ## 订阅
 
@@ -192,7 +175,7 @@ async with expect_event(
 
 `EventWaiter` 构造时同步注册监听，整个生命周期绑定一个 Future。完成、超时、取消和上下文退出都会注销临时 handler 并取消计时器；即使没有任务正在读取结果，Future 到达终态也会清理资源。
 
-终态清理释放 waiter 持有的 registry 引用，只执行一次整体注销。后续 Future 回调、重复 close 或上下文退出不会再次注销；主动取消仍直接调用 Future.cancel()。
+终态清理在整体注销成功后释放 waiter 持有的 registry 引用，后续 Future 回调、重复 close 或上下文退出不会再次注销。注销中途失败时保留引用，允许后续 close 重试；主动取消仍直接调用 Future.cancel()。
 
 ```python
 from apixis import EventWaiter
@@ -266,12 +249,12 @@ registry 只有普通 handler 和 waiter 两类注册对象，复用内部公共
 
 `register_handler()` 只处理 numeric priority / between_handlers 排序，不接受 point。`register_waiter()` 统一处理 Future 所属 waiter 和全部临时 handler；`received` / `processed` 只属于 waiter 的观察时机，不增加独立的 listener 注册类别。图中断通过 `post_and_wait()` 使用 processed waiter，不注册兜底 handler。
 
-订阅模式和排除模式是 handler 的私有 tuple，不提供公开可写字段。通过 `subscribe()` 或 `ApixEventHandler.register()` 重新注册来变更匹配配置；registry 先用旧配置清理索引与缓存，再提交新配置。传入的 filter 列表在注册后与内部配置隔离。查询使用 `get_handler_meta(name)`，其 `subscribe` / `filter_event` 列表是独立快照，修改快照不会改变事件路由。
+handler 的名称、分组、订阅、排序、回调和执行配置均为内部私有成员，不提供原始 handler 查询或公开可写字段。订阅和排除模式存储为 tuple。通过 `subscribe()` 重新注册来变更匹配配置；registry 先用旧配置清理索引与缓存，再提交新配置。传入的 filter 列表在注册后与内部配置隔离。查询使用 `get_handler_meta(name)`，其 `subscribe` / `filter_event` 列表是独立快照，修改快照不会改变事件路由。
 
 命名按职责区分：`register/unregister` 是完整注册事务，`prepare` 负责校验和规范化输入，`add/replace ... record` 只维护共享登记信息，`index/unindex` 只维护匹配索引。
 
 ```text
-subscribe() / ApixEventHandler.register()
+subscribe()
 └─ register_handler()
    ├─ _prepare_handler_registration()
    ├─ _replace_handler_record()

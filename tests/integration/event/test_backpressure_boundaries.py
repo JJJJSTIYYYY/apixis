@@ -4,15 +4,9 @@ import asyncio
 
 import pytest
 
-from apixis.core.event import (
-    ApixEvent,
-    ApixEventHandler,
-    ApixEventPipe,
-    EventType,
-    subscribe,
-    unsubscribe,
-    expect_event,
-)
+from apixis.core.event import ApixEvent, EventType, subscribe, unsubscribe, expect_event
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event import core as core_module
 from apixis.core.event.base import handler_chain_token_context, suspend_process
 from apixis.core.graph import GraphManager
@@ -41,9 +35,9 @@ def event_runtime_capacity(request, monkeypatch):
 async def boundary_runtime(cleanup_event_runtime, request, wait_for_dispatch):
     core = cleanup_event_runtime
     capacity, queue_capacity = request.node.callspec.params["event_runtime_capacity"]
-    assert core.event_loop._event_semaphore._bounded == capacity
-    assert core.event_loop._event_semaphore._value == capacity
-    assert core.event_pipe.maxsize == queue_capacity
+    assert core._event_loop._event_semaphore._bounded == capacity
+    assert core._event_loop._event_semaphore._value == capacity
+    assert core._event_pipe.maxsize == queue_capacity
     loop = asyncio.get_running_loop()
     previous_handler = loop.get_exception_handler()
     callback_errors = []
@@ -53,16 +47,16 @@ async def boundary_runtime(cleanup_event_runtime, request, wait_for_dispatch):
     finally:
         try:
             async with asyncio.timeout(3):
-                await wait_for_dispatch(core.event_loop)
-                await core.event_pipe.join()
-            assert not core.event_loop._dispatch_tasks
-            assert not core.event_loop._background_handler_tasks
-            assert core.event_loop._pending_dispatch is None
-            assert core.event_pipe.empty()
-            assert core.event_loop._event_semaphore._value == capacity
+                await wait_for_dispatch(core._event_loop)
+                await core._event_pipe.join()
+            assert not core._event_loop._dispatch_tasks
+            assert not core._event_loop._background_handler_tasks
+            assert core._event_loop._pending_dispatch is None
+            assert core._event_pipe.empty()
+            assert core._event_loop._event_semaphore._value == capacity
             assert not any(
                 not waiter.done()
-                for waiter in (core.event_loop._event_semaphore._waiters or ())
+                for waiter in (core._event_loop._event_semaphore._waiters or ())
             )
             assert not callback_errors, callback_errors
         finally:
@@ -76,7 +70,7 @@ def _event(name):
 def _observe_capture(monkeypatch, core, event_name):
     """Signal after handler references are captured, before capacity can wait."""
     captured = asyncio.Event()
-    resolve = core.handler_registry.get_handlers_for_event
+    resolve = core._handler_registry.get_handlers_for_event
 
     def observe(name):
         handlers = resolve(name)
@@ -84,21 +78,21 @@ def _observe_capture(monkeypatch, core, event_name):
             captured.set()
         return handlers
 
-    monkeypatch.setattr(core.handler_registry, "get_handlers_for_event", observe)
+    monkeypatch.setattr(core._handler_registry, "get_handlers_for_event", observe)
     return captured
 
 
 async def _fill_waiting_queue(core, captured):
     """Reserve the consumer's pending event, then fill every queue position."""
-    await core.event_pipe.post_event(
+    await core._event_pipe.post_event(
         event_type=EventType.TRANSIENT, event_name="boundary.pending",
     )
     await captured.wait()
-    assert core.event_loop._pending_dispatch[0].event_name == "boundary.pending"
-    for index in range(core.event_pipe.maxsize):
-        core.event_pipe.put_nowait(_event(f"boundary.queued.{index}"))
-    assert core.event_pipe.full()
-    assert core.event_loop._event_semaphore._value == 0
+    assert core._event_loop._pending_dispatch[0].event_name == "boundary.pending"
+    for index in range(core._event_pipe.maxsize):
+        core._event_pipe.put_nowait(_event(f"boundary.queued.{index}"))
+    assert core._event_pipe.full()
+    assert core._event_loop._event_semaphore._value == 0
 
 
 async def _cancel(tasks):
@@ -113,7 +107,7 @@ async def test_full_queue_and_saturated_parents_can_publish_children(
 ):
     """Blocked external producers and handler posts must all make progress."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     producer_entered = asyncio.Event()
@@ -126,7 +120,7 @@ async def test_full_queue_and_saturated_parents_can_publish_children(
         await parents_ready.wait()
         await release.wait()
         for index in range(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT,
                 event_name=f"boundary.child.{event.context}.{index}",
             )
@@ -138,14 +132,14 @@ async def test_full_queue_and_saturated_parents_can_publish_children(
 
     async def external_producer():
         producer_entered.set()
-        await core.event_pipe.post_event(
+        await core._event_pipe.post_event(
             event_type=EventType.TRANSIENT, event_name="boundary.external",
         )
 
     try:
         async with asyncio.timeout(3):
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT,
                     event_name=f"boundary.parent.{index}", context=index,
                 )
@@ -157,11 +151,11 @@ async def test_full_queue_and_saturated_parents_can_publish_children(
             assert not producer.done()
             release.set()
             await producer
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         expected = {
             *(f"boundary.parent.{index}" for index in range(capacity)),
             *(f"boundary.child.{parent}.{index}" for parent in range(capacity) for index in range(3)),
-            *(f"boundary.queued.{index}" for index in range(core.event_pipe.maxsize)),
+            *(f"boundary.queued.{index}" for index in range(core._event_pipe.maxsize)),
             "boundary.pending", "boundary.external",
         }
         assert set(completed) == expected
@@ -177,8 +171,8 @@ async def test_captured_handlers_survive_eviction_and_registration_with_a_full_q
 ):
     """Eviction and replacement cannot change a dequeued event's frozen chain."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
-    core.handler_registry._cache_size = 2
+    capacity = core._event_loop._event_semaphore._bounded
+    core._handler_registry._cache_size = 2
     blockers_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     captured = _observe_capture(monkeypatch, core, "boundary.work.captured")
@@ -200,27 +194,27 @@ async def test_captured_handlers_survive_eviction_and_registration_with_a_full_q
     try:
         async with asyncio.timeout(3):
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.block.{index}",
                 )
             await blockers_ready.wait()
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.work.captured",
             )
             await captured.wait()
-            assert core.event_loop._pending_dispatch[0].event_name == "boundary.work.captured"
-            for index in range(core.event_pipe.maxsize):
-                core.event_pipe.put_nowait(_event(f"boundary.queued.{index}"))
-            assert core.event_pipe.full()
+            assert core._event_loop._pending_dispatch[0].event_name == "boundary.work.captured"
+            for index in range(core._event_pipe.maxsize):
+                core._event_pipe.put_nowait(_event(f"boundary.queued.{index}"))
+            assert core._event_pipe.full()
             if restart:
-                await core.event_loop.stop()
-                assert core.event_loop._pending_dispatch[0].event_name == "boundary.work.captured"
+                await core._event_loop.stop()
+                assert core._event_loop._pending_dispatch[0].event_name == "boundary.work.captured"
 
             # The captured list must outlive eviction of its names from the LRU.
             for index in range(3):
-                core.handler_registry.get_handlers_chain_for_event(f"boundary.churn.{index}")
-            assert len(core.handler_registry.cached_chain) == 2
-            assert "boundary.work.captured" not in core.handler_registry.cached_chain
+                core._handler_registry.get_handlers_chain_for_event(f"boundary.churn.{index}")
+            assert len(core._handler_registry.cached_chain) == 2
+            assert "boundary.work.captured" not in core._handler_registry.cached_chain
 
             @subscribe("boundary.work.*", priority=30)
             async def target(event):  # noqa: F811 - Replace the registered identity.
@@ -234,19 +228,19 @@ async def test_captured_handlers_survive_eviction_and_registration_with_a_full_q
             assert calls == []
             release.set()
             if restart:
-                await core.event_loop.start()
-            await wait_for_dispatch(core.event_loop)
-            await core.event_pipe.post_event(
+                await core._event_loop.start()
+            await wait_for_dispatch(core._event_loop)
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.work.after",
             )
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert calls == [
             ("boundary.work.captured", "old"),
             ("boundary.work.captured", "tail"),
             ("boundary.work.after", "late"),
             ("boundary.work.after", "new"),
         ]
-        assert len(core.handler_registry.cached_chain) <= 2
+        assert len(core._handler_registry.cached_chain) <= 2
     finally:
         release.set()
 
@@ -257,7 +251,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
 ):
     """Child graph waits and temporary reply listeners share the smallest slots."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     parents_ready = asyncio.Barrier(capacity + 1)
     release = asyncio.Event()
     captured = _observe_capture(monkeypatch, core, "boundary.pending")
@@ -267,7 +261,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
     @subscribe("boundary.tool.request")
     async def tool(event):
         requests.append(event.context)
-        await core.event_pipe.post_event(
+        await core._event_pipe.post_event(
             event_type=EventType.TRANSIENT,
             event_name=f"boundary.tool.reply.{event.context}", context=event.context,
         )
@@ -277,7 +271,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
         async with expect_event(
             f"boundary.tool.reply.{key}", point=point, time_out=2,
         ) as waiter:
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.tool.request", context=key,
             )
             reply = await waiter.wait()
@@ -309,7 +303,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
             await _fill_waiting_queue(core, captured)
             release.set()
             results = await asyncio.gather(*tasks)
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert results == [
             {"run": index, "left": f"{index}.left", "right": f"{index}.right"}
             for index in range(capacity)
@@ -317,7 +311,7 @@ async def test_nested_parallel_graphs_and_request_reply_drain_a_full_queue(
         assert sorted(requests) == sorted(
             f"{index}.{branch}" for index in range(capacity) for branch in ("left", "right")
         )
-        assert not any(name.startswith("resolve_future-") for name in core.handler_registry.registry)
+        assert not any(name.startswith("resolve_future-") for name in core._handler_registry.registry)
     finally:
         release.set()
         await _cancel(tasks)
@@ -332,7 +326,7 @@ async def test_cancellation_while_suspended_or_reacquiring_restores_capacity(
 ):
     """Cancellation cannot double release a lent slot or resume business work."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     suspended = asyncio.Event()
     leave_body = asyncio.Event()
     body_exited = asyncio.Event()
@@ -363,14 +357,14 @@ async def test_cancellation_while_suspended_or_reacquiring_restores_capacity(
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.cancel",
             )
             await suspended.wait()
             assert chain.suspended == 1
             assert not chain.held
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -390,7 +384,7 @@ async def test_cancellation_while_suspended_or_reacquiring_restores_capacity(
                 assert chain.suspended == 0
                 assert not resumed.is_set()
             release_holders.set()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert parent_task.cancelled()
         assert chain.closed
         assert not chain.held
@@ -406,7 +400,7 @@ async def test_suspended_failure_recovers_permits_and_allows_later_traffic(
 ):
     """Exceptions and real timeout cancellation restore a chain after saturation."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     suspended = asyncio.Event()
     leave_body = asyncio.Event()
     body_exited = asyncio.Event()
@@ -447,12 +441,12 @@ async def test_suspended_failure_recovers_permits_and_allows_later_traffic(
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.failure",
             )
             await suspended.wait()
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -466,12 +460,12 @@ async def test_suspended_failure_recovers_permits_and_allows_later_traffic(
             assert not recovered.is_set()
             release_holders.set()
             await recovered.wait()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
             for index in range(2 * capacity + 1):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.probe.{index}",
                 )
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert probes == [f"boundary.probe.{index}" for index in range(2 * capacity + 1)]
         assert chain.closed
         assert not chain.held
@@ -487,7 +481,7 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
 ):
     """A surviving dispatch cannot continue after children abandon reacquisition."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -534,14 +528,14 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.parallel.cancel",
             )
             for _ in range(3):
                 await entered.get()
             assert chain.suspended == 3
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -555,7 +549,7 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
                 assert all(task.cancelled() for task in branches)
                 assert not continued.is_set()
                 release_holders.set()
-                await wait_for_dispatch(core.event_loop)
+                await wait_for_dispatch(core._event_loop)
                 return
             for task in branches:
                 task.cancel()
@@ -588,7 +582,7 @@ async def test_parent_catching_repeated_parallel_child_cancellation_keeps_its_pe
                 await continued.wait()
                 assert chain.held
                 release_parent.set()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
     finally:
         release_holders.set()
         release_parent.set()
@@ -600,7 +594,7 @@ async def test_dispatch_finish_cancels_detached_child_already_reacquiring(
 ):
     """Closing a dispatch removes a child's waiter while all slots stay busy."""
     core = boundary_runtime
-    semaphore = core.event_loop._event_semaphore
+    semaphore = core._event_loop._event_semaphore
     capacity = semaphore._bounded
     entered = asyncio.Event()
     leave_body = asyncio.Event()
@@ -635,12 +629,12 @@ async def test_dispatch_finish_cancels_detached_child_already_reacquiring(
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.detached.parent",
             )
             await entered.wait()
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -665,9 +659,9 @@ async def test_dispatch_finish_cancels_detached_child_already_reacquiring(
             assert chain.resuming_task is None
             assert semaphore._value == 0
             assert tuple(semaphore._waiters) == consumer_waiters
-            assert len(core.event_loop._dispatch_tasks) == capacity
+            assert len(core._event_loop._dispatch_tasks) == capacity
             release_holders.set()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
     finally:
         leave_body.set()
         finish_parent.set()
@@ -681,7 +675,7 @@ async def test_recoverable_owner_timeout_suspends_the_complete_parallel_wait(
 ):
     """An outer suspension restores capacity before catching a parallel timeout."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -721,14 +715,14 @@ async def test_recoverable_owner_timeout_suspends_the_complete_parallel_wait(
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.recoverable.timeout",
             )
             for _ in range(3):
                 await entered.get()
             assert chain.suspended == 1
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -739,7 +733,7 @@ async def test_recoverable_owner_timeout_suspends_the_complete_parallel_wait(
             assert not recovered.is_set()
             release_holders.set()
             await recovered.wait()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert all(task.cancelled() for task in branches)
         assert chain.closed
         assert not chain.held
@@ -754,7 +748,7 @@ async def test_handler_timeout_reacquires_before_its_error_callback(
 ):
     """Handler-managed timeout restores capacity before error recovery continues."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     entered = asyncio.Queue()
     leaving = asyncio.Queue()
     holders_ready = asyncio.Barrier(capacity + 1)
@@ -816,13 +810,13 @@ async def test_handler_timeout_reacquires_before_its_error_callback(
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.handler.timeout",
             )
             for _ in range(3):
                 await entered.get()
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -839,7 +833,7 @@ async def test_handler_timeout_reacquires_before_its_error_callback(
             await callback_started.wait()
             assert observed == [("TimeoutError", True)]
             finish_callback.set()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert all(task.cancelled() for task in branches)
         assert chain.closed
         assert not chain.held
@@ -855,7 +849,7 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
 ):
     """Both waiter positions recover after timer expiry during a full queue."""
     core = boundary_runtime
-    capacity = core.event_loop._event_semaphore._bounded
+    capacity = core._event_loop._event_semaphore._bounded
     waiting = asyncio.Event()
     expired = asyncio.Event()
     recovered = asyncio.Event()
@@ -887,13 +881,13 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
 
     try:
         async with asyncio.timeout(3):
-            await core.event_pipe.post_event(
+            await core._event_pipe.post_event(
                 event_type=EventType.TRANSIENT, event_name="boundary.waiter.expiry",
             )
             await waiting.wait()
             assert chain.suspended == 1
             for index in range(capacity):
-                await core.event_pipe.post_event(
+                await core._event_pipe.post_event(
                     event_type=EventType.TRANSIENT, event_name=f"boundary.holder.{index}",
                 )
             await holders_ready.wait()
@@ -903,17 +897,17 @@ async def test_waiter_expiry_while_saturated_restores_capacity_and_removes_liste
             waiter._future.add_done_callback(lambda _: expired.set())
             asyncio.get_running_loop().call_soon(waiter._expire)
             await expired.wait()
-            assert waiter not in core.handler_registry._waiter_cache.waiters
+            assert waiter not in core._handler_registry._waiter_cache.waiters
             assert waiter._timeout_handle is None
-            assert core.handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
+            assert core._handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
             assert chain.suspended == 0
             assert chain.resume_lock.locked()
             assert not recovered.is_set()
             release_holders.set()
             await recovered.wait()
-            await wait_for_dispatch(core.event_loop)
+            await wait_for_dispatch(core._event_loop)
         assert waiter._future.done()
-        assert not any(name.startswith("resolve_future-") for name in core.handler_registry.registry)
-        assert core.handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
+        assert not any(name.startswith("resolve_future-") for name in core._handler_registry.registry)
+        assert core._handler_registry.get_handlers_chain_for_event("boundary.reply.never") == []
     finally:
         release_holders.set()

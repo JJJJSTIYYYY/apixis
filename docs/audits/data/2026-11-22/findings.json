@@ -1,0 +1,58 @@
+{
+  "handler_rename": {
+    "keys_after_reregister": [
+      "original",
+      "renamed"
+    ],
+    "keys_after_unregister": [
+      "original"
+    ],
+    "keys_after_remove_old_name": [],
+    "cached_alpha": [
+      "original"
+    ],
+    "query_error": "KeyError: 'original'"
+  },
+  "deadline_default": {
+    "eager": false,
+    "outcome": "TimeoutError"
+  },
+  "deadline_eager": {
+    "eager": true,
+    "outcome": "None"
+  },
+  "writer_early": {
+    "send_after_channel_closed": false,
+    "status": "aborted",
+    "first": "before",
+    "chunks_after_abort": [
+      "after-abort"
+    ],
+    "errors": []
+  },
+  "writer_late": {
+    "send_after_channel_closed": true,
+    "status": "aborted",
+    "first": "before",
+    "chunks_after_abort": [],
+    "errors": [
+      "Cannot write to a closed graph stream."
+    ]
+  },
+  "graph_cleanup": {
+    "decomposed": true,
+    "namespace_retained": true,
+    "remaining_group_handlers": 1
+  },
+  "waiter_cleanup": {
+    "core_state": "closed",
+    "waiter_active": false,
+    "waiter_registry_released": true,
+    "remaining_waiter_owners": 1
+  },
+  "quoted_false_config": {
+    "type": "str",
+    "value": "false",
+    "enabled": true
+  }
+}

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from apixis.core.event import get_handler
+from apixis.core.event.subscription.subscriber import get_handler
 from apixis.core.graph import AutoMerge, KeepRef, GraphManager, NodeGraph
 from apixis.core.graph import base as graph_base
 from apixis.core.graph.utils import state as state_utils

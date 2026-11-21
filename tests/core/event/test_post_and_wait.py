@@ -6,10 +6,8 @@ import importlib
 
 import pytest
 
-from apixis import (
-    ApixEventPipe, EventType,
-    post_and_wait, post_event, subscribe,
-)
+from apixis import EventType, post_and_wait, post_event, subscribe
+from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.base import handler_chain_token_context
 from apixis.core.event.subscription import publication
 
@@ -127,7 +125,7 @@ async def test_abandoning_wait_cleans_listener_without_cancelling_dispatch(
     cleanup_event_runtime, wait_for_dispatch, cancel,
 ):
     entered, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
-    registry = cleanup_event_runtime.handler_registry
+    registry = cleanup_event_runtime._handler_registry
 
     @subscribe("job.slow")
     async def process(event):
@@ -150,7 +148,7 @@ async def test_abandoning_wait_cleans_listener_without_cancelling_dispatch(
         assert not finished.is_set()
     finally:
         release.set()
-        await wait_for_dispatch(cleanup_event_runtime.event_loop)
+        await wait_for_dispatch(cleanup_event_runtime._event_loop)
     assert finished.is_set()
 
 
@@ -159,7 +157,7 @@ async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch
     pipe = ApixEventPipe(maxsize=1)
     await pipe.post_event(event_type=EventType.INFO, event_name="queued")
     monkeypatch.setattr(publication, "get_event_pipe", lambda: pipe)
-    registered = set(core.handler_registry.registry)
+    registered = set(core._handler_registry.registry)
     with pytest.raises(TimeoutError):
         await post_and_wait(
             event_type=EventType.INFO, event_name="blocked", time_out=0.01,
@@ -167,14 +165,14 @@ async def test_timeout_covers_queue_admission(cleanup_event_runtime, monkeypatch
     assert pipe.qsize() == 1
     assert pipe.get_nowait().event_name == "queued"
     pipe.task_done()
-    assert set(core.handler_registry.registry) == registered
+    assert set(core._handler_registry.registry) == registered
 
 
 @pytest.mark.parametrize("event_runtime_capacity", [1], indirect=True)
 async def test_nested_publication_lends_and_restores_dispatch_permit(
     event_runtime_capacity, cleanup_event_runtime,
 ):
-    assert cleanup_event_runtime.event_loop._event_semaphore._bounded == 1
+    assert cleanup_event_runtime._event_loop._event_semaphore._bounded == 1
     result = []
     finished = asyncio.Event()
 
@@ -201,18 +199,18 @@ async def test_result_completed_before_publication_returns_is_preserved(
     cleanup_event_runtime, wait_for_dispatch, monkeypatch,
 ):
     core = cleanup_event_runtime
-    put = core.event_pipe.put
+    put = core._event_pipe.put
     published = []
 
     async def publish_and_complete(event):
         published.append(event)
         await put(event)
-        await wait_for_dispatch(core.event_loop)
+        await wait_for_dispatch(core._event_loop)
 
-    monkeypatch.setattr(core.event_pipe, "put", publish_and_complete)
+    monkeypatch.setattr(core._event_pipe, "put", publish_and_complete)
     result = await post_and_wait(event_name="early.result", time_out=1)
     assert result is published[0]
-    assert not core.handler_registry.registry
+    assert not core._handler_registry.registry
 
 
 async def test_cancelling_queue_admission_removes_listener_and_does_not_publish(
@@ -225,12 +223,12 @@ async def test_cancelling_queue_admission_removes_listener_and_does_not_publish(
     pending = asyncio.create_task(post_and_wait(event_name="blocked"))
     try:
         await asyncio.sleep(0)
-        assert core.handler_registry.waiter_count == 1
+        assert core._handler_registry.waiter_count == 1
         assert not pending.done()
         pending.cancel()
         with pytest.raises(asyncio.CancelledError):
             await pending
-        assert not core.handler_registry.registry
+        assert not core._handler_registry.registry
         assert pipe.qsize() == 1
         assert pipe.get_nowait().event_name == "occupied"
         pipe.task_done()

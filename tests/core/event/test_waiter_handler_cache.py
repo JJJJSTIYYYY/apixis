@@ -6,9 +6,14 @@ from unittest.mock import patch
 
 import pytest
 
-from apixis import (
-    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, EventType,
-    EventWaiter, get_event_loop, get_event_pipe, get_handler_registry, subscribe,
+from apixis import EventType, EventWaiter, subscribe
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.event.handler_registry import ApixHandlerRegistry
+from apixis.core.event.factory import (
+    get_event_loop,
+    get_event_pipe,
+    get_handler_registry,
 )
 from apixis.core.utils.exception import EventHandlerAlreadyRegisteredError
 
@@ -92,7 +97,7 @@ async def test_mixed_waits_keep_registration_order_and_snapshot_references():
     snapshot = registry.get_handlers_for_event("reply.fixed")
     assert snapshot == expected
     assert registry.get_handlers_chain_for_event("reply.fixed") == [
-        handler.name for handler in expected
+        handler._name for handler in expected
     ]
     assert registry.get_handlers_for_event("reply.fixed") == expected
     assert registry.priority_buckets == {1e100: ["first"], -1e100: ["last"]}
@@ -201,14 +206,14 @@ async def test_waiter_cleanup_preserves_same_name_replacement():
     async def noop(event):
         pass
 
-    replacement = ApixEventHandler(noop, name=original.name)
-    replacement.priority = 1
+    replacement = ApixEventHandler(noop, name=original._name)
+    replacement._priority = 1
     replacement._subscribe = ('reply',)
     try:
         registry.register_handler(replacement, exist_ok=True)
         assert registry._waiter_cache.waiters[waiter] == {}
         waiter.close()
-        assert registry.get_handler(replacement.name) is replacement
+        assert registry.get_handler(replacement._name) is replacement
         assert registry.get_handlers_for_event("reply") == [replacement]
         assert not registry._waiter_cache.waiters
         assert not registry._waiter_cache._owners
@@ -223,7 +228,7 @@ async def test_batch_waiter_registration_collision_rolls_back_only_its_own_entri
         pass
 
     existing = ApixEventHandler(noop, name="existing")
-    existing.priority = 1
+    existing._priority = 1
     existing._subscribe = ('reply',)
     registry.register_handler(existing)
     normal = registry.get_subscription_chain_for_event("reply")

@@ -8,9 +8,8 @@ from typing import Annotated, TypedDict
 
 import pytest
 
-from apixis.core import (
-    AutoMerge, Command, GraphManager, get_event_loop,
-)
+from apixis.core import AutoMerge, Command, GraphManager
+from apixis.core.event.factory import get_event_loop
 
 
 pytestmark = pytest.mark.performance

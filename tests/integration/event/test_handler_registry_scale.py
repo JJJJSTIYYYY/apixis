@@ -33,11 +33,11 @@ def _make_handler(
 ) -> ApixEventHandler:
     """Build one handler entry for an integration-test registry."""
     entry = ApixEventHandler(_noop_handler if callback is None else callback)
-    entry.name = name
+    entry._name = name
     entry._register_order = 0
     entry._subscribe = tuple(subscribe)
     entry._filter_event = tuple([] if filter_event is None else filter_event)
-    entry.priority = priority
+    entry._priority = priority
     return entry
 
 

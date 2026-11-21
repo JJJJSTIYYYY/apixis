@@ -18,7 +18,9 @@ event core 分为五个阶段：**create → start → running → stop → clos
 
 core 只用一个状态枚举表示生命周期，不另设 started/stopped/closing 布尔组合。启动、停止和关闭各自记录一个共享操作 Task；调用者使用 shield 等待同一操作，取消某个调用者只取消其等待，不取消共享操作。不再使用生命周期锁。
 
-操作的等待关系是单向的：STOPPING 期间的新 start 先等待停止完成，再发起或加入下一次启动；停止 Task 等待已有启动 Task 收尾；关闭 Task 依次等待已有启动和停止 Task 收尾，再执行终态清理。已创建的启动 Task 不反过来等待停止或关闭 Task。
+操作的等待关系是单向的：STOPPING 期间的新 start 先发起或加入停止流程，停止完成后再启动；停止 Task 等待已有启动 Task 收尾；关闭 Task 依次等待已有启动和停止 Task 收尾，再执行清理。已创建的启动 Task 不反过来等待停止或关闭 Task。内部依赖也使用 shield，直接取消停止或关闭 Task 不会连带取消它正在等待的生命周期 Task。
+
+同阶段允许 `STARTED → STARTING`、`STOPPED → STOPPING`、`CLOSED → CLOSING`，重新执行对应流程。CLOSED 后只能重做关闭清理，不能恢复消费或重新开放管道。正在执行的同阶段调用仍共享一个 Task；上一个 Task 已失败或取消时，下次调用创建新的 Task，从流程开头重做，复用已有组件和已完成的操作。仍在运行的消费者不会被重复创建，已经移除的队列事件不会重复确认。
 
 ```mermaid
 stateDiagram-v2
@@ -27,13 +29,14 @@ stateDiagram-v2
     CREATED --> STOPPING: stop_core
     STARTING --> STARTED: consumer task created
     STARTED --> RUNNING: first scheduling turn confirmed
-    STARTING --> STOPPED: startup fails and consumer is stopped
+    STARTED --> STARTING: retry interrupted startup
     STARTING --> STOPPING: stop_core
     STARTED --> STOPPING: stop_core
     STARTED --> STOPPED: consumer exits during startup
     RUNNING --> STOPPING: stop_core
     RUNNING --> STOPPED: consumer exits
     STOPPING --> STOPPED: consumer stopped
+    STOPPED --> STOPPING: repeat stop
     STOPPED --> STARTING: start_core
     CREATED --> CLOSING: close_core
     STARTING --> CLOSING: close_core
@@ -42,18 +45,20 @@ stateDiagram-v2
     STOPPING --> CLOSING: close_core
     STOPPED --> CLOSING: close_core
     CLOSING --> CLOSED: notifications and cleanup finish
-    CLOSED --> [*]
+    CLOSED --> CLOSING: repeat cleanup with admission sealed
 ```
 
 重复 create 返回尚未关闭的同一实例；重复 start/stop 不重复创建消费者。start 在生命周期操作中同时核对消费者是否存活，避免完成回调尚未执行时忽略显式重启。未创建时 start 和 getter 抛出 `RuntimeError`，stop/close 直接返回。启动失败保留组件，允许重试。
 
-启动失败后的消费者清理、停止操作，均在操作 Task 退出前收尾状态。消费者停止后，即使停止日志回调抛出异常，也进入 STOPPED，允许后续显式 start；异常仍向调用者传播。若期间已有关闭请求，保留 CLOSING，由关闭 Task 继续清理。
+启动、停止和关闭失败或被直接取消时，不回滚已经完成的步骤，也不强行改为完成状态。异常向调用者传播，状态保留在执行中断处：例如启动日志失败后可能仍有消费者运行，停止日志失败后消费者可能已经退出。调用方再次调用同一生命周期方法完成剩余流程；start 遇到尚未完成的停止阶段，会先重试或等待停止。初始调度让出点、等待其他操作及组件清理过程中被取消，都按这一规则处理。
+
+应用层设置的日志器由应用保证没有抛异常的 bug，框架不为日志器异常增加兜底处理。单阶段流程可重入用于允许中断后重新调用，不承诺故障日志器仍在抛异常时流程一定能完成。
 
 `ApixEventLoop.start()` 返回当前消费者 Task，只负责消费者的创建、回收和错误记录。core 自行监听该 Task 的完成并维护 `CoreState`；消费者意外退出后进入 STOPPED，必须显式 start 才恢复。event loop 不提供 core 专用回调，也不直接修改 core 的状态。
 
 ### 操作完成回调
 
-`core.add_close_task_done_callback(callback)` 添加同步回调，参数为已完成的原生关闭 Task，按添加顺序调用。注册可以发生在关闭前或 CLOSING 期间；关闭成功和失败都会通知，重复注册会重复调用。若 CLOSING 中的 Task 已失败，新增回调按 `call_soon` 调度。注册本身不触发关闭；重复 close 不重复通知。
+`core.add_close_task_done_callback(callback)` 添加同步回调，参数为已完成的原生关闭 Task，按添加顺序调用。注册可以发生在关闭前或 CLOSING 期间；关闭成功、失败或取消都会通知，重复注册会重复调用。若 CLOSING 中的 Task 已失败或取消，新增回调按 `call_soon` 调度。注册本身不触发关闭；同一 Task 只通知一次，失败或取消后重试时，保留的回调会添加到新的关闭 Task。
 
 ```python
 core.add_close_task_done_callback(lambda task: print("closure completed", task))
@@ -68,14 +73,14 @@ graph 注册关闭完成回调，在关闭 Task 结束后取消自己管理的�
 ## 显式创建与同步读取
 
 ```python
-from apixis import create_core, get_core, get_event_pipe
+from apixis import create_core, get_core
 
 core = create_core()
 assert get_core() is core
-pipe = get_event_pipe()
+print(core.state)
 ```
 
-`get_core()`、`get_event_registry()`、`get_event_pipe()`、`get_handler_registry()`、`get_event_loop()` 都只同步读取已创建的组件，不创建组件、不安排启动，也不恢复消费。异步 `aget_*` 接口已移除。
+`get_core()` 只同步读取已创建的 core，不创建组件、不安排启动，也不恢复消费。应用可以读取 state、调用生命周期方法，以及注册/移除关闭完成回调。core 的管道、注册表和 event loop 都是私有组件，不公开组件 getter 或实现类；应用通过发布、订阅、等待和状态查询接口使用事件系统。
 
 先 create，再导入使用订阅装饰器或构图的业务模块；订阅注册与 graph 编译都不会隐式启动。也可以在应用入口中 create 后再注册业务函数。应用在需要消费时显式 start。
 
@@ -99,7 +104,9 @@ stop 只停止事件队列的消费：
 5. 遍历 `_waiter_cache` 显式记录的 waiter，对 `active=True` 的实例调用 `finish()`，直接执行 `_future.set_result(None)` 和 `close()`；不构造事件、不调用等待监听回调、不执行 predicate。此步骤在汇合所有业务清理之前完成，避免清理代码等待事件而阻塞 core 关闭。
 6. 汇合前台和后台任务，释放许可；最后清理注册与事件名，进入 CLOSED。关闭 Task 完成后，按注册顺序调度完成回调，由 graph 等上层结束自己管理的剩余等待。关闭流程不创建单独的取消通知任务。
 
-消费者已有的运行异常统一由消费者 Task 完成回调记录，stop/close 不重新抛出该异常，也不返回异常对象。关闭 Task 完成全部组件清理后才进入 CLOSED。清理自身失败则保留 CLOSING，异常由共享关闭 Task 正常传播；重复关闭会等待同一个 Task，不隐式重试。成功进入 CLOSED 后，重复 close 直接返回。
+消费者已有的运行异常统一由消费者 Task 完成回调记录，stop/close 不重新抛出该异常，也不返回异常对象。关闭 Task 完成全部组件清理后才进入 CLOSED。清理自身失败或取消则保留 CLOSING，异常正常传播；再次 close 时重试，只有尚在执行的关闭 Task 才由并发调用共享。成功进入 CLOSED 后，重复 close 会重新执行关闭流程，不重新开放准入，已释放的回调注册也不会恢复。
+
+停止消费者时，其引用保留到 Task 实际完成，取消停止流程不会丢失这项等待。关闭流程汇合业务清理时也使用 shield，直接取消关闭 Task 只结束本次等待，不再次取消已在执行的 handler 清理；后续 close 会继续汇合这些任务。
 
 取消过程中 handler 即使吞掉取消或改抛其他异常，也不会继续执行后续业务 core 或业务 on_error；异常仍记录，清理由独立的 on_cancelled 完成。
 
@@ -117,7 +124,7 @@ stop 只停止事件队列的消费：
 
 `EventWaiter` 使用普通 asyncio Future，并直接等待它。`active` 是只读 property，直接返回 `not _future.done()`，不维护额外状态标记。`finish()` 在调用方确认 active 后，执行 `_future.set_result(None)`，再调用 `close()` 注销监听和计时器。真实事件的 `_cancel()` 与 core 关闭都复用这个操作；core 关闭不产生任何补充通知。
 
-缓存通过下层 `WaiterLifecycle` 协议持有 waiter，只依赖 `active` 和 `finish()`；registry/cache 不引用上层 `subscription.EventWaiter`。`EventWaiter` 构造自己的回调后，只调用一次 `register_waiter(waiter, handlers, point=...)`。registry 统一登记 waiter、全部临时 handler、组归属和匹配索引；任一 handler 注册失败时回滚本次已安装项。Future 到达任意终态后，waiter 只调用一次 `unregister_waiter()`，由 registry 一并移除该 waiter 仍拥有的全部监听。
+缓存通过下层 `WaiterLifecycle` 协议持有 waiter，只依赖 `active`、`finish()` 和 `close()`；registry/cache 不引用上层 `subscription.EventWaiter`。`EventWaiter` 构造自己的回调后，只调用一次 `register_waiter(waiter, handlers, point=...)`。registry 统一登记 waiter、全部临时 handler、组归属和匹配索引；任一 handler 注册失败时回滚本次已安装项。Future 到达任意终态后，由 registry 一并移除该 waiter 仍拥有的全部监听；注销成功后 waiter 才释放 registry 引用。注销因日志异常等原因中断时，保留引用以便重试。关闭时仍活跃的 waiter 使用 finish()，已经终态但注销尚未完成的 waiter 使用 close()，不会改写原有结果。
 
 单独按名称或组移除临时 handler 时，registry 同步更新 waiter 的归属记录，保留仍活跃 Future 的关闭追踪。handler 被同名替换后，旧 waiter 的后续清理不会删除替代者。普通 handler 使用 `register_handler()`，waiter 使用 `register_waiter()`；普通注册不接受 point。图中断通过 `post_and_wait()` 等待用户 hook 处理结束，再检查 Block 是否已完成或接受，不再创建兜底 handler 或独立 listener。
 

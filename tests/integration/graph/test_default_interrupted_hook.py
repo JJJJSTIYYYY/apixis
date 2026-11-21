@@ -5,8 +5,10 @@ import asyncio
 import pytest
 
 from apixis.core.event.factory import get_event_pipe, get_handler_registry
-from apixis.core.event import expect_event, get_handler, subscribe, unsubscribe
-from apixis.core.graph import GLOBALNS, GraphManager
+from apixis.core.event import expect_event, subscribe, unsubscribe
+from apixis.core.event.subscription.subscriber import get_handler
+from apixis.core.graph import GraphManager
+from apixis.core.graph.base import GLOBALNS
 from apixis.core.graph.interrupter import interrupt, interrupted_hook
 from apixis.core.graph.utils.namespace import get_graph_interrupted_name
 from apixis.core.utils import BlockHookNotRegisteredError, BlockNotResolvedError
@@ -489,7 +491,7 @@ async def test_graph_compilation_does_not_reserve_interruption_fallback_names():
     subscribe(event_name)(unrelated)
     graph = manager.compile_graph(entry_point=None, using_namespace="collision")
     try:
-        assert get_handler(fallback_name).core_func is unrelated
+        assert get_handler(fallback_name)._core_func is unrelated
         assert get_handler_registry().get_handlers_chain_for_event(event_name) == [fallback_name]
         async with asyncio.timeout(1):
             assert await graph.invoke({}) == {}

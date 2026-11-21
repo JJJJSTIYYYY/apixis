@@ -22,7 +22,7 @@ def create_core() -> ApixisCore:
     if _core is not None and _core.state is CoreState.CLOSING:
         raise RuntimeError("Wait for close_core() before creating another core.")
     if _core is None or _core.state is CoreState.CLOSED:
-        _core = ApixisCore.create_core()
+        _core = ApixisCore._create_core()
     return _core
 
 
@@ -31,6 +31,9 @@ def get_core() -> ApixisCore:
 
     Raises RuntimeError if create_core() has not been called. A closed instance
     remains inspectable until the application explicitly creates a replacement.
+    The returned handle exposes state, lifecycle methods and close completion
+    callback registration. Its components and their construction are internal;
+    use publication, subscription and status helpers for application work.
     """
     if _core is None:
         raise RuntimeError("Call create_core() before accessing the event core.")
@@ -58,7 +61,8 @@ async def stop_core() -> None:
 
     Safe before creation and on repeated calls. Resume using start_core().
     Concurrent callers share the stop operation; cancelling a caller's wait
-    does not cancel that operation.
+    does not cancel that operation. An interrupted internal operation is retried
+    on the next call without rolling back completed steps.
     """
     if _core is not None:
         await _core.stop_core()
@@ -76,6 +80,8 @@ async def close_core() -> None:
     Safe before creation and on repeated calls. Concurrent callers await one
     protected cleanup task. Await completion before calling create_core() to
     construct a replacement; start_core() cannot reopen the closed instance.
+    A failed or cancelled internal task is replaced on the next close call.
+    Calling close on a CLOSED instance repeats cleanup with admission sealed.
     """
     if _core is not None:
         await _core.close_core()
@@ -89,43 +95,38 @@ def get_event_runtime_status() -> EventRuntimeStatus:
         initialized=True,
         state=_core.state,
         running=_core.state is CoreState.RUNNING,
-        event_queue_size=_core.event_pipe.qsize(),
-        event_queue_capacity=_core.event_pipe.maxsize,
-        wait_listeners=_core.handler_registry.waiter_count,
-        event_loop=_core.event_loop.get_status(),
+        event_queue_size=_core._event_pipe.qsize(),
+        event_queue_capacity=_core._event_pipe.maxsize,
+        wait_listeners=_core._handler_registry.waiter_count,
+        event_loop=_core._event_loop.get_status(),
     )
 
 
 def get_event_registry() -> ApixEventRegistry:
     """Return the existing name registry; call create_core() first."""
-    return get_core().event_registry
+    return get_core()._event_registry
 
 
 def get_event_pipe() -> ApixEventPipe:
     """Return the existing pipe without creating components or starting consumption."""
-    return get_core().event_pipe
+    return get_core()._event_pipe
 
 
 def get_handler_registry() -> ApixHandlerRegistry:
     """Return the existing handler registry without changing core state."""
-    return get_core().handler_registry
+    return get_core()._handler_registry
 
 
 def get_event_loop() -> ApixEventLoop:
     """Return the existing dispatcher without creating or starting its consumer."""
-    return get_core().event_loop
+    return get_core()._event_loop
 
 
 __all__ = [
-    "ApixisCore",
     "create_core",
     "get_core",
     "start_core",
     "stop_core",
     "close_core",
     "get_event_runtime_status",
-    "get_event_registry",
-    "get_event_pipe",
-    "get_handler_registry",
-    "get_event_loop",
 ]

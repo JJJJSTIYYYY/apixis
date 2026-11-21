@@ -9,15 +9,9 @@ import pytest
 from apixis.core.graph.base import _END
 
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.graph import (
-    GLOBALNS,
-    GRAPH_DISPATCH,
-    Command,
-    GraphManager,
-    get_graph_dispatch_name,
-    namespace_set,
-    release_namespace,
-)
+from apixis.core.graph import Command, GraphManager, get_graph_dispatch_name
+from apixis.core.graph.base import GLOBALNS, GRAPH_DISPATCH, namespace_set
+from apixis.core.graph.utils.namespace import release_namespace
 from apixis.core.graph.base import (
     _namespace_graphs,
 )
@@ -254,7 +248,7 @@ def test_compile_exist_ok_decomposes_and_replaces_original_graph(namespace):
         .compile_graph(entry_point="shared", using_namespace=namespace)
     )
     first_callbacks = {
-        get_handler_registry().get_handler(handler_name).core_func
+        get_handler_registry().get_handler(handler_name)._core_func
         for handler_name in get_handler_registry().get_handlers_chain_for_event(
             first_graph.dispatch_name
         )
@@ -269,7 +263,7 @@ def test_compile_exist_ok_decomposes_and_replaces_original_graph(namespace):
         )
     )
     replacement_callbacks = {
-        get_handler_registry().get_handler(handler_name).core_func
+        get_handler_registry().get_handler(handler_name)._core_func
         for handler_name in get_handler_registry().get_handlers_chain_for_event(
             replacement.dispatch_name
         )
@@ -277,7 +271,7 @@ def test_compile_exist_ok_decomposes_and_replaces_original_graph(namespace):
 
     assert first_graph._decomposed is True
     assert all(
-        handler.group != first_graph.handler_group
+        handler._group != first_graph.handler_group
         for handler in get_handler_registry().registry.values()
     )
     assert first_callbacks.isdisjoint(replacement_callbacks)

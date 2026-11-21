@@ -19,6 +19,10 @@ class WaiterLifecycle(Protocol):
         """Complete an active collection with None and release its resources."""
         ...
 
+    def close(self) -> None:
+        """Release registrations, retaining an already terminal Future's result."""
+        ...
+
 
 class WaiterHandlerCache:
     """Index handlers owned by received/processed wait collections."""
@@ -66,29 +70,29 @@ class WaiterHandlerCache:
         waiter: WaiterLifecycle,
     ) -> None:
         """Index one callback for a registered waiter and expire matching chains."""
-        self.positions[handler.name] = 0 if point == 'received' else 1
-        self._owners[handler.name] = waiter
-        self.waiters[waiter][handler.name] = handler
+        self.positions[handler._name] = 0 if point == 'received' else 1
+        self._owners[handler._name] = waiter
+        self.waiters[waiter][handler._name] = handler
         pattern = handler._subscribe[0]
         is_glob = is_glob_pattern(pattern)
         if is_glob:
-            self._glob[handler.name] = handler
+            self._glob[handler._name] = handler
         else:
-            self._exact.setdefault(pattern, {})[handler.name] = handler
+            self._exact.setdefault(pattern, {})[handler._name] = handler
         self._invalidate(handler, is_glob)
 
     def unindex_handler(self, handler: ApixEventHandler) -> None:
         """Remove callback indexes without completing or forgetting its waiter."""
-        del self.positions[handler.name]
-        owner = self._owners.pop(handler.name)
-        del self.waiters[owner][handler.name]
+        del self.positions[handler._name]
+        owner = self._owners.pop(handler._name)
+        del self.waiters[owner][handler._name]
         pattern = handler._subscribe[0]
-        is_glob = handler.name in self._glob
+        is_glob = handler._name in self._glob
         if is_glob:
-            del self._glob[handler.name]
+            del self._glob[handler._name]
         else:
             handlers = self._exact[pattern]
-            del handlers[handler.name]
+            del handlers[handler._name]
             if not handlers:
                 del self._exact[pattern]
         if not self.positions:
@@ -120,7 +124,7 @@ class WaiterHandlerCache:
         cached = ([], [])
         for handler in candidates:
             if not any(fnmatchcase(event_name, pattern) for pattern in handler._filter_event):
-                cached[self.positions[handler.name]].append(handler)
+                cached[self.positions[handler._name]].append(handler)
         self._chains[event_name] = cached
         if len(self._chains) > self._cache_size:
             self._chains.popitem(last=False)

@@ -15,7 +15,7 @@ from apixis.core.graph import (
     NodeGraph,
     Reset,
 )
-from apixis.core.graph import copy_state, parse_state_schema
+from apixis.core.graph.utils.state import copy_state, parse_state_schema
 from apixis.core.graph.context import noop_stream_writer
 
 

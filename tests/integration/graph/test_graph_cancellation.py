@@ -6,7 +6,8 @@ import pytest
 
 from apixis.core.graph.base import _END
 
-from apixis.core.event import ApixEventHandler, expect_event, subscribe, unsubscribe
+from apixis.core.event import expect_event, subscribe, unsubscribe
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.factory import get_event_pipe
 from apixis.core.graph import GraphManager
 from apixis.core.graph.context import get_stream_writer
@@ -80,7 +81,7 @@ async def test_upstream_plugin_cancellation_ends_call_and_runtime_remains_usable
             if mode == "stream":
                 assert chunks == (["business chunk"] if target == _END else [])
 
-            unsubscribe(handler.name)
+            unsubscribe(handler._name)
             assert await graph.invoke({}) == {"done": True}
             await get_event_pipe().join()
     finally:
@@ -90,7 +91,7 @@ async def test_upstream_plugin_cancellation_ends_call_and_runtime_remains_usable
         if dependency is not None:
             dependency.cancel()
             await asyncio.gather(dependency, return_exceptions=True)
-        unsubscribe(handler.name)
+        unsubscribe(handler._name)
         graph.decompose()
 
 
@@ -217,7 +218,7 @@ async def test_background_plugin_cancellation_does_not_cancel_graph(mode):
         assert len(cleanup_events) == 1
         assert cleanup_events[0].error_stack == []
     finally:
-        unsubscribe(background_handler.name)
+        unsubscribe(background_handler._name)
         unsubscribe(wait_for_background.__name__)
         graph.decompose()
 
@@ -246,5 +247,5 @@ async def test_cleanup_failure_before_graph_notification_cannot_strand_call():
             await get_event_pipe().join()
         assert context.completion.cancelled()
     finally:
-        unsubscribe(handler.name)
+        unsubscribe(handler._name)
         graph.decompose()

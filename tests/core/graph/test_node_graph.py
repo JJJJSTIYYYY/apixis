@@ -14,14 +14,8 @@ from apixis.core.event.factory import (
 )
 from apixis.core.event import get_handler_meta, unsubscribe, subscribe
 from apixis.core.utils.exception import EventHandlerAlreadyRegisteredError
-from apixis.core.graph import (
-    AutoMerge,
-    Command,
-    GLOBALNS,
-    Node,
-    NodeGraph,
-    Reset,
-)
+from apixis.core.graph import AutoMerge, Command, Node, NodeGraph, Reset
+from apixis.core.graph.base import GLOBALNS
 from apixis.core.graph.context import GraphContext
 from apixis.core.graph.context import noop_stream_writer
 from apixis.core.graph.base import namespace_set
@@ -664,7 +658,7 @@ def test_decompose_unregisters_only_graph_handlers_and_is_idempotent():
     )
     graph_handler_names = {
         name for name, handler in get_handler_registry().registry.items()
-        if handler.group == graph.handler_group
+        if handler._group == graph.handler_group
     }
 
     graph.decompose()
@@ -743,7 +737,7 @@ async def test_decompose_rejects_active_invocation():
         graph.decompose(force=False)
 
     assert graph._decomposed is False
-    assert get_handler_registry().get_handler(graph.dispatch_name).group == graph.handler_group
+    assert get_handler_registry().get_handler(graph.dispatch_name)._group == graph.handler_group
 
     release.set()
     assert await invocation == {"finished": True}

@@ -7,9 +7,16 @@ import importlib
 import pytest
 
 from apixis import (
-    ApixEventPipe, EventLoopStatus, EventRuntimeStatus,
-    EventWaiter, get_event_runtime_status, post_event, start_core, stop_core, subscribe,
+    EventLoopStatus,
+    EventRuntimeStatus,
+    EventWaiter,
+    get_event_runtime_status,
+    post_event,
+    start_core,
+    stop_core,
+    subscribe,
 )
+from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event import factory
 from apixis.core.event.base import suspend_process
 
@@ -53,7 +60,7 @@ async def test_initialized_query_does_not_schedule_startup(monkeypatch):
     assert not snapshot.running
     assert snapshot.event_queue_capacity == 1
     assert not snapshot.event_loop.running
-    assert core.event_loop._event_consumer_task is None
+    assert core._event_loop._event_consumer_task is None
 
 
 async def test_snapshots_are_immutable_and_do_not_change_with_runtime(cleanup_event_runtime):
@@ -144,7 +151,7 @@ async def test_queue_pending_dispatch_background_and_pause_are_distinct(
         release_foreground.set()
         release_background.set()
         await start_core()
-        await wait_for_dispatch(core.event_loop)
+        await wait_for_dispatch(core._event_loop)
         await until(lambda: get_event_runtime_status().event_loop.background_tasks == 0)
     drained = get_event_runtime_status()
     assert drained.running

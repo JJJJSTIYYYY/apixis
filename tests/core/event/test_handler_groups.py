@@ -6,10 +6,16 @@ from unittest.mock import AsyncMock
 import pytest
 
 from apixis import (
-    ApixEvent, ApixEventHandler, EventHandlerAlreadyRegisteredError,
-    EventHandlerNotRegisteredError, EventType, get_handler_meta,
-    get_handler_registry, subscribe, unsubscribe,
+    ApixEvent,
+    EventHandlerAlreadyRegisteredError,
+    EventHandlerNotRegisteredError,
+    EventType,
+    get_handler_meta,
+    subscribe,
+    unsubscribe,
 )
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.factory import get_handler_registry
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.event_pipe import ApixEventPipe
 from apixis.core.event.factory import get_event_registry
@@ -31,11 +37,11 @@ def test_default_group_and_metadata(registry):
     async def decorated(event):
         pass
 
-    assert instance.group == "global"
+    assert instance._group == "global"
     assert get_handler_meta("decorated")["group"] == "global"
     meta = get_handler_meta("instance")
     meta["group"] = "other"
-    assert instance.group == "global"
+    assert instance._group == "global"
     unsubscribe(group="global")
     assert not registry.registry
     assert not registry._group_handlers
@@ -45,13 +51,13 @@ def test_default_group_and_metadata(registry):
 def test_instance_group_is_preserved_and_can_be_overridden(registry):
     instance = handler("worker", group="original")
     assert subscribe("old")(instance) is instance
-    assert instance.group == "original"
+    assert instance._group == "original"
     instance.register("event")
-    assert instance.group == "original"
+    assert instance._group == "original"
     subscribe("event", group="decorator")(instance)
-    assert instance.group == "decorator"
+    assert instance._group == "decorator"
     instance.register("event", group="updated")
-    assert instance.group == "updated"
+    assert instance._group == "updated"
     assert get_handler_meta("worker")["group"] == "updated"
     for old_group in ("original", "decorator"):
         registry.unregister_group(old_group, missing_ok=True)
@@ -93,7 +99,7 @@ def test_replacement_moves_group_without_leaving_stale_members(registry, same_in
     handler("peer", group="old").register("event")
     if same_instance:
         # Direct metadata changes take effect when the handler is re-registered.
-        original.group = "new"
+        original._group = "new"
         original.register("event")
         replacement = original
     else:
@@ -118,7 +124,7 @@ def test_failed_replacement_preserves_group_and_cached_chain(registry, options, 
     chain = registry.get_handlers_chain_for_event("event")
     with pytest.raises(error):
         instance.register("other", **options)
-    assert instance.group == "old"
+    assert instance._group == "old"
     assert registry.get_handler("worker") is instance
     assert registry.get_handlers_chain_for_event("event") is chain
     assert registry._group_handlers == {"old": {"worker"}}
@@ -168,9 +174,9 @@ def test_invalid_group_is_rejected_before_registration(registry, group, error):
     with pytest.raises(error, match="group"):
         handler("invalid", group=group)
     instance = handler("invalid")
-    instance.group = group
+    instance._group = group
     instance._subscribe = ('event',)
-    instance.priority = 1
+    instance._priority = 1
     with pytest.raises(error, match="group"):
         registry.register_handler(instance)
     assert not registry.registry
@@ -233,4 +239,4 @@ async def test_group_removal_preserves_captured_dispatch_and_expires_matching_ca
     loop = ApixEventLoop(registry, ApixEventPipe(), get_event_registry())
     await loop._dispatch_event(event, captured)
     for instance in captured:
-        instance.core_func.assert_awaited_once_with(event)
+        instance._core_func.assert_awaited_once_with(event)

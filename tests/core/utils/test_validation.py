@@ -4,10 +4,12 @@ import importlib
 
 import pytest
 
-from apixis import (
-    ApixEventHandler, ApixEventLoop, ApixEventPipe, ApixEventRegistry,
-    ApixHandlerRegistry, Node, subscribe,
-)
+from apixis import Node, subscribe
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.event_loop import ApixEventLoop
+from apixis.core.event.event_pipe import ApixEventPipe
+from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.utils.validation import validate_int, validate_number, validate_timeout
 
 
@@ -77,5 +79,5 @@ def test_failed_timeout_assignment_preserves_previous_value():
 
     handler = ApixEventHandler(receive, time_out=2)
     with pytest.raises(ValueError):
-        handler.time_out = float("nan")
-    assert handler.time_out == 2
+        handler._time_out = float("nan")
+    assert handler._time_out == 2

@@ -115,10 +115,10 @@ async def test_dispatch_print_is_independent_of_logger_callbacks(
     from apixis.core.event import event_loop
 
     monkeypatch.setattr(event_loop, "SHOW_EVENT_DISPATCH", show_dispatch)
-    await cleanup_event_runtime.event_pipe.post_event(
+    await cleanup_event_runtime._event_pipe.post_event(
         event_type=EventType.INFO, event_name="logging.dispatch",
     )
-    await wait_for_dispatch(cleanup_event_runtime.event_loop)
+    await wait_for_dispatch(cleanup_event_runtime._event_loop)
     captured = capsys.readouterr()
     assert ("[EVENT LOOP]" in captured.out) is show_dispatch
     assert ("logging.dispatch" in captured.out) is show_dispatch
@@ -128,5 +128,5 @@ async def test_dispatch_print_is_independent_of_logger_callbacks(
 async def test_runtime_logs_use_the_configured_callback(cleanup_event_runtime):
     callback = Mock()
     Logger.set_info(callback)
-    await cleanup_event_runtime.event_pipe.clear()
+    await cleanup_event_runtime._event_pipe.clear()
     callback.assert_called_once_with("Cleaned 0 in event pipe.")

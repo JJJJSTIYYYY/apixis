@@ -20,8 +20,8 @@ def entry(name, patterns, *, filters=(), priority=1, between=None):
     handler = ApixEventHandler(noop, name=name)
     handler._subscribe = tuple(patterns)
     handler._filter_event = tuple(filters)
-    handler.priority = priority
-    handler.between_handlers = between
+    handler._priority = priority
+    handler._between_handlers = between
     return handler
 
 

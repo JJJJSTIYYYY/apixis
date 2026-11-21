@@ -6,7 +6,7 @@ import pytest
 
 from apixis.core.graph import Command
 
-from apixis.core.event import get_handler
+from apixis.core.event.subscription.subscriber import get_handler
 from apixis.core.graph import NodeGraph, Node, get_graph_dispatch_name
 from apixis.core.graph.base import namespace_set
 from apixis.core.graph.utils import acquire_namespace, release_namespace

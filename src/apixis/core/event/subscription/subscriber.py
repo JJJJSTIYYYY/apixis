@@ -2,14 +2,15 @@
 
 from copy import copy
 
-from apixis.core.event.base.event import EventHandlerFunc
+from apixis.core.event.base.event import EventHandlerFunc, EventHandlerErrorFunc
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.factory import get_handler_registry
-from apixis.core.utils.validation import validate_number
+from apixis.core.utils.validation import validate_number, validate_non_empty_string
 
 
 def subscribe(
     *event_names: str,
+    name: str | None = None,
     exist_ok: bool = True,
     priority: float | None = None,
     between_handlers: tuple[str | None, str | None] | None = None,
@@ -18,12 +19,16 @@ def subscribe(
     time_out: float | None = None,
     background: bool | None = None,
     group: str | None = None,
+    on_accepted: EventHandlerFunc | None = None,
+    on_has_error: EventHandlerFunc | None = None,
+    on_error: EventHandlerErrorFunc | None = None,
+    on_cancelled: EventHandlerFunc | None = None,
 ):
     """Register an async handler for one or more event-name patterns.
 
     Handler names are unique across the shared registry. The decorated
-    function or ApixEventHandler instance is returned unchanged. Validation
-    happens in register_handler when the returned decorator is applied.
+    function is returned unchanged. Registration records remain internal;
+    inspect copies with get_handler_meta() and replace them with subscribe().
 
     Registration is synchronous. Call create_core() before applying decorators;
     registration and getters never start the consumer. Call start_core()
@@ -34,6 +39,10 @@ def subscribe(
     from the priority buckets when an event is dequeued or the chain is queried.
 
     Args:
+        name:
+            Optional non-empty registration name. Defaults to the decorated
+            function's name. The registered name is captured at registration;
+            changing the function's __name__ afterwards does not rename it.
         event_names:
             One or more event-name patterns to subscribe to. Exact names and
             ``fnmatchcase`` wildcards are both supported, including ``*``,
@@ -168,9 +177,7 @@ def subscribe(
 
         time_out:
             Maximum execution time in seconds for each invoked core or
-            notification function. ``None`` preserves the supplied instance's
-            timeout (unlimited for a plain function). Values less than or equal
-            to zero explicitly disable the timeout.
+            notification function. None or non-positive values mean unlimited.
 
         background:
             If ``True``, schedule the handler as a background task without
@@ -178,8 +185,21 @@ def subscribe(
 
         group:
             Non-empty, case-sensitive group name for indexed batch removal.
-            None preserves a supplied instance's group. New handlers default
-            to ``"global"``. Names remain unique across groups.
+            Defaults to "global". Names remain unique across groups.
+
+        on_accepted:
+            Optional async callback(event) for an already accepted event,
+            instead of running this handler's core function.
+        on_has_error:
+            Optional async callback(event) for errors in preceding handlers.
+            Runs before the acceptance check and the stop_when_error rule.
+        on_error:
+            Optional async callback(event, error) for this handler's own
+            callback failure. Does not receive normal task cancellation.
+        on_cancelled:
+            Optional async callback(event) for cancellation cleanup, including
+            core closure of an already running event. Queued events discarded
+            during closure do not receive this notification.
 
     Dispatch rules:
         1. Each event instance is dispatched in its own task.
@@ -191,14 +211,13 @@ def subscribe(
            event is dequeued, before waiting for dispatch capacity. Foreground
            execution, background tasks and cancellation notifications use this
            list without registry lookups or matching checks. Registration
-           changes affect subsequent dequeues. Captured instances are not copied;
-           changes to their callbacks or execution options remain visible.
+           changes affect subsequent dequeues. Replacing a subscription does
+           not modify the captured handler record of an earlier event.
         6. Events with different exact names may dispatch concurrently.
         7. Calling :meth:`ApixEvent.accept` skips subsequent core functions,
            while applicable error and acceptance notifications still run.
-        8. Subscription and ordering options replace existing metadata.
-           Execution options set to None preserve a supplied instance's settings;
-           explicit values override them. Notification functions are preserved.
+        8. Replacing a named subscription installs its new configuration as one
+           operation; validation failure preserves the old registration.
 
     Examples:
         Register handlers by priority::
@@ -221,8 +240,8 @@ def subscribe(
                 ...
 
     Returns:
-        A decorator that returns the supplied function or handler instance
-        unchanged after successful registration or replacement.
+        A decorator that returns the supplied function unchanged after
+        successful registration or replacement.
 
     Raises:
         ValueError:
@@ -245,36 +264,45 @@ def subscribe(
     """
     if priority is not None:
         priority = validate_number(priority, "priority")
+    if name is not None:
+        name = validate_non_empty_string(name, "Handler name")
 
     def decorator[HandlerT: EventHandlerFunc | ApixEventHandler](
         func: HandlerT,
     ) -> HandlerT:
-        handler_name = func.__name__
+        handler_name = func.__name__ if name is None else name
         # Stage instance metadata separately so a failed replacement cannot
         # mutate an object that is still registered or being executed.
         entry = (
             copy(func) if isinstance(func, ApixEventHandler)
             else ApixEventHandler(func)
         )
-        entry.name = handler_name
+        entry._name = handler_name
         entry._subscribe = event_names
         entry._filter_event = tuple(filter_event) if filter_event is not None else ()
-        entry.priority = 1 if priority is None and between_handlers is None else priority
-        entry.between_handlers = between_handlers
+        entry._priority = 1 if priority is None and between_handlers is None else priority
+        entry._between_handlers = between_handlers
         if group is not None:
-            entry.group = group
+            entry._group = group
         # Explicit execution options override the supplied instance's settings.
         # None preserves its setting; non-positive timeouts disable its limit.
         if stop_when_error is not None:
-            entry.stop_when_error = stop_when_error
+            entry._stop_when_error = stop_when_error
         if time_out is not None:
-            entry.time_out = time_out
+            entry._time_out = time_out
         if background is not None:
-            entry.background = background
+            entry._background = background
+        for field, callback in (
+            ("_on_accepted", on_accepted), ("_on_has_error", on_has_error),
+            ("_on_error", on_error), ("_on_cancelled", on_cancelled),
+        ):
+            if callback is not None:
+                setattr(entry, field, callback)
         registry = get_handler_registry()
         registry.register_handler(entry, exist_ok=exist_ok)
         if isinstance(func, ApixEventHandler):
-            func.__dict__.update(entry.__dict__)
+            for field in ApixEventHandler.__slots__:
+                setattr(func, field, getattr(entry, field))
             registry.registry[handler_name] = func
         return func
 
@@ -318,24 +346,24 @@ def get_handler_meta(
 
     Unknown names return None. Subscription and exclusion patterns are copied
     into lists, so changing the returned dictionary or those lists cannot
-    change routing. Use subscribe() or ApixEventHandler.register() to replace
-    matching configuration; handlers do not expose writable pattern fields.
+    change routing. Use subscribe() to replace matching configuration;
+    registration records and their writable fields are internal.
     """
     handler = get_handler_registry().get_handler(handler_name)
     if handler is None:
         return None
     return {
-        'id': handler.id,
-        'name': handler.name,
-        'group': handler.group,
+        'id': handler._id,
+        'name': handler._name,
+        'group': handler._group,
         'register_order': handler._register_order,
         'subscribe': list(handler._subscribe),
         'filter_event': list(handler._filter_event),
-        'priority': handler.priority,
-        'between_handlers': handler.between_handlers,
-        'stop_when_error': handler.stop_when_error,
-        'time_out': handler.time_out,
-        'background': handler.background,
+        'priority': handler._priority,
+        'between_handlers': handler._between_handlers,
+        'stop_when_error': handler._stop_when_error,
+        'time_out': handler._time_out,
+        'background': handler._background,
     }
 
 
@@ -354,7 +382,6 @@ def get_unmatched_subscriptions(handler_name: str) -> list[str]:
 __all__ = [
     "subscribe",
     "unsubscribe",
-    "get_handler",
     "get_handler_meta",
     "is_registered",
     "get_unmatched_subscriptions",

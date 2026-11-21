@@ -13,9 +13,9 @@ from apixis.core.event.factory import get_core
 from apixis.core.event.base import suspend_process
 from apixis.core.event import (
     ApixEvent,
-    ApixEventHandler,
     EventType,
 )
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.utils.exception import (
     CoreClosedError,
     GraphNodeError,
@@ -109,8 +109,8 @@ class NodeGraph:
         self._contexts: set[GraphContext] = set()  # Running attempts only.
         self._namespace = using_namespace or uuid4().hex
         self._core = get_core()
-        self._handler_registry = self._core.handler_registry
-        self._event_pipe = self._core.event_pipe
+        self._handler_registry = self._core._handler_registry
+        self._event_pipe = self._core._event_pipe
 
         # Acquisition validates ownership and synchronously retires the old graph.
         # Only an acquired namespace needs cleanup if registration fails.

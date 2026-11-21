@@ -101,10 +101,10 @@ def handler_entry_factory():
             time_out=time_out,
             background=background,
         )
-        entry.id = "handler_id_001"
-        entry.name = name
+        entry._id = "handler_id_001"
+        entry._name = name
         entry._subscribe = tuple(subscribe or ["test.event"])
-        entry.priority = priority
+        entry._priority = priority
         entry._register_order = register_order
         return entry
 

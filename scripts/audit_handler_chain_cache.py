@@ -14,10 +14,20 @@ from pathlib import Path
 import platform
 
 from apixis import (
-    ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
-    Node, NodeGraph, create_core, close_core, start_core, stop_core, expect_event,
+    Command,
+    EventType,
+    Node,
+    NodeGraph,
+    create_core,
+    close_core,
+    start_core,
+    stop_core,
+    expect_event,
     get_handler_meta,
 )
+from apixis.core.event.base.handler import ApixEventHandler
+from apixis.core.event.event_registry import ApixEventRegistry
+from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.event import factory
 from apixis.core.event import core as core_module
 
@@ -58,7 +68,7 @@ def handler(name, patterns, *, callback=noop, group="global", filters=()):
     entry = ApixEventHandler(callback, name=name, group=group)
     entry._subscribe = tuple(patterns)
     entry._filter_event = tuple(filters)
-    entry.priority = 1
+    entry._priority = 1
     return entry
 
 
@@ -139,8 +149,8 @@ def registry_audit(results):
 async def drain(core):
     async with asyncio.timeout(30):
         while True:
-            await core.event_pipe.join()
-            tasks = tuple(core.event_loop._dispatch_tasks)
+            await core._event_pipe.join()
+            tasks = tuple(core._event_loop._dispatch_tasks)
             if not tasks:
                 return
             await asyncio.gather(*tasks)
@@ -164,31 +174,31 @@ async def runtime_audit(results):
     async def receive(event):
         received[event.event_name] += 1
 
-    core.handler_registry.register_handler(handler("receiver", ["runtime.*"], callback=receive))
+    core._handler_registry.register_handler(handler("receiver", ["runtime.*"], callback=receive))
     for index in range(32768):
-        await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name=f"runtime.{index % 32}")
+        await core._event_pipe.post_event(event_type=EventType.TRANSIENT, event_name=f"runtime.{index % 32}")
     await drain(core)
     assert sum(received.values()) == 32768
-    assert len(core.handler_registry.builds) == 32
-    assert set(core.handler_registry.builds.values()) == {1}
-    results.append({"scenario": "real-dispatch-32768-events-32-names", **core.handler_registry.metrics()})
+    assert len(core._handler_registry.builds) == 32
+    assert set(core._handler_registry.builds.values()) == {1}
+    results.append({"scenario": "real-dispatch-32768-events-32-names", **core._handler_registry.metrics()})
 
-    original = core.handler_registry.cached_chain["runtime.0"]
+    original = core._handler_registry.cached_chain["runtime.0"]
     await stop_core()
     await start_core()
-    await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="runtime.0")
+    await core._event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="runtime.0")
     await drain(core)
-    assert core.handler_registry.cached_chain["runtime.0"] is original
-    assert core.handler_registry.builds["runtime.0"] == 1
-    results.append({"scenario": "stop-restart-retains-chain", **core.handler_registry.metrics()})
+    assert core._handler_registry.cached_chain["runtime.0"] is original
+    assert core._handler_registry.builds["runtime.0"] == 1
+    results.append({"scenario": "stop-restart-retains-chain", **core._handler_registry.metrics()})
 
     core = await fresh_runtime()
     instance = handler("worker", ["old"]).register("old")
-    core.handler_registry.get_handlers_chain_for_event("old")
+    core._handler_registry.get_handlers_chain_for_event("old")
     instance.register("new")
-    assert core.handler_registry.get_handlers_chain_for_event("old") == []
-    assert core.handler_registry.get_handlers_chain_for_event("new") == ["worker"]
-    results.append({"scenario": "public-instance-reregistration", **core.handler_registry.metrics()})
+    assert core._handler_registry.get_handlers_chain_for_event("old") == []
+    assert core._handler_registry.get_handlers_chain_for_event("new") == ["worker"]
+    results.append({"scenario": "public-instance-reregistration", **core._handler_registry.metrics()})
 
     core = await fresh_runtime()
     nodes = {}
@@ -201,26 +211,26 @@ async def runtime_audit(results):
         outcomes = await asyncio.gather(*(graph.invoke({"steps": 0}) for _ in range(128)))
         assert outcomes == [{"steps": 16}] * 128
         await drain(core)
-        assert core.handler_registry.builds[graph.dispatch_name] == 1
+        assert core._handler_registry.builds[graph.dispatch_name] == 1
         results.append({"scenario": "shared-graph-128-invocations-16-nodes", "node_executions": 2048,
-                        "dispatch_lookups": core.handler_registry.lookups[graph.dispatch_name],
-                        **core.handler_registry.metrics()})
+                        "dispatch_lookups": core._handler_registry.lookups[graph.dispatch_name],
+                        **core._handler_registry.metrics()})
     finally:
         graph.decompose()
 
     core = await fresh_runtime()
 
     async def respond(event):
-        await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="reply.fixed")
+        await core._event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="reply.fixed")
 
-    core.handler_registry.register_handler(handler("respond", ["request.fixed"], callback=respond))
+    core._handler_registry.register_handler(handler("respond", ["request.fixed"], callback=respond))
     for _ in range(512):
         async with expect_event("reply.fixed", point="processed", time_out=10) as waiter:
-            await core.event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="request.fixed")
+            await core._event_pipe.post_event(event_type=EventType.TRANSIENT, event_name="request.fixed")
             await waiter.wait()
     await drain(core)
-    assert core.handler_registry.builds == {"request.fixed": 1, "reply.fixed": 1}
-    results.append({"scenario": "request-reply-with-transient-listeners", "builds_by_name": dict(core.handler_registry.builds), **core.handler_registry.metrics()})
+    assert core._handler_registry.builds == {"request.fixed": 1, "reply.fixed": 1}
+    results.append({"scenario": "request-reply-with-transient-listeners", "builds_by_name": dict(core._handler_registry.builds), **core._handler_registry.metrics()})
     await stop_core()
 
 

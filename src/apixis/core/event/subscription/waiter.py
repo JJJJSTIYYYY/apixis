@@ -21,8 +21,10 @@ type _EventMatches = ApixEvent | dict[str, ApixEvent] | None
 class _WaiterHandler(ApixEventHandler):
     """Observe an event without recording a business handler execution."""
 
+    __slots__ = ()
+
     async def execute(self, event: ApixEvent) -> None:
-        await self.core_func(event)
+        await self._core_func(event)
 
 
 class EventWaiter:
@@ -204,7 +206,7 @@ class EventWaiter:
                 core_func=resolve,
                 on_cancelled=partial(self._cancel, event_name),
             )
-            handler.name = 'resolve_future-' + handler.id
+            handler._name = 'resolve_future-' + handler._id
             handler._subscribe = (event_name,)
             handler._filter_event = filters
             handlers.append(handler)
@@ -215,6 +217,7 @@ class EventWaiter:
 
         This operation is synchronous on the owner loop and idempotent.
         A completed result or exception stays available for subsequent reads.
+        If listener removal fails, a subsequent close retries that removal.
         """
         self._future.cancel()
         if self._registry is not None:
@@ -225,8 +228,8 @@ class EventWaiter:
         registry = self._registry
         if registry is None:
             return
-        self._registry = None
         registry.unregister_waiter(self)
+        self._registry = None
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
             self._timeout_handle = None

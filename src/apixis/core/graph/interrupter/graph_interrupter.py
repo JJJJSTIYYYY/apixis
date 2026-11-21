@@ -12,7 +12,8 @@ from apixis.core.graph.utils.namespace import (
     get_graph_interrupted_name,
     get_graph_namespace,
 )
-from apixis.core.event import ApixEvent, ApixEventHandler, EventType, post_and_wait, subscribe
+from apixis.core.event import ApixEvent, EventType, post_and_wait, subscribe
+from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.graph.interrupter.block import Block
 from apixis.core.utils.exception import (
     BlockHookNotRegisteredError, BlockNotResolvedError, GraphNodeError,

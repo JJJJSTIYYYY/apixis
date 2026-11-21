@@ -12,7 +12,7 @@ from apixis.core.utils.validation import validate_non_empty_string, validate_tim
 
 
 class ApixEventHandler:
-    """Execute a core function with notifications about preceding handlers.
+    """Internal execution record owned by the handler registry.
 
     ``on_has_error`` handles upstream failures only. ``on_error`` receives
     this handler's own uncaught exception after it has been logged and, for
@@ -27,21 +27,28 @@ class ApixEventHandler:
     ``group`` defaults to ``"global"`` and identifies indexed batch removals.
     """
 
-    id: str
-    name: str
-    group: str
+    __slots__ = (
+        "_id", "_name", "_group", "_subscribe", "_filter_event", "_core_func",
+        "_on_accepted", "_on_has_error", "_on_error", "_on_cancelled",
+        "_stop_when_error", "_timeout", "_background", "_priority",
+        "_between_handlers", "_register_order",
+    )
+
+    _id: str
+    _name: str
+    _group: str
     _subscribe: tuple[str, ...]
     _filter_event: tuple[str, ...]
-    core_func: EventHandlerFunc
-    on_accepted: EventHandlerFunc
-    on_has_error: EventHandlerFunc
-    on_error: EventHandlerErrorFunc
-    on_cancelled: EventHandlerFunc
-    stop_when_error: bool
-    _time_out: float | None
-    background: bool
-    priority: float | None
-    between_handlers: tuple[str | None, str | None] | None
+    _core_func: EventHandlerFunc
+    _on_accepted: EventHandlerFunc | None
+    _on_has_error: EventHandlerFunc | None
+    _on_error: EventHandlerErrorFunc | None
+    _on_cancelled: EventHandlerFunc | None
+    _stop_when_error: bool
+    _timeout: float | None
+    _background: bool
+    _priority: float | None
+    _between_handlers: tuple[str | None, str | None] | None
     _register_order: float
 
     def __init__(
@@ -63,27 +70,27 @@ class ApixEventHandler:
                 raise TypeError("Handler functions must be callable.")
         if core_func is None:
             raise TypeError("core_func must be callable.")
-        self.core_func: EventHandlerFunc = core_func
-        self.on_accepted: EventHandlerFunc | None = on_accepted
-        self.on_has_error: EventHandlerFunc | None = on_has_error
-        self.on_error: EventHandlerErrorFunc | None = on_error
-        self.on_cancelled: EventHandlerFunc | None = on_cancelled
-        self.stop_when_error = stop_when_error
-        self.time_out = time_out
-        self.background = background
-        self.name = name or getattr(core_func, "__name__", type(core_func).__name__)
-        self.group = validate_non_empty_string(group, "Handler group")
-        self.id = "handler-" + uuid4().hex
+        self._core_func: EventHandlerFunc = core_func
+        self._on_accepted: EventHandlerFunc | None = on_accepted
+        self._on_has_error: EventHandlerFunc | None = on_has_error
+        self._on_error: EventHandlerErrorFunc | None = on_error
+        self._on_cancelled: EventHandlerFunc | None = on_cancelled
+        self._stop_when_error = stop_when_error
+        self._time_out = time_out
+        self._background = background
+        self._name = name or getattr(core_func, "__name__", type(core_func).__name__)
+        self._group = validate_non_empty_string(group, "Handler group")
+        self._id = "handler-" + uuid4().hex
         self._register_order = -1
         self._subscribe: tuple[str, ...] = ()
         self._filter_event: tuple[str, ...] = ()
-        self.priority: float | None = None
-        self.between_handlers: tuple[str | None, str | None] | None = None
+        self._priority: float | None = None
+        self._between_handlers: tuple[str | None, str | None] | None = None
 
     @property
     def __name__(self) -> str:
         """Expose the registered name for decorator and inspection tools."""
-        return self.name
+        return self._name
 
     async def __call__(self, event: ApixEvent) -> None:
         """Use the same execution contract when called directly."""
@@ -107,16 +114,16 @@ class ApixEventHandler:
         Background exceptions still invoke on_error but never enter error_stack;
         background cancellation propagates without on_error or an error record.
         """
-        if event.has_error and self.on_has_error is not None:
-            await self._execute_func(self.on_has_error, "on_has_error", event)
+        if event.has_error and self._on_has_error is not None:
+            await self._execute_func(self._on_has_error, "on_has_error", event)
         if event.accepted:
-            if self.on_accepted is not None:
-                await self._execute_func(self.on_accepted, "on_accepted", event)
+            if self._on_accepted is not None:
+                await self._execute_func(self._on_accepted, "on_accepted", event)
             return
-        if event.has_error and self.stop_when_error:
+        if event.has_error and self._stop_when_error:
             return
-        event.seen.append(self.name)
-        await self._execute_func(self.core_func, "core_func", event)
+        event.seen.append(self._name)
+        await self._execute_func(self._core_func, "core_func", event)
 
     async def _execute_func(
         self,
@@ -133,42 +140,42 @@ class ApixEventHandler:
                 # Recover capacity before callbacks or the next core resume.
                 async with suspend_process():
                     pass
-            if self.time_out is None:
+            if self._time_out is None:
                 await func(event, *args)
             else:
-                async with asyncio.timeout(self.time_out):
+                async with asyncio.timeout(self._time_out):
                     await func(event, *args)
         except asyncio.CancelledError as exc:
             error = ApixEventError(
-                handler_name=self.name,
+                handler_name=self._name,
                 phase=phase,
                 exception_type=type(exc).__name__,
                 message=str(exc),
                 traceback=traceback.format_exc(),
             )
-            if not self.background:
+            if not self._background:
                 event.error_stack.append(error)
             raise
         except Exception as exc:
             error = ApixEventError(
-                handler_name=self.name,
+                handler_name=self._name,
                 phase=phase,
                 exception_type=type(exc).__name__,
                 message=str(exc),
                 traceback=traceback.format_exc(),
             )
-            if not self.background:
+            if not self._background:
                 event.error_stack.append(error)
             Logger.error(
                 f"Handler failed: event={event.event_name}, "
-                f"handler={self.name}, phase={phase}, "
+                f"handler={self._name}, phase={phase}, "
                 f"error={error.exception_type}: {error.message}\n"
                 f"{error.traceback}"
             )
-            if asyncio.current_task().cancelling() and (self.background or event.cancelled):
+            if asyncio.current_task().cancelling() and (self._background or event.cancelled):
                 raise asyncio.CancelledError from exc
-            if phase != "on_error" and self.on_error is not None:
-                await self._execute_func(self.on_error, "on_error", event, exc)
+            if phase != "on_error" and self._on_error is not None:
+                await self._execute_func(self._on_error, "on_error", event, exc)
 
     def set_core_func(self, callback: EventHandlerFunc) -> None:
         """Replace the core callback without changing identity or registration.
@@ -178,7 +185,7 @@ class ApixEventHandler:
         """
         if not callable(callback):
             raise TypeError("Core function must be callable.")
-        self.core_func = callback
+        self._core_func = callback
 
     def add_has_error_callback(self, callback: EventHandlerFunc, *, exist_ok: bool = True) -> None:
         """Add a callback to be invoked when an upstream handler has failed.
@@ -187,9 +194,9 @@ class ApixEventHandler:
         """
         if not callable(callback):
             raise TypeError("Callback must be callable.")
-        if self.on_has_error is not None and not exist_ok:
+        if self._on_has_error is not None and not exist_ok:
             raise ValueError("on_has_error already set.")
-        self.on_has_error = callback
+        self._on_has_error = callback
 
     def add_on_accepted_callback(self, callback: EventHandlerFunc, *, exist_ok: bool = True) -> None:
         """Add a callback to be invoked when the event has been accepted.
@@ -198,9 +205,9 @@ class ApixEventHandler:
         """
         if not callable(callback):
             raise TypeError("Callback must be callable.")
-        if self.on_accepted is not None and not exist_ok:
+        if self._on_accepted is not None and not exist_ok:
             raise ValueError("on_accepted already set.")
-        self.on_accepted = callback
+        self._on_accepted = callback
 
     def add_on_error_callback(self, callback: EventHandlerErrorFunc, *, exist_ok: bool = True) -> None:
         """Add a callback to be invoked when this handler has failed.
@@ -209,18 +216,18 @@ class ApixEventHandler:
         """
         if not callable(callback):
             raise TypeError("Callback must be callable.")
-        if self.on_error is not None and not exist_ok:
+        if self._on_error is not None and not exist_ok:
             raise ValueError("on_error already set.")
-        self.on_error = callback
+        self._on_error = callback
 
     @property
-    def time_out(self) -> float | None:
+    def _time_out(self) -> float | None:
         """Maximum callback execution time; None means unlimited."""
-        return self._time_out
+        return self._timeout
 
-    @time_out.setter
-    def time_out(self, value: float | None) -> None:
-        self._time_out = validate_timeout(value, "Handler time_out")
+    @_time_out.setter
+    def _time_out(self, value: float | None) -> None:
+        self._timeout = validate_timeout(value, "Handler time_out")
 
     async def notify_cancelled(self, event: ApixEvent, time_out: float | None = None) -> None:
         """Run cancellation cleanup without interrupting other notifications.
@@ -232,16 +239,16 @@ class ApixEventHandler:
         failures, including cancellation, are logged only: they do not invoke
         on_error, append business errors, or replace the original cancellation.
         """
-        timeout = self.time_out if time_out is None else validate_timeout(time_out, "time_out")
-        if self.on_cancelled is None:
+        timeout = self._time_out if time_out is None else validate_timeout(time_out, "time_out")
+        if self._on_cancelled is None:
             return
         try:
             async with asyncio.timeout(timeout):
-                await self.on_cancelled(event)
+                await self._on_cancelled(event)
         except (Exception, asyncio.CancelledError) as exc:
             Logger.error(
                 f"Cancellation cleanup failed: event={event.event_name}, "
-                f"handler={self.name}, phase=on_cancelled, "
+                f"handler={self._name}, phase=on_cancelled, "
                 f"error={type(exc).__name__}: {exc}\n{traceback.format_exc()}"
             )
 
@@ -249,9 +256,9 @@ class ApixEventHandler:
         """Set the event cancellation cleanup callback, optionally rejecting replacement."""
         if not callable(callback):
             raise TypeError("Callback must be callable.")
-        if self.on_cancelled is not None and not exist_ok:
+        if self._on_cancelled is not None and not exist_ok:
             raise ValueError("on_cancelled already set.")
-        self.on_cancelled = callback
+        self._on_cancelled = callback
 
     def register(
         self,
@@ -299,9 +306,9 @@ class ApixEventHandler:
             between_handlers=between_handlers,
             filter_event=filter_event,
             group=group,
-            stop_when_error=self.stop_when_error,
-            time_out=self.time_out,
-            background=self.background,
+            stop_when_error=self._stop_when_error,
+            time_out=self._time_out,
+            background=self._background,
         )(self)
 
     def unregister(
@@ -324,9 +331,9 @@ class ApixEventHandler:
         from apixis.core.event.subscription.subscriber import unsubscribe
 
         if same_group:
-            unsubscribe(group=self.group, missing_ok=missing_ok)
+            unsubscribe(group=self._group, missing_ok=missing_ok)
         else:
-            unsubscribe(self.name, missing_ok=missing_ok)
+            unsubscribe(self._name, missing_ok=missing_ok)
 
 
 __all__ = [
