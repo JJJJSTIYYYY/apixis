@@ -228,7 +228,7 @@ async def test_subscribe_decorates_callable_handler_and_overrides_options(regist
     assert handler.time_out == (42 if use_defaults else 3)
     assert handler.background is (True if use_defaults else False)
     assert handler.priority == 8
-    assert handler.subscribe == ["contract.*"]
+    assert handler._subscribe == ('contract.*',)
     assert get_handler_meta("missing") is None
     event = make_event()
     await decorated(event)
@@ -242,7 +242,7 @@ async def test_subscribe_duplicate_replaces_registered_instance_options(registry
     handler = subscribe("contract.*", background=True)(ApixEventHandler(core))
     subscribe("other.*", background=False)(handler)
     assert handler.background is False
-    assert handler.subscribe == ["other.*"]
+    assert handler._subscribe == ('other.*',)
 
 
 async def test_dispatch_notifies_all_later_handlers_after_failure_and_acceptance(registry):

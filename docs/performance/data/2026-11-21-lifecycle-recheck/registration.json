@@ -1,0 +1,327 @@
+{
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "repeats_per_worker": 9,
+  "summary": {
+    "registry/mutation": {
+      "before": {
+        "seconds": 0.2230179164907895,
+        "operations": 100000.0,
+        "retained_names": 8192.0,
+        "samples": 18,
+        "min_seconds": 0.2177792500006035,
+        "max_seconds": 0.2281497080111876
+      },
+      "after": {
+        "seconds": 0.22663172901957296,
+        "operations": 100000.0,
+        "retained_names": 8192.0,
+        "samples": 18,
+        "min_seconds": 0.22138941701268777,
+        "max_seconds": 0.23142341704806313
+      },
+      "elapsed_change_pct": 1.6204135459819469,
+      "throughput_change_pct": -1.5945748392853454
+    }
+  },
+  "memory": {},
+  "workers": [
+    {
+      "label": "before",
+      "file": "registration-1-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+          "driver_sha256": "9ce80a962b0bf3af1b1bb86460f5605f1db6c5509f858b7581ed311f6fed4d2b",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 0.2213781249593012,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22405987500678748,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.2211660840548575,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22388920799130574,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22143595799570903,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22103087499272078,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22214662499027327,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22118524997495115,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22196433396311477,
+                "operations": 100000,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registration-2-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+          "driver_sha256": "9ce80a962b0bf3af1b1bb86460f5605f1db6c5509f858b7581ed311f6fed4d2b",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 0.22330483299447224,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.223574917006772,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22575375001179054,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22763754101470113,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22678970801644027,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.2243112919968553,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22283491701819003,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22753720899345353,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22434549999888986,
+                "operations": 100000,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registration-3-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+          "driver_sha256": "9ce80a962b0bf3af1b1bb86460f5605f1db6c5509f858b7581ed311f6fed4d2b",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 0.22815812501357868,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.23085112497210503,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22922275000019,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.23142341704806313,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.2256682080333121,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22647375002270564,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22138941701268777,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22803733299952,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.23011054197559133,
+                "operations": 100000,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "before",
+      "file": "registration-4-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+          "driver_sha256": "9ce80a962b0bf3af1b1bb86460f5605f1db6c5509f858b7581ed311f6fed4d2b",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 0.22590516600757837,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22531091701239347,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22726275003515184,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.2281497080111876,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22612499998649582,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22485225001582876,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.2177792500006035,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22073241701582447,
+                "operations": 100000,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 0.22424895799485967,
+                "operations": 100000,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    }
+  ],
+  "unpaired_scenarios": []
+}

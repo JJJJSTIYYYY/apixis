@@ -203,7 +203,7 @@ async def test_waiter_cleanup_preserves_same_name_replacement():
 
     replacement = ApixEventHandler(noop, name=original.name)
     replacement.priority = 1
-    replacement.subscribe = ["reply"]
+    replacement._subscribe = ('reply',)
     try:
         registry.register_handler(replacement, exist_ok=True)
         assert registry._waiter_cache.waiters[waiter] == {}
@@ -224,15 +224,15 @@ async def test_batch_waiter_registration_collision_rolls_back_only_its_own_entri
 
     existing = ApixEventHandler(noop, name="existing")
     existing.priority = 1
-    existing.subscribe = ["reply"]
+    existing._subscribe = ('reply',)
     registry.register_handler(existing)
     normal = registry.get_subscription_chain_for_event("reply")
     keeper = EventWaiter("keeper")
     retained = dict(registry.registry)
     partial = ApixEventHandler(noop, name="partial")
-    partial.subscribe = ["first"]
+    partial._subscribe = ('first',)
     collision = ApixEventHandler(noop, name="existing")
-    collision.subscribe = ["second"]
+    collision._subscribe = ('second',)
     monkeypatch.setattr(EventWaiter, "_build_handlers", lambda self, filter: [partial, collision])
     try:
         with pytest.raises(EventHandlerAlreadyRegisteredError):

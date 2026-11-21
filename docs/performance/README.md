@@ -1,6 +1,8 @@
 # 性能验证与历史记录
 
-显式 create/start/stop/close 与纯同步 getter 的最新验证、安装包检查及配对数据见 [2026-11-20 生命周期验证](./2026-11-20-runtime-lifecycle.md)。
+当前工作区相对 `f09f638` 的 25 项配对测量和独立复测见 [2026-11-21 生命周期性能复测](./2026-11-21-lifecycle-recheck.md)，包含启停、关闭成本及稳态吞吐。
+
+显式 create/start/stop/close 与纯同步 getter 的阶段性验证、安装包检查及配对数据见 [2026-11-20 生命周期验证](./2026-11-20-runtime-lifecycle.md)。
 
 当前运行时使用共享事件 core，支持本地事件、等待器和 graph。以下历史数据用于追溯各次实现的测量证据，**不代表重建后工作区的性能结果**。运行环境、源码指纹、驱动指纹和样本轮次以对应 JSON 为准。
 
@@ -11,7 +13,7 @@
 ## 当前验证入口
 
 - [Graph 性能测试](../../tests/README.md#graph-性能测试)：独立/共享图、串行/并行节点、异步等待及三档背压。
-- [跨版本比较脚本](../../scripts/benchmark_runtime.py)：四个进程按 before/after/after/before 比较，覆盖 graph、状态快照、registry、全局事件发布、请求响应、getter 及混合等待监听。
+- [跨版本比较脚本](../../scripts/benchmark_runtime.py)：四个进程按 before/after/after/before 比较，覆盖 graph、状态快照、registry、全局事件发布、请求响应、getter、混合等待监听及启停/关闭。
 - [缓存审计脚本](../../scripts/audit_handler_chain_cache.py)：验证真实派发、停止重启、重新注册、graph 和固定回包名称的缓存构建次数。
 
 ```bash
@@ -26,7 +28,7 @@ python scripts/audit_handler_chain_cache.py --output /tmp/apixis-cache-audit.jso
 
 比较两版源码时使用 `--baseline-source`，并确保所选场景在两版都可用。运行时 API 不提供旧实现兼容层，历史 API 的必要探测仅位于比较工具中。
 
-缓存审计会额外报告直接修改已注册对象字段、再通过底层 registry 注册时的历史缓存问题。`findings` 中存在复现项时脚本返回非零；该结果应与正常场景的缓存统计分别阅读。应用修改注册信息应使用 `subscribe()` 或 handler 的 `register()`。
+缓存审计额外验证 `subscribe()` / handler 的 `register()` 受控重注册、过滤列表及元数据查询快照的隔离、注销后的缓存清理。匹配字段已改为私有不可变元组；`findings` 中存在实际缺陷时脚本返回非零。历史记录中的原地修改公开字段问题不再作为当前 API 的使用方式。
 
 ## 保留的历史数据
 

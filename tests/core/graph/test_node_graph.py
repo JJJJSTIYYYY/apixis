@@ -12,7 +12,7 @@ from apixis.core.event.factory import (
     get_handler_registry,
     get_event_pipe,
 )
-from apixis.core.event import unsubscribe, subscribe
+from apixis.core.event import get_handler_meta, unsubscribe, subscribe
 from apixis.core.utils.exception import EventHandlerAlreadyRegisteredError
 from apixis.core.graph import (
     AutoMerge,
@@ -695,9 +695,7 @@ def test_dispatch_listener_registration_collision_does_not_leak_handler():
             using_namespace="rollback",
         )
 
-    assert get_handler_registry().get_handler(
-        conflicting_handler.__name__
-    ).subscribe == ["foreign"]
+    assert get_handler_meta(conflicting_handler.__name__)["subscribe"] == ["foreign"]
     assert "rollback" not in namespace_set
 
     unsubscribe(conflicting_handler.__name__)

@@ -9,7 +9,7 @@ from functools import wraps
 from typing import Any
 
 from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
-from apixis.core.event.factory import get_event_pipe, get_handler_registry
+from apixis.core.event.factory import get_core
 from apixis.core.event.base import suspend_process
 from apixis.core.event import (
     ApixEvent,
@@ -108,8 +108,9 @@ class NodeGraph:
         self._graph_id = uuid4().hex
         self._contexts: set[GraphContext] = set()  # Running attempts only.
         self._namespace = using_namespace or uuid4().hex
-        self._handler_registry = get_handler_registry()
-        self._event_pipe = get_event_pipe()
+        self._core = get_core()
+        self._handler_registry = self._core.handler_registry
+        self._event_pipe = self._core.event_pipe
 
         # Acquisition validates ownership and synchronously retires the old graph.
         # Only an acquired namespace needs cleanup if registration fails.
@@ -117,6 +118,7 @@ class NodeGraph:
         try:
             self._register_dispatch_handler()
             self._decomposed = False
+            self._core.add_close_task_done_callback(self._on_core_closed)
         except BaseException:
             self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
             release_namespace(self, decompose_immediately=False)
@@ -220,6 +222,13 @@ class NodeGraph:
             for c in self._contexts
         )
 
+    def _on_core_closed(self, _task: asyncio.Task[None]) -> None:
+        """End remaining invocations when their owner's close Task completes."""
+        if self._decomposed:
+            return
+        for context in tuple(self._contexts):
+            context._cancel()
+
     def set_max_steps(self, steps: int):
         self._ensure_not_decomposed()
         self._max_steps = validate_int(steps, "max_steps", minimum=0)
@@ -248,6 +257,7 @@ class NodeGraph:
                 "Cannot decompose a NodeGraph while contexts are running."
             )
         self._decomposed = True
+        self._core.remove_close_task_done_callback(self._on_core_closed)
         # Terminal transitions remove contexts from the running set immediately.
         for context in tuple(self._contexts):
             context.abort()
@@ -708,11 +718,16 @@ class NodeGraph:
             node_name, context.steps
         )
         context._set_target_node(target)
-        await self._event_pipe.post_event(
-            event_type=EventType.WORKFLOW,
-            event_name=self.dispatch_name,
-            context=context,
-        )
+        try:
+            await self._event_pipe.post_event(
+                event_type=EventType.WORKFLOW,
+                event_name=self.dispatch_name,
+                context=context,
+            )
+        except CoreClosedError:
+            if context.is_active:
+                context._cancel()
+            raise
 
     def _finish(self, context: GraphContext) -> None:
         """Resolve an invocation with the state carried by its terminal event."""

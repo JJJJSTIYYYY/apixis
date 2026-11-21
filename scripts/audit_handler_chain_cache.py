@@ -1,4 +1,4 @@
-"""Count real chain builds and reproduce stale-cache registration boundaries.
+"""Count chain builds and verify controlled registration/cache boundaries.
 
 Run with the project's Python. A nonzero exit indicates a reproduced defect;
 the JSON preserves both the healthy scenarios and the failing observations.
@@ -16,6 +16,7 @@ import platform
 from apixis import (
     ApixEventHandler, ApixEventRegistry, ApixHandlerRegistry, Command, EventType,
     Node, NodeGraph, create_core, close_core, start_core, stop_core, expect_event,
+    get_handler_meta,
 )
 from apixis.core.event import factory
 from apixis.core.event import core as core_module
@@ -55,8 +56,8 @@ async def noop(event):
 
 def handler(name, patterns, *, callback=noop, group="global", filters=()):
     entry = ApixEventHandler(callback, name=name, group=group)
-    entry.subscribe = list(patterns)
-    entry.filter_event = list(filters)
+    entry._subscribe = tuple(patterns)
+    entry._filter_event = tuple(filters)
     entry.priority = 1
     return entry
 
@@ -223,38 +224,36 @@ async def runtime_audit(results):
     await stop_core()
 
 
-def mutation_findings():
+def registration_findings():
+    """Verify controlled updates and metadata/input alias isolation."""
     findings = []
+    registry = factory.get_handler_registry()
     for kind in ("subscriptions", "filters"):
-        registry = CountingRegistry(ApixEventRegistry())
-        entry = handler("worker", ["old"])
-        registry.register_handler(entry)
+        registry.clear()
+        entry = ApixEventHandler(noop, name="worker").register("old")
         assert registry.get_handlers_chain_for_event("old") == ["worker"]
         if kind == "subscriptions":
-            entry.subscribe = ["new"]
+            entry.register("new")
         else:
-            entry.filter_event = ["old"]
-        registry.register_handler(entry, exist_ok=True)
+            filters = ["old"]
+            entry.register("old", filter_event=filters)
+            filters.clear()
         cached = registry.get_handlers_chain_for_event("old").copy()
         registry.cached_chain.pop("old")
         rebuilt = registry.get_handlers_chain_for_event("old").copy()
+        metadata = get_handler_meta("worker")
+        metadata["subscribe"].append("old")
+        metadata["filter_event"].clear()
+        isolated = registry.get_handlers_chain_for_event("old") == []
+        entry.unregister()
+        unregistered = registry.get_handlers_for_event("old") == []
         findings.append({
-            "scenario": f"in-place-{kind}-before-reregistration",
-            "expected_chain": [], "cached_chain": cached, "freshly_rebuilt_chain": rebuilt,
-            "defect_reproduced": cached != rebuilt,
+            "scenario": f"public-{kind}-reregistration",
+            "expected_chain": [], "cached_chain": cached,
+            "freshly_rebuilt_chain": rebuilt,
+            "metadata_isolated": isolated, "unregistration_clean": unregistered,
+            "defect_reproduced": cached != [] or rebuilt != [] or not isolated or not unregistered,
         })
-
-    registry = CountingRegistry(ApixEventRegistry())
-    entry = handler("worker", ["old"])
-    registry.register_handler(entry)
-    registry.get_handlers_chain_for_event("old")
-    entry.subscribe = ["new"]
-    registry.register_handler(entry, exist_ok=True)
-    registry.unregister_handler("worker")
-    try:
-        registry.get_handlers_for_event("old")
-    except KeyError as error:
-        findings.append({"scenario": "unregister-after-in-place-reregistration", "error": repr(error), "defect_reproduced": True})
     return findings
 
 
@@ -265,7 +264,7 @@ def main():
     results = []
     registry_audit(results)
     asyncio.run(runtime_audit(results))
-    findings = mutation_findings()
+    findings = registration_findings()
     digest = hashlib.sha256()
     source = Path(__file__).resolve().parents[1] / "src"
     for path in sorted((source / "apixis").rglob("*.py")):

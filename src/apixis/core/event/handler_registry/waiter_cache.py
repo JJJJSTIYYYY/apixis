@@ -50,7 +50,7 @@ class WaiterHandlerCache:
     def _invalidate(self, handler: ApixEventHandler, is_glob: bool) -> None:
         if not self._chains:
             return
-        pattern = handler.subscribe[0]
+        pattern = handler._subscribe[0]
         if not is_glob:
             self._chains.pop(pattern, None)
             return
@@ -69,7 +69,7 @@ class WaiterHandlerCache:
         self.positions[handler.name] = 0 if point == 'received' else 1
         self._owners[handler.name] = waiter
         self.waiters[waiter][handler.name] = handler
-        pattern = handler.subscribe[0]
+        pattern = handler._subscribe[0]
         is_glob = is_glob_pattern(pattern)
         if is_glob:
             self._glob[handler.name] = handler
@@ -82,7 +82,7 @@ class WaiterHandlerCache:
         del self.positions[handler.name]
         owner = self._owners.pop(handler.name)
         del self.waiters[owner][handler.name]
-        pattern = handler.subscribe[0]
+        pattern = handler._subscribe[0]
         is_glob = handler.name in self._glob
         if is_glob:
             del self._glob[handler.name]
@@ -111,7 +111,7 @@ class WaiterHandlerCache:
             # candidates instead of sorting or scanning unrelated exact waits.
             glob = (
                 handler for handler in self._glob.values()
-                if fnmatchcase(event_name, handler.subscribe[0])
+                if fnmatchcase(event_name, handler._subscribe[0])
             )
             candidates = (
                 merge(candidates, glob, key=lambda handler: handler._register_order)
@@ -119,7 +119,7 @@ class WaiterHandlerCache:
             )
         cached = ([], [])
         for handler in candidates:
-            if not any(fnmatchcase(event_name, pattern) for pattern in handler.filter_event):
+            if not any(fnmatchcase(event_name, pattern) for pattern in handler._filter_event):
                 cached[self.positions[handler.name]].append(handler)
         self._chains[event_name] = cached
         if len(self._chains) > self._cache_size:

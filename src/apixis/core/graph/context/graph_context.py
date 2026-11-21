@@ -223,9 +223,8 @@ class GraphContext:
                 "Cannot finish a running context because the completion is None."
             )
         self._transition_to("finished")
-        result = None if completion.done() else self.state
         if not completion.done():
-            completion.set_result(result)
+            completion.set_result(self.state)
 
     def _fail(self, error: Exception) -> None:
         """Fail a pending or running attempt without changing its snapshot."""

@@ -1,0 +1,949 @@
+diff --git a/src/apixis/core/event/__init__.py b/src/apixis/core/event/__init__.py
+index 71f23dd..758eba9 100644
+--- a/src/apixis/core/event/__init__.py
++++ b/src/apixis/core/event/__init__.py
+@@ -22,9 +22,6 @@ from apixis.core.utils.exception import (
+     CoreClosedError,
+     EventHandlerNotRegisteredError,
+     EventHandlerAlreadyRegisteredError,
+-    GraphNodeError,
+-    InvalidNodeReturnsError,
+-    InvalidContextError,
+ )
+ from apixis.core.event.handler_registry import (
+     ApixHandlerRegistry,
+@@ -88,9 +85,6 @@ __all__ = [
+     "ApixEventPipe",
+     "EventHandlerNotRegisteredError",
+     "EventHandlerAlreadyRegisteredError",
+-    "GraphNodeError",
+-    "InvalidNodeReturnsError",
+-    "InvalidContextError",
+     "ApixHandlerRegistry",
+     "get_unmatched_subscriptions",
+     "post_event",
+diff --git a/src/apixis/core/event/base/handler.py b/src/apixis/core/event/base/handler.py
+index 2ca5b5e..a19e5b1 100644
+--- a/src/apixis/core/event/base/handler.py
++++ b/src/apixis/core/event/base/handler.py
+@@ -21,15 +21,17 @@ class ApixEventHandler:
+     ``on_cancelled`` receives event cancellation notifications from the event
+     loop, independently of the normal handler chain. Background cancellation
+     only notifies the cancelled background handler.
+-    Registration metadata is assigned by :func:`subscribe` or :meth:`register`.
++    Subscription patterns and exclusion filters are private immutable tuples.
++    Change them through :func:`subscribe` or :meth:`register`; inspect independent
++    metadata snapshots through :func:`get_handler_meta`.
+     ``group`` defaults to ``"global"`` and identifies indexed batch removals.
+     """
+
+     id: str
+     name: str
+     group: str
+-    subscribe: list[str]
+-    filter_event: list[str]
++    _subscribe: tuple[str, ...]
++    _filter_event: tuple[str, ...]
+     core_func: EventHandlerFunc
+     on_accepted: EventHandlerFunc
+     on_has_error: EventHandlerFunc
+@@ -73,8 +75,8 @@ class ApixEventHandler:
+         self.group = validate_non_empty_string(group, "Handler group")
+         self.id = "handler-" + uuid4().hex
+         self._register_order = -1
+-        self.subscribe: list[str] = []
+-        self.filter_event: list[str] = []
++        self._subscribe: tuple[str, ...] = ()
++        self._filter_event: tuple[str, ...] = ()
+         self.priority: float | None = None
+         self.between_handlers: tuple[str | None, str | None] | None = None
+
+@@ -163,7 +165,7 @@ class ApixEventHandler:
+                 f"error={error.exception_type}: {error.message}\n"
+                 f"{error.traceback}"
+             )
+-            if event.cancelled and asyncio.current_task().cancelling():
++            if asyncio.current_task().cancelling() and (self.background or event.cancelled):
+                 raise asyncio.CancelledError from exc
+             if phase != "on_error" and self.on_error is not None:
+                 await self._execute_func(self.on_error, "on_error", event, exc)
+@@ -224,11 +226,12 @@ class ApixEventHandler:
+         """Run cancellation cleanup without interrupting other notifications.
+
+         The event loop calls this outside normal execution, then re-raises the
+-        original cancellation. Each hook uses this handler's timeout. Cleanup
++        original cancellation. The runtime owns the event's cancellation state;
++        a background task's cancellation does not cancel its shared event.
++        Each hook uses this handler's timeout. Cleanup
+         failures, including cancellation, are logged only: they do not invoke
+         on_error, append business errors, or replace the original cancellation.
+         """
+-        event.cancelled = True
+         timeout = self.time_out if time_out is None else validate_timeout(time_out, "time_out")
+         if self.on_cancelled is None:
+             return
+@@ -269,6 +272,10 @@ class ApixEventHandler:
+         ``group=None`` preserves this instance's group; a non-empty string
+         moves its registration to that group.
+
++        Matching configuration is private. Call register() again to change it;
++        get_handler_meta() returns independent lists for inspection. Changes to
++        supplied filter lists after registration do not affect matching.
++
+         Execution options set to None preserve this instance's settings.
+         Explicit values override them; non-positive time_out disables the
+         timeout. Core and notification callbacks are preserved.
+diff --git a/src/apixis/core/event/base/status.py b/src/apixis/core/event/base/status.py
+index 0c95da3..74b8e56 100644
+--- a/src/apixis/core/event/base/status.py
++++ b/src/apixis/core/event/base/status.py
+@@ -5,11 +5,19 @@ from enum import Enum
+
+
+ class CoreState(str, Enum):
+-    """Lifecycle state; CLOSING and CLOSED belong to the terminal close phase."""
++    """Explicit construction, startup, consumption, stop and close states.
++
++    STARTING creates the consumer task. STARTED records task creation while
++    startup scheduling is unconfirmed; RUNNING follows its first scheduling
++    turn. STOPPING waits for consumption to stop, without stopping handlers.
++    CLOSING and CLOSED permanently reject new event work.
++    """
+
+     CREATED = "created"
+     STARTING = "starting"
++    STARTED = "started"
+     RUNNING = "running"
++    STOPPING = "stopping"
+     STOPPED = "stopped"
+     CLOSING = "closing"
+     CLOSED = "closed"
+diff --git a/src/apixis/core/event/core.py b/src/apixis/core/event/core.py
+index 3a56fc4..ac93010 100644
+--- a/src/apixis/core/event/core.py
++++ b/src/apixis/core/event/core.py
+@@ -1,6 +1,7 @@
+ """Ownership and explicit lifecycle of one complete asyncio event core."""
+
+ import asyncio
++from collections.abc import Callable
+ from contextvars import Context
+ from typing import Self
+
+@@ -23,9 +24,15 @@ class ApixisCore:
+     """
+
+     _transitions = {
+-        CoreState.CREATED: {CoreState.STARTING, CoreState.STOPPED, CoreState.CLOSING},
+-        CoreState.STARTING: {CoreState.RUNNING, CoreState.STOPPED, CoreState.CLOSING},
+-        CoreState.RUNNING: {CoreState.STOPPED, CoreState.CLOSING},
++        CoreState.CREATED: {CoreState.STARTING, CoreState.STOPPING, CoreState.CLOSING},
++        CoreState.STARTING: {
++            CoreState.STARTED, CoreState.STOPPED, CoreState.STOPPING, CoreState.CLOSING,
++        },
++        CoreState.STARTED: {
++            CoreState.RUNNING, CoreState.STOPPING, CoreState.STOPPED, CoreState.CLOSING,
++        },
++        CoreState.RUNNING: {CoreState.STOPPING, CoreState.STOPPED, CoreState.CLOSING},
++        CoreState.STOPPING: {CoreState.STOPPED, CoreState.CLOSING},
+         CoreState.STOPPED: {CoreState.STARTING, CoreState.CLOSING},
+         CoreState.CLOSING: {CoreState.CLOSED},
+         CoreState.CLOSED: set(),
+@@ -43,9 +50,10 @@ class ApixisCore:
+         self.handler_registry = handler_registry
+         self.event_loop = event_loop
+         self._state = CoreState.CREATED
+-        self._lifecycle_lock = asyncio.Lock()
++        self._start_task: asyncio.Task[None] | None = None
++        self._stop_task: asyncio.Task[None] | None = None
+         self._close_task: asyncio.Task[None] | None = None
+-        self.event_loop.on_stopped = self._on_consumer_stopped
++        self._close_task_done_callbacks: list[Callable[[asyncio.Task[None]], None]] = []
+
+     @classmethod
+     def create_core(cls) -> Self:
+@@ -71,52 +79,125 @@ class ApixisCore:
+             )
+         self._state = state
+
+-    def _on_consumer_stopped(self) -> None:
+-        if self._state is CoreState.RUNNING:
++    def add_close_task_done_callback(
++        self, callback: Callable[[asyncio.Task[None]], None],
++    ) -> None:
++        """Register a synchronous callback receiving the completed close Task.
++
++        Callbacks receive the completed Task in registration order, including
++        failed closure. Registration before close waits for that operation;
++        during CLOSING it attaches to the existing Task. If that Task already
++        failed, the callback is scheduled with call_soon. Duplicate registrations
++        are independent; repeated close calls do not notify again.
++        Return values are ignored and exceptions go to the asyncio loop's
++        exception handler without preventing other callbacks from running.
++
++        Raises TypeError for a non-callable, or CoreClosedError after CLOSED.
++        Remove registrations with remove_close_task_done_callback().
++        """
++        if not callable(callback):
++            raise TypeError("Task completion callback must be callable.")
++        if self._state is CoreState.CLOSED:
++            raise CoreClosedError("The event core is closed.")
++        self._close_task_done_callbacks.append(callback)
++        if self._close_task is not None:
++            self._close_task.add_done_callback(callback)
++
++    def remove_close_task_done_callback(
++        self, callback: Callable[[asyncio.Task[None]], None],
++    ) -> int:
++        """Remove all matching close registrations and return their count.
++
++        Pending callbacks are detached from the current Task as well. Callbacks
++        already scheduled by a completed Task follow native asyncio semantics
++        and may still run. Removal remains available after closure.
++        """
++        previous_count = len(self._close_task_done_callbacks)
++        self._close_task_done_callbacks[:] = [
++            item for item in self._close_task_done_callbacks if item != callback
++        ]
++        if self._close_task is not None:
++            self._close_task.remove_done_callback(callback)
++        return previous_count - len(self._close_task_done_callbacks)
++
++    def _on_consumer_stopped(self, _task: asyncio.Task[None]) -> None:
++        if self._state is CoreState.RUNNING and not self.event_loop.is_running:
+             self._transition(CoreState.STOPPED)
+
+     async def start_core(self) -> None:
+         """Start or resume consumption using the existing components.
+
+-        Concurrent lifecycle operations are serialized. Repeated starts while
+-        running do nothing. A failed start preserves components for retry.
+-        Raises CoreClosedError once close has begun.
++        Concurrent callers share one startup task. Cancelling a caller only
++        cancels its wait; startup continues. A start during STOPPING waits for
++        that stop before starting again. Close permanently rejects new starts.
++        STARTED records consumer creation; RUNNING confirms its first turn.
++        Startup failures clean up the consumer and remain available to callers.
+         """
++        while self._state is CoreState.STOPPING:
++            await asyncio.shield(self._stop_task)
+         if self._state in (CoreState.CLOSING, CoreState.CLOSED):
+             raise CoreClosedError("Create a new core after closing this instance.")
+-        async with self._lifecycle_lock:
+-            if self._state in (CoreState.CLOSING, CoreState.CLOSED):
+-                raise CoreClosedError("The event core is closed.")
+-            if self._state is CoreState.RUNNING:
++        if self._state is CoreState.RUNNING:
++            if self.event_loop.is_running:
+                 return
++            # Observe an exited consumer even before its done callback runs.
++            self._transition(CoreState.STOPPED)
++        if self._state not in (CoreState.STARTING, CoreState.STARTED):
+             self._transition(CoreState.STARTING)
++            self._start_task = asyncio.create_task(
++                self._start(), name="apixis-core-start", context=Context(),
++            )
++        await asyncio.shield(self._start_task)
++
++    async def _start(self) -> None:
++        # Publish the task handle before eager consumers can reenter core.
++        await asyncio.sleep(0)
++        try:
++            consumer = await self.event_loop.start()
++            consumer.add_done_callback(self._on_consumer_stopped)
++            if self._state is CoreState.STARTING:
++                self._transition(CoreState.STARTED)
++            await asyncio.sleep(0)
++            if self._state is CoreState.STARTED:
++                self._transition(
++                    CoreState.STOPPED if consumer.done() else CoreState.RUNNING
++                )
++        except BaseException:
+             try:
+-                await self.event_loop.start()
+-            except BaseException:
+                 await self.event_loop.stop()
+-                if self._state is CoreState.STARTING:
++            finally:
++                if self._state in (CoreState.STARTING, CoreState.STARTED):
+                     self._transition(CoreState.STOPPED)
+-                raise
+-            if self._state is CoreState.STARTING:
+-                self._transition(CoreState.RUNNING)
++            raise
+
+     async def stop_core(self) -> None:
+         """Pause only queue consumption; preserve admission and scheduled work.
+
+         Already scheduled foreground chains and background handlers continue.
+         Queued and dequeued-but-unassigned events are retained for start_core.
+-        Stops are idempotent, including after closure.
++        Concurrent stops share a task, which first joins pending startup.
++        Cancelling a caller does not cancel that stop. Stops after closure do
++        nothing; close owns the terminal cleanup.
+         """
+-        if self._state in (CoreState.CLOSING, CoreState.CLOSED):
++        if self._state in (CoreState.STOPPED, CoreState.CLOSING, CoreState.CLOSED):
+             return
+-        async with self._lifecycle_lock:
+-            if self._state in (CoreState.CLOSING, CoreState.CLOSED):
+-                return
+-            try:
+-                await self.event_loop.stop()
+-            finally:
+-                if self._state not in (CoreState.STOPPED, CoreState.CLOSING):
+-                    self._transition(CoreState.STOPPED)
++        if self._state is not CoreState.STOPPING:
++            self._transition(CoreState.STOPPING)
++            self._stop_task = asyncio.create_task(
++                self._stop(), name="apixis-core-stop", context=Context(),
++            )
++        await asyncio.shield(self._stop_task)
++
++    async def _stop(self) -> None:
++        # Publish the task before logging can eagerly request another start.
++        await asyncio.sleep(0)
++        if self._start_task is not None:
++            await asyncio.gather(self._start_task, return_exceptions=True)
++        try:
++            await self.event_loop.stop()
++        finally:
++            if self._state is CoreState.STOPPING:
++                self._transition(CoreState.STOPPED)
+
+     async def close_core(self) -> None:
+         """Permanently close admission and cancel all owned event work.
+@@ -126,32 +207,45 @@ class ApixisCore:
+         Remaining active waiters finish directly with None, including waits
+         for events never produced. No supplemental event is created. Concurrent callers share
+         one cleanup task; cancelling a caller does not interrupt core cleanup.
++
++        Pending startup and stop operations finish before terminal cleanup.
++        Consumer failures are reported by the consumer's completion callback.
++        Cleanup failures propagate through the shared close task with state
++        remaining CLOSING. Repeated calls after successful closure do nothing.
+         """
+-        if self._close_task is None:
++        if self._state is CoreState.CLOSED:
++            return
++        if self._state is not CoreState.CLOSING:
+             self._transition(CoreState.CLOSING)
+             self.event_pipe.close()
+             self.handler_registry.close_admission()
+-            self.event_loop.cancel_in_flight()
+             self._close_task = asyncio.create_task(
+                 self._close(),
+                 name="apixis-core-close",
+                 context=Context(),
+             )
++            for callback in self._close_task_done_callbacks:
++                self._close_task.add_done_callback(callback)
+         elif self.event_loop.owns_task(asyncio.current_task()):
+             # A cancellation hook cannot wait for the cleanup that awaits it.
+             return
+         await asyncio.shield(self._close_task)
+
+     async def _close(self) -> None:
+-        async with self._lifecycle_lock:
+-            try:
+-                await self.event_loop.close()
+-            finally:
+-                try:
+-                    await self.handler_registry.close()
+-                    self.event_registry.clear()
+-                finally:
+-                    self._transition(CoreState.CLOSED)
++        # Publish the task and attach callbacks before eager cleanup can finish.
++        await asyncio.sleep(0)
++        if self._start_task is not None:
++            await asyncio.gather(self._start_task, return_exceptions=True)
++        if self._stop_task is not None:
++            await asyncio.gather(self._stop_task, return_exceptions=True)
++        try:
++            await self.event_loop.close()
++        finally:
++            await self.handler_registry.close()
++            self.event_registry.clear()
++        self._transition(CoreState.CLOSED)
++        self._start_task = self._stop_task = self._close_task = None
++        self._close_task_done_callbacks.clear()
+
+
+ __all__ = ["ApixisCore"]
+diff --git a/src/apixis/core/event/event_loop.py b/src/apixis/core/event/event_loop.py
+index 0f534f4..75f9e95 100644
+--- a/src/apixis/core/event/event_loop.py
++++ b/src/apixis/core/event/event_loop.py
+@@ -1,5 +1,4 @@
+ import asyncio
+-from collections.abc import Callable
+ from contextvars import copy_context
+ from datetime import datetime
+ from functools import partial
+@@ -36,10 +35,9 @@ class ApixEventLoop:
+
+         self._event_semaphore = ApixisSemaphore(EVENT_LOOP_BACKPRESSURE)
+
+-        self._event_consumer_task: asyncio.Task | None = None
++        self._event_consumer_task: asyncio.Task[None] | None = None
+         self._dispatch_tasks: dict[asyncio.Task, ApixEvent] = {}
+         self._background_handler_tasks: dict[asyncio.Task, ApixEvent] = {}
+-        self.on_stopped: Callable[[], None] | None = None
+
+         # An event may already be dequeued while waiting for foreground
+         # dispatch capacity. Keep the event and its captured handler references
+@@ -56,17 +54,15 @@ class ApixEventLoop:
+         return task in self._dispatch_tasks or task in self._background_handler_tasks
+
+     def cancel_in_flight(self) -> None:
+-        """Request cancellation synchronously without interrupting existing cleanup."""
++        """Cancel foreground/background work without interrupting existing cleanup."""
+         for tasks in (self._dispatch_tasks, self._background_handler_tasks):
+             for task, event in tasks.items():
+                 if task.done():
+                     continue
+-                event.cancelled = True
++                if tasks is self._dispatch_tasks:
++                    event.cancelled = True
+                 if not task.cancelling():
+                     task.cancel()
+-        consumer = self._event_consumer_task
+-        if consumer is not None and not consumer.cancelling():
+-            consumer.cancel()
+
+     def get_status(self) -> EventLoopStatus:
+         """Read tracked work on the runtime loop without starting consumption."""
+@@ -79,19 +75,30 @@ class ApixEventLoop:
+             background_tasks=len(self._background_handler_tasks),
+         )
+
+-    async def start(self) -> None:
+-        """Start the single local consumer in the running loop, once."""
++    async def start(self) -> asyncio.Task[None]:
++        """Start the local consumer and return its task without awaiting it.
++
++        Repeated starts return the same live task. After it completes, an
++        explicit start creates a replacement. The caller may observe task
++        completion to coordinate its own lifecycle; this component only
++        cleans up consumer ownership and reports consumer failures.
++
++        Raises CoreClosedError if the event pipe has been permanently closed.
++        """
+         if self._event_pipe.closed:
+             raise CoreClosedError("The event pipe is closed.")
+-        if self.is_running:
+-            return
++        task = self._event_consumer_task
++        if task is not None and not task.done():
++            return task
+
+-        self._event_consumer_task = asyncio.create_task(
++        task = asyncio.create_task(
+             self._event_consumer_loop(),
+             name="pipe-event-consumer",
+         )
+-        self._event_consumer_task.add_done_callback(self._on_consumer_done)
++        self._event_consumer_task = task
++        task.add_done_callback(self._on_consumer_done)
+         Logger.info("Worker started.")
++        return task
+
+     def _on_consumer_done(self, task: asyncio.Task) -> None:
+         """Reset startup state when the current consumer exits for any reason."""
+@@ -99,8 +106,6 @@ class ApixEventLoop:
+         # Completion callbacks also cover cancellation before the coroutine runs.
+         if self._event_consumer_task is task:
+             self._event_consumer_task = None
+-            if self.on_stopped is not None:
+-                self.on_stopped()
+         if not task.cancelled():
+             error = task.exception()
+             if error is not None:
+@@ -113,6 +118,9 @@ class ApixEventLoop:
+         but still waiting for dispatch capacity retains its captured handlers
+         for the next consumer. Existing dispatch and background tasks continue
+         without being awaited here.
++
++        Consumer failures are recorded by its completion callback and are not
++        raised again by stop. Errors in the stop operation itself propagate.
+         """
+         task = self._event_consumer_task
+         self._event_consumer_task = None
+@@ -123,17 +131,10 @@ class ApixEventLoop:
+         # A concurrent start() may create a replacement; only stop this worker.
+         task.cancel()
+
+-        results = await asyncio.gather(task, return_exceptions=True)
+-        for result in results:
+-            if (
+-                isinstance(result, BaseException)
+-                and not isinstance(result, asyncio.CancelledError)
+-            ):
+-                raise result
++        # Consumer failures are reported once by _on_consumer_done.
++        await asyncio.gather(task, return_exceptions=True)
+
+         Logger.info("Worker stopped.")
+-        if self.on_stopped is not None:
+-            self.on_stopped()
+
+     async def close(self) -> None:
+         """Cancel handler execution and discard queued and pending events.
+@@ -141,12 +142,14 @@ class ApixEventLoop:
+         The owning core seals pipe admission first. Running handler chains
+         deliver their own cancellation callbacks. Unassigned events are only
+         removed and acknowledged; closing does not dispatch notifications for them.
++
++        Consumer failures are recorded by its completion callback. Cleanup
++        failures propagate to the owning core; they do not signify closure.
+         """
+         self.cancel_in_flight()
+         await self.stop()
+-        # Eager execution can request close before its task is registered by
+-        # the consumer. Once the consumer has stopped, the ownership handoff
+-        # is complete; include those tasks without interrupting existing hooks.
++        # Standalone eager cleanup may begin before the consumer registers
++        # its current dispatch task. Stopping completes that ownership handoff.
+         self.cancel_in_flight()
+         if self._pending_dispatch is not None:
+             self._pending_dispatch = None
+@@ -303,6 +306,7 @@ class ApixEventLoop:
+
+         except asyncio.CancelledError:
+             # Notify the same captured foreground handlers in chain order.
++            event.cancelled = True
+             for handler in handler_chain:
+                 if not handler.background:
+                     try:
+@@ -402,7 +406,7 @@ class ApixEventLoop:
+         try:
+             try:
+                 await handler.execute(event)
+-                if event.cancelled and asyncio.current_task().cancelling():
++                if asyncio.current_task().cancelling():
+                     raise asyncio.CancelledError
+
+             except asyncio.CancelledError:
+diff --git a/src/apixis/core/event/factory.py b/src/apixis/core/event/factory.py
+index eb23d81..e606f82 100644
+--- a/src/apixis/core/event/factory.py
++++ b/src/apixis/core/event/factory.py
+@@ -41,7 +41,8 @@ async def start_core() -> None:
+     """Start or resume consumption using the explicitly created shared core.
+
+     Never construct components or replace existing registrations. Repeated
+-    calls share the lifecycle lock and do not duplicate the consumer. Returns
++    calls share the startup task and do not duplicate the consumer. Cancelling
++    a caller only cancels its wait. Returns
+     after consumer startup, without waiting for event processing.
+
+     Raises:
+@@ -56,6 +57,8 @@ async def stop_core() -> None:
+     """Stop queue consumption only, leaving admission and scheduled chains intact.
+
+     Safe before creation and on repeated calls. Resume using start_core().
++    Concurrent callers share the stop operation; cancelling a caller's wait
++    does not cancel that operation.
+     """
+     if _core is not None:
+         await _core.stop_core()
+@@ -64,7 +67,7 @@ async def stop_core() -> None:
+ async def close_core() -> None:
+     """Cancel and close the shared core, including every active event waiter.
+
+-    Seal the pipe and registration before cancelling foreground/background
++    Seal the pipe and registration, join startup/stop, then cancel foreground/background
+     tasks. Running handler chains deliver on_cancelled; queued and pending
+     events are discarded directly. Complete remaining event waiters before
+     joining cleanup, so cleanup can itself await events.
+diff --git a/src/apixis/core/event/handler_registry/matching.py b/src/apixis/core/event/handler_registry/matching.py
+index fd86c37..86be87c 100644
+--- a/src/apixis/core/event/handler_registry/matching.py
++++ b/src/apixis/core/event/handler_registry/matching.py
+@@ -13,11 +13,11 @@ def matches_handler(handler: ApixEventHandler, event_name: str) -> bool:
+     """Return whether a handler accepts one exact, case-sensitive event."""
+     subscribed = any(
+         fnmatchcase(event_name, pattern)
+-        for pattern in handler.subscribe
++        for pattern in handler._subscribe
+     )
+     return subscribed and not any(
+         fnmatchcase(event_name, pattern)
+-        for pattern in handler.filter_event
++        for pattern in handler._filter_event
+     )
+
+
+diff --git a/src/apixis/core/event/handler_registry/registry.py b/src/apixis/core/event/handler_registry/registry.py
+index 86e6dca..82f18fa 100644
+--- a/src/apixis/core/event/handler_registry/registry.py
++++ b/src/apixis/core/event/handler_registry/registry.py
+@@ -264,8 +264,8 @@ class ApixHandlerRegistry:
+         # Exact subscriptions identify their own cache keys.
+         event_names = (
+             self.cached_chain
+-            if any(is_glob_pattern(pattern) for pattern in handler.subscribe)
+-            else (name for name in handler.subscribe if name in self.cached_chain)
++            if any(is_glob_pattern(pattern) for pattern in handler._subscribe)
++            else (name for name in handler._subscribe if name in self.cached_chain)
+         )
+         need_delete = []
+         for event_name in event_names:
+@@ -286,7 +286,7 @@ class ApixHandlerRegistry:
+             name for name in candidates
+             if not any(
+                 fnmatchcase(event_name, pattern)
+-                for pattern in self.registry[name].filter_event
++                for pattern in self.registry[name]._filter_event
+             )
+         ]
+         chain.sort(key=self._handler_order.__getitem__)
+@@ -368,7 +368,7 @@ class ApixHandlerRegistry:
+     def _index_handler_patterns(self, handler: ApixEventHandler) -> None:
+         exact_names = []
+         glob_patterns = []
+-        for pattern in handler.subscribe:
++        for pattern in handler._subscribe:
+             if is_glob_pattern(pattern):
+                 glob_patterns.append(pattern)
+             else:
+@@ -412,12 +412,12 @@ class ApixHandlerRegistry:
+         if handler_entry.on_cancelled is not None and not callable(handler_entry.on_cancelled):
+             raise TypeError("Handler on_cancelled must be callable.")
+         subscriptions = self._normalise_patterns(
+-            handler_entry.subscribe,
++            handler_entry._subscribe,
+             argument_name="subscribe",
+         )
+         filters = (
+-            self._normalise_patterns(handler_entry.filter_event, argument_name="filter_event",)
+-            if handler_entry.filter_event else []
++            self._normalise_patterns(handler_entry._filter_event, argument_name="filter_event",)
++            if handler_entry._filter_event else []
+         )
+         return subscriptions, filters
+
+@@ -426,8 +426,8 @@ class ApixHandlerRegistry:
+     ) -> None:
+         """Remove the old registration and record its validated replacement."""
+         self.unregister_handler(handler.name, missing_ok=True)
+-        handler.subscribe = subscriptions
+-        handler.filter_event = filters
++        handler._subscribe = tuple(subscriptions)
++        handler._filter_event = tuple(filters)
+         self._add_handler_record(handler)
+
+     def register_handler(
+@@ -536,12 +536,12 @@ class ApixHandlerRegistry:
+         event_names = self._event_registry.get_registered_events()
+         return [
+             subscription
+-            for subscription in handler.subscribe
++            for subscription in handler._subscribe
+             if not any(
+                 fnmatchcase(event_name, subscription)
+                 and not any(
+                     fnmatchcase(event_name, pattern)
+-                    for pattern in handler.filter_event
++                    for pattern in handler._filter_event
+                 )
+                 for event_name in event_names
+             )
+diff --git a/src/apixis/core/event/handler_registry/waiter_cache.py b/src/apixis/core/event/handler_registry/waiter_cache.py
+index ff9617c..c2b6b1b 100644
+--- a/src/apixis/core/event/handler_registry/waiter_cache.py
++++ b/src/apixis/core/event/handler_registry/waiter_cache.py
+@@ -50,7 +50,7 @@ class WaiterHandlerCache:
+     def _invalidate(self, handler: ApixEventHandler, is_glob: bool) -> None:
+         if not self._chains:
+             return
+-        pattern = handler.subscribe[0]
++        pattern = handler._subscribe[0]
+         if not is_glob:
+             self._chains.pop(pattern, None)
+             return
+@@ -69,7 +69,7 @@ class WaiterHandlerCache:
+         self.positions[handler.name] = 0 if point == 'received' else 1
+         self._owners[handler.name] = waiter
+         self.waiters[waiter][handler.name] = handler
+-        pattern = handler.subscribe[0]
++        pattern = handler._subscribe[0]
+         is_glob = is_glob_pattern(pattern)
+         if is_glob:
+             self._glob[handler.name] = handler
+@@ -82,7 +82,7 @@ class WaiterHandlerCache:
+         del self.positions[handler.name]
+         owner = self._owners.pop(handler.name)
+         del self.waiters[owner][handler.name]
+-        pattern = handler.subscribe[0]
++        pattern = handler._subscribe[0]
+         is_glob = handler.name in self._glob
+         if is_glob:
+             del self._glob[handler.name]
+@@ -111,7 +111,7 @@ class WaiterHandlerCache:
+             # candidates instead of sorting or scanning unrelated exact waits.
+             glob = (
+                 handler for handler in self._glob.values()
+-                if fnmatchcase(event_name, handler.subscribe[0])
++                if fnmatchcase(event_name, handler._subscribe[0])
+             )
+             candidates = (
+                 merge(candidates, glob, key=lambda handler: handler._register_order)
+@@ -119,7 +119,7 @@ class WaiterHandlerCache:
+             )
+         cached = ([], [])
+         for handler in candidates:
+-            if not any(fnmatchcase(event_name, pattern) for pattern in handler.filter_event):
++            if not any(fnmatchcase(event_name, pattern) for pattern in handler._filter_event):
+                 cached[self.positions[handler.name]].append(handler)
+         self._chains[event_name] = cached
+         if len(self._chains) > self._cache_size:
+diff --git a/src/apixis/core/event/subscription/subscriber.py b/src/apixis/core/event/subscription/subscriber.py
+index fc2b180..7fed997 100644
+--- a/src/apixis/core/event/subscription/subscriber.py
++++ b/src/apixis/core/event/subscription/subscriber.py
+@@ -257,8 +257,8 @@ def subscribe(
+             else ApixEventHandler(func)
+         )
+         entry.name = handler_name
+-        entry.subscribe = list(event_names)
+-        entry.filter_event = filter_event if filter_event is not None else []
++        entry._subscribe = event_names
++        entry._filter_event = tuple(filter_event) if filter_event is not None else ()
+         entry.priority = 1 if priority is None and between_handlers is None else priority
+         entry.between_handlers = between_handlers
+         if group is not None:
+@@ -314,6 +314,13 @@ def get_handler(
+ def get_handler_meta(
+     handler_name: str,
+ ) -> dict | None:
++    """Return an independent snapshot of one registered handler's metadata.
++
++    Unknown names return None. Subscription and exclusion patterns are copied
++    into lists, so changing the returned dictionary or those lists cannot
++    change routing. Use subscribe() or ApixEventHandler.register() to replace
++    matching configuration; handlers do not expose writable pattern fields.
++    """
+     handler = get_handler_registry().get_handler(handler_name)
+     if handler is None:
+         return None
+@@ -322,8 +329,8 @@ def get_handler_meta(
+         'name': handler.name,
+         'group': handler.group,
+         'register_order': handler._register_order,
+-        'subscribe': handler.subscribe.copy(),
+-        'filter_event': handler.filter_event.copy(),
++        'subscribe': list(handler._subscribe),
++        'filter_event': list(handler._filter_event),
+         'priority': handler.priority,
+         'between_handlers': handler.between_handlers,
+         'stop_when_error': handler.stop_when_error,
+diff --git a/src/apixis/core/event/subscription/waiter.py b/src/apixis/core/event/subscription/waiter.py
+index 28a6d78..d136e0b 100644
+--- a/src/apixis/core/event/subscription/waiter.py
++++ b/src/apixis/core/event/subscription/waiter.py
+@@ -11,6 +11,7 @@ from apixis.core.event.base.event import ApixEvent, EventPredicate
+ from apixis.core.event.base.handler import ApixEventHandler
+ from apixis.core.event.base.process import suspend_process
+ from apixis.core.event.factory import get_handler_registry
++from apixis.core.event.handler_registry import ApixHandlerRegistry
+ from apixis.core.utils.validation import validate_number
+
+
+@@ -70,7 +71,7 @@ class EventWaiter:
+         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
+         self._remaining = len(self._events)
+         loop = asyncio.get_running_loop()
+-        self._registry = get_handler_registry()
++        self._registry: ApixHandlerRegistry | None = get_handler_registry()
+         self._future: asyncio.Future[dict[str, ApixEvent] | None] = loop.create_future()
+         self._deadline: float | None = None
+         self._timeout_handle: asyncio.TimerHandle | None = None
+@@ -148,7 +149,7 @@ class EventWaiter:
+             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
+             self._on_done(self._future)
+
+-    async def _resolve(self, event_name: str, event: ApixEvent, *args, **kwargs) -> None:
++    async def _resolve(self, event_name: str, event: ApixEvent) -> None:
+         if self._future.done() or self._events[event_name] is not None:
+             return
+         if (
+@@ -195,7 +196,7 @@ class EventWaiter:
+         """Build callbacks; registration and ownership belong to the registry."""
+         if isinstance(filter, str):
+             filter = [filter]
+-        filters = list(dict.fromkeys(filter)) if filter else []
++        filters = tuple(dict.fromkeys(filter)) if filter else ()
+         handlers = []
+         for event_name in self._events:
+             resolve = partial(self._resolve, event_name)
+@@ -204,8 +205,8 @@ class EventWaiter:
+                 on_cancelled=partial(self._cancel, event_name),
+             )
+             handler.name = 'resolve_future-' + handler.id
+-            handler.subscribe = [event_name]
+-            handler.filter_event = filters
++            handler._subscribe = (event_name,)
++            handler._filter_event = filters
+             handlers.append(handler)
+         return handlers
+
+@@ -216,11 +217,16 @@ class EventWaiter:
+         A completed result or exception stays available for subsequent reads.
+         """
+         self._future.cancel()
+-        self._on_done(self._future)
++        if self._registry is not None:
++            self._on_done(self._future)
+
+     def _on_done(self, future: asyncio.Future[dict[str, ApixEvent] | None]) -> None:
+         """Release collection resources when the Future reaches a terminal state."""
+-        self._registry.unregister_waiter(self)
++        registry = self._registry
++        if registry is None:
++            return
++        self._registry = None
++        registry.unregister_waiter(self)
+         if self._timeout_handle is not None:
+             self._timeout_handle.cancel()
+             self._timeout_handle = None
+diff --git a/src/apixis/core/graph/__init__.py b/src/apixis/core/graph/__init__.py
+index 3f70c71..3441072 100644
+--- a/src/apixis/core/graph/__init__.py
++++ b/src/apixis/core/graph/__init__.py
+@@ -1,5 +1,11 @@
+ """Public API for Apixis's event-driven graph execution module."""
+
++from apixis.core.utils.exception import (
++    GraphNodeError,
++    InvalidNodeReturnsError,
++    InvalidContextError,
++)
++
+ from apixis.core.graph.base import (
+     GRAPH_DISPATCH,
+     GRAPH_INTERRUPTED,
+@@ -51,6 +57,9 @@ from apixis.core.graph.utils import (
+ )
+
+ __all__ = [
++    "GraphNodeError",
++    "InvalidNodeReturnsError",
++    "InvalidContextError",
+     "GRAPH_DISPATCH",
+     "GRAPH_INTERRUPTED",
+     "GLOBALNS",
+diff --git a/src/apixis/core/graph/context/graph_context.py b/src/apixis/core/graph/context/graph_context.py
+index c339e43..b74bc3e 100644
+--- a/src/apixis/core/graph/context/graph_context.py
++++ b/src/apixis/core/graph/context/graph_context.py
+@@ -223,9 +223,8 @@ class GraphContext:
+                 "Cannot finish a running context because the completion is None."
+             )
+         self._transition_to("finished")
+-        result = None if completion.done() else self.state
+         if not completion.done():
+-            completion.set_result(result)
++            completion.set_result(self.state)
+
+     def _fail(self, error: Exception) -> None:
+         """Fail a pending or running attempt without changing its snapshot."""
+diff --git a/src/apixis/core/graph/interrupter/graph_interrupter.py b/src/apixis/core/graph/interrupter/graph_interrupter.py
+index fd996ee..3e5e3bb 100644
+--- a/src/apixis/core/graph/interrupter/graph_interrupter.py
++++ b/src/apixis/core/graph/interrupter/graph_interrupter.py
+@@ -5,6 +5,7 @@ from uuid import uuid4
+
+ from typing import Any, Callable
+
++from apixis.core.event.base import suspend_process
+ from apixis.core.graph.context.manager import get_graph_context
+ from apixis.core.graph.context.graph_context import GraphContext
+ from apixis.core.graph.utils.namespace import (
+@@ -126,6 +127,9 @@ async def interrupt(
+                             f"Graph namespace `{namespace}` emitted a Block that was neither "
+                             "resolved nor accepted by its interruption handlers."
+                         ))
++                if not block.done:
++                    async with suspend_process():
++                        return await block
+                 return await block
+         except TimeoutError:
+             # A hook can fail the Block with its own TimeoutError.
+diff --git a/src/apixis/core/graph/node_graph.py b/src/apixis/core/graph/node_graph.py
+index 7e4326a..f2ecfa5 100644
+--- a/src/apixis/core/graph/node_graph.py
++++ b/src/apixis/core/graph/node_graph.py
+@@ -9,7 +9,7 @@ from functools import wraps
+ from typing import Any
+
+ from apixis.core.config.core_config import GRAPH_MAX_SNAPSHOTS
+-from apixis.core.event.factory import get_event_pipe, get_handler_registry
++from apixis.core.event.factory import get_core
+ from apixis.core.event.base import suspend_process
+ from apixis.core.event import (
+     ApixEvent,
+@@ -108,8 +108,9 @@ class NodeGraph:
+         self._graph_id = uuid4().hex
+         self._contexts: set[GraphContext] = set()  # Running attempts only.
+         self._namespace = using_namespace or uuid4().hex
+-        self._handler_registry = get_handler_registry()
+-        self._event_pipe = get_event_pipe()
++        self._core = get_core()
++        self._handler_registry = self._core.handler_registry
++        self._event_pipe = self._core.event_pipe
+
+         # Acquisition validates ownership and synchronously retires the old graph.
+         # Only an acquired namespace needs cleanup if registration fails.
+@@ -117,6 +118,7 @@ class NodeGraph:
+         try:
+             self._register_dispatch_handler()
+             self._decomposed = False
++            self._core.add_close_task_done_callback(self._on_core_closed)
+         except BaseException:
+             self._handler_registry.unregister_group(self.handler_group, missing_ok=True)
+             release_namespace(self, decompose_immediately=False)
+@@ -220,6 +222,13 @@ class NodeGraph:
+             for c in self._contexts
+         )
+
++    def _on_core_closed(self, _task: asyncio.Task[None]) -> None:
++        """End remaining invocations when their owner's close Task completes."""
++        if self._decomposed:
++            return
++        for context in tuple(self._contexts):
++            context._cancel()
++
+     def set_max_steps(self, steps: int):
+         self._ensure_not_decomposed()
+         self._max_steps = validate_int(steps, "max_steps", minimum=0)
+@@ -248,6 +257,7 @@ class NodeGraph:
+                 "Cannot decompose a NodeGraph while contexts are running."
+             )
+         self._decomposed = True
++        self._core.remove_close_task_done_callback(self._on_core_closed)
+         # Terminal transitions remove contexts from the running set immediately.
+         for context in tuple(self._contexts):
+             context.abort()
+@@ -708,11 +718,16 @@ class NodeGraph:
+             node_name, context.steps
+         )
+         context._set_target_node(target)
+-        await self._event_pipe.post_event(
+-            event_type=EventType.WORKFLOW,
+-            event_name=self.dispatch_name,
+-            context=context,
+-        )
++        try:
++            await self._event_pipe.post_event(
++                event_type=EventType.WORKFLOW,
++                event_name=self.dispatch_name,
++                context=context,
++            )
++        except CoreClosedError:
++            if context.is_active:
++                context._cancel()
++            raise
+
+     def _finish(self, context: GraphContext) -> None:
+         """Resolve an invocation with the state carried by its terminal event."""

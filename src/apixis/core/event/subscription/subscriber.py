@@ -257,8 +257,8 @@ def subscribe(
             else ApixEventHandler(func)
         )
         entry.name = handler_name
-        entry.subscribe = list(event_names)
-        entry.filter_event = filter_event if filter_event is not None else []
+        entry._subscribe = event_names
+        entry._filter_event = tuple(filter_event) if filter_event is not None else ()
         entry.priority = 1 if priority is None and between_handlers is None else priority
         entry.between_handlers = between_handlers
         if group is not None:
@@ -314,6 +314,13 @@ def get_handler(
 def get_handler_meta(
     handler_name: str,
 ) -> dict | None:
+    """Return an independent snapshot of one registered handler's metadata.
+
+    Unknown names return None. Subscription and exclusion patterns are copied
+    into lists, so changing the returned dictionary or those lists cannot
+    change routing. Use subscribe() or ApixEventHandler.register() to replace
+    matching configuration; handlers do not expose writable pattern fields.
+    """
     handler = get_handler_registry().get_handler(handler_name)
     if handler is None:
         return None
@@ -322,8 +329,8 @@ def get_handler_meta(
         'name': handler.name,
         'group': handler.group,
         'register_order': handler._register_order,
-        'subscribe': handler.subscribe.copy(),
-        'filter_event': handler.filter_event.copy(),
+        'subscribe': list(handler._subscribe),
+        'filter_event': list(handler._filter_event),
         'priority': handler.priority,
         'between_handlers': handler.between_handlers,
         'stop_when_error': handler.stop_when_error,

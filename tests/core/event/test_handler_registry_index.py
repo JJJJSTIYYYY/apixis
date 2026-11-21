@@ -18,8 +18,8 @@ async def noop(event):
 
 def entry(name, patterns, *, filters=(), priority=1, between=None):
     handler = ApixEventHandler(noop, name=name)
-    handler.subscribe = list(patterns)
-    handler.filter_event = list(filters)
+    handler._subscribe = tuple(patterns)
+    handler._filter_event = tuple(filters)
     handler.priority = priority
     handler.between_handlers = between
     return handler

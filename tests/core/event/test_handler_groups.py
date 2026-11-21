@@ -169,7 +169,7 @@ def test_invalid_group_is_rejected_before_registration(registry, group, error):
         handler("invalid", group=group)
     instance = handler("invalid")
     instance.group = group
-    instance.subscribe = ["event"]
+    instance._subscribe = ('event',)
     instance.priority = 1
     with pytest.raises(error, match="group"):
         registry.register_handler(instance)

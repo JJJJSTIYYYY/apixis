@@ -9,7 +9,7 @@
 - `create_core() -> ApixisCore`：同步创建组件，不启动消费；已有未关闭实例时返回同一实例。
 - `await start_core()`：启动或恢复已有 core 的队列消费，不创建组件。
 - `await stop_core()`：只停止队列消费，已安排的 handler chain 和后台 handler 继续执行；组件、队列、注册和等待器保留。
-- `await close_core()`：立即永久禁入并取消运行任务；队列与 `_pending_dispatch` 直接删除，运行中的链沿既有 `on_cancelled` 清理，剩余等待器完成为 `None` 后汇合任务。
+- `await close_core()`：立即永久禁入，等待已有启动/停止收尾后取消运行任务；队列与 `_pending_dispatch` 直接删除，运行中的链沿既有 `on_cancelled` 清理，剩余等待器完成为 `None` 后汇合任务。
 
 启动/停止可反复切换。close 完成后旧实例不能启动，需要显式再次 create，重新注册应用处理器和图。
 
@@ -75,7 +75,7 @@ ApixEvent(
 | `context` | 用户上下文 |
 | `timestamp` | Unix timestamp |
 | `accepted` | 是否已被 accept |
-| `cancelled` | 是否已请求取消，或已收到取消通知 |
+| `cancelled` | 前台事件执行是否已请求取消或进入取消清理；后台任务单独取消不修改它 |
 | `seen` | 已进入 core callback 的 handler 名称 |
 | `error_stack` | 前台 handler 产生的 `ApixEventError` 列表 |
 
@@ -192,6 +192,8 @@ async with expect_event(
 
 `EventWaiter` 构造时同步注册监听，整个生命周期绑定一个 Future。完成、超时、取消和上下文退出都会注销临时 handler 并取消计时器；即使没有任务正在读取结果，Future 到达终态也会清理资源。
 
+终态清理释放 waiter 持有的 registry 引用，只执行一次整体注销。后续 Future 回调、重复 close 或上下文退出不会再次注销；主动取消仍直接调用 Future.cancel()。
+
 ```python
 from apixis import EventWaiter
 
@@ -263,6 +265,8 @@ registry 只有普通 handler 和 waiter 两类注册对象，复用内部公共
 | waiter 及其全部临时 handler | `register_waiter(waiter, handlers, point=...)` | `unregister_waiter(waiter)` |
 
 `register_handler()` 只处理 numeric priority / between_handlers 排序，不接受 point。`register_waiter()` 统一处理 Future 所属 waiter 和全部临时 handler；`received` / `processed` 只属于 waiter 的观察时机，不增加独立的 listener 注册类别。图中断通过 `post_and_wait()` 使用 processed waiter，不注册兜底 handler。
+
+订阅模式和排除模式是 handler 的私有 tuple，不提供公开可写字段。通过 `subscribe()` 或 `ApixEventHandler.register()` 重新注册来变更匹配配置；registry 先用旧配置清理索引与缓存，再提交新配置。传入的 filter 列表在注册后与内部配置隔离。查询使用 `get_handler_meta(name)`，其 `subscribe` / `filter_event` 列表是独立快照，修改快照不会改变事件路由。
 
 命名按职责区分：`register/unregister` 是完整注册事务，`prepare` 负责校验和规范化输入，`add/replace ... record` 只维护共享登记信息，`index/unindex` 只维护匹配索引。
 

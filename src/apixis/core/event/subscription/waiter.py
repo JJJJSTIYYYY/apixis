@@ -11,6 +11,7 @@ from apixis.core.event.base.event import ApixEvent, EventPredicate
 from apixis.core.event.base.handler import ApixEventHandler
 from apixis.core.event.base.process import suspend_process
 from apixis.core.event.factory import get_handler_registry
+from apixis.core.event.handler_registry import ApixHandlerRegistry
 from apixis.core.utils.validation import validate_number
 
 
@@ -70,7 +71,7 @@ class EventWaiter:
         self._events: dict[str, ApixEvent | None] = dict.fromkeys(event_names)
         self._remaining = len(self._events)
         loop = asyncio.get_running_loop()
-        self._registry = get_handler_registry()
+        self._registry: ApixHandlerRegistry | None = get_handler_registry()
         self._future: asyncio.Future[dict[str, ApixEvent] | None] = loop.create_future()
         self._deadline: float | None = None
         self._timeout_handle: asyncio.TimerHandle | None = None
@@ -148,7 +149,7 @@ class EventWaiter:
             self._future.set_exception(TimeoutError("Timed out waiting for an event."))
             self._on_done(self._future)
 
-    async def _resolve(self, event_name: str, event: ApixEvent, *args, **kwargs) -> None:
+    async def _resolve(self, event_name: str, event: ApixEvent) -> None:
         if self._future.done() or self._events[event_name] is not None:
             return
         if (
@@ -195,7 +196,7 @@ class EventWaiter:
         """Build callbacks; registration and ownership belong to the registry."""
         if isinstance(filter, str):
             filter = [filter]
-        filters = list(dict.fromkeys(filter)) if filter else []
+        filters = tuple(dict.fromkeys(filter)) if filter else ()
         handlers = []
         for event_name in self._events:
             resolve = partial(self._resolve, event_name)
@@ -204,8 +205,8 @@ class EventWaiter:
                 on_cancelled=partial(self._cancel, event_name),
             )
             handler.name = 'resolve_future-' + handler.id
-            handler.subscribe = [event_name]
-            handler.filter_event = filters
+            handler._subscribe = (event_name,)
+            handler._filter_event = filters
             handlers.append(handler)
         return handlers
 
@@ -216,11 +217,16 @@ class EventWaiter:
         A completed result or exception stays available for subsequent reads.
         """
         self._future.cancel()
-        self._on_done(self._future)
+        if self._registry is not None:
+            self._on_done(self._future)
 
     def _on_done(self, future: asyncio.Future[dict[str, ApixEvent] | None]) -> None:
         """Release collection resources when the Future reaches a terminal state."""
-        self._registry.unregister_waiter(self)
+        registry = self._registry
+        if registry is None:
+            return
+        self._registry = None
+        registry.unregister_waiter(self)
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
             self._timeout_handle = None

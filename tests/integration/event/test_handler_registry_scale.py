@@ -35,8 +35,8 @@ def _make_handler(
     entry = ApixEventHandler(_noop_handler if callback is None else callback)
     entry.name = name
     entry._register_order = 0
-    entry.subscribe = subscribe
-    entry.filter_event = [] if filter_event is None else filter_event
+    entry._subscribe = tuple(subscribe)
+    entry._filter_event = tuple([] if filter_event is None else filter_event)
     entry.priority = priority
     return entry
 

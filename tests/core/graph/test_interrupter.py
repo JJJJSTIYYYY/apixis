@@ -63,6 +63,56 @@ async def test_block_rejects_an_invalid_future():
         )
 
 
+@pytest.mark.parametrize("event_runtime_capacity", [1, 2], indirect=True)
+async def test_deferred_block_releases_capacity_for_its_reply_handler(
+    cleanup_event_runtime, monkeypatch, event_runtime_capacity,
+):
+    from apixis import post_event, subscribe
+    from apixis.core.graph.interrupter import graph_interrupter as implementation
+
+    assert cleanup_event_runtime.event_loop._event_semaphore.capacity == event_runtime_capacity
+
+    waiting = asyncio.Event()
+    blocks = []
+    original_post = implementation.post_and_wait
+
+    async def processed(**kwargs):
+        event = await original_post(**kwargs)
+        waiting.set()
+        return event
+
+    monkeypatch.setattr(implementation, "post_and_wait", processed)
+
+    async def review(state):
+        return {"answer": await interrupt()}
+
+    graph = GraphManager().add_node(review).compile_graph("review")
+
+    @graph.add_interrupted_hook
+    async def capture(block):
+        block.accept()
+        blocks.append(block)
+
+    @subscribe("interruption.reply")
+    async def reply(event):
+        blocks[0].resolve("approved")
+
+    task = asyncio.create_task(graph.invoke({}))
+    try:
+        async with asyncio.timeout(1):
+            await waiting.wait()
+            await post_event(event_name="interruption.reply")
+            done, _ = await asyncio.wait({task}, timeout=0.5)
+            assert task in done, "Block wait held capacity needed by its reply."
+            assert await task == {"answer": "approved"}
+    finally:
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        unsubscribe(reply.__name__)
+        graph.decompose()
+
+
 async def test_interrupt_requires_an_active_graph_node_context():
     """A breakpoint cannot be created outside an active node invocation."""
     with pytest.raises(RuntimeError, match="only available while a graph is invoked"):

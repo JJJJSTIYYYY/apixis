@@ -247,12 +247,15 @@ async def run_worker(args):
             for graph in graphs:
                 graph.decompose()
 
-    def new_handler(name, pattern):
+    def new_handler(name, pattern, callback=None, *, priority=1):
         async def noop(event):
             pass
-        entry = ApixEventHandler(noop, name=name)
-        entry.subscribe = [pattern]
-        entry.priority = 1
+        entry = ApixEventHandler(noop if callback is None else callback, name=name)
+        if hasattr(entry, "_subscribe"):
+            entry._subscribe = (pattern,)
+        else:
+            entry.subscribe = [pattern]
+        entry.priority = priority
         return entry
 
     def registry_round(kind):
@@ -263,7 +266,12 @@ async def run_worker(args):
             start = time.perf_counter()
             for index in range(args.registry_cold_queries):
                 assert registry.get_handlers_for_event(f"new.{index}") == []
-            return {"seconds": time.perf_counter() - start, "operations": args.registry_cold_queries}
+            seconds = time.perf_counter() - start
+            assert len(registry.cached_chain) == min(args.registry_cold_queries, registry._cache_size)
+            return {"seconds": seconds, "operations": args.registry_cold_queries,
+                    "registered_handlers": len(registry.registry),
+                    "cache_capacity": registry._cache_size,
+                    "retained_names": len(registry.cached_chain)}
         if kind == "hot":
             registry.register_handler(new_handler("one", "exact"))
             registry.get_handlers_for_event("exact")
@@ -292,9 +300,7 @@ async def run_worker(args):
             assert event.context == observed
             observed += 1
 
-        entry = ApixEventHandler(receive, name="benchmark_receive")
-        entry.subscribe = ["benchmark.publish"]
-        entry.priority = 1
+        entry = new_handler("benchmark_receive", "benchmark.publish", receive)
         core.handler_registry.register_handler(entry)
         publisher = pipe.post_event if kind == "cached-pipe" else subscription.post_event
         started = time.perf_counter()
@@ -314,9 +320,7 @@ async def run_worker(args):
         async def respond(event):
             await pipe.post_event(event_type=EventType.INFO, event_name="benchmark.reply", context=event.context)
 
-        entry = ApixEventHandler(respond, name="benchmark_respond")
-        entry.subscribe = ["benchmark.request"]
-        entry.priority = 1
+        entry = new_handler("benchmark_respond", "benchmark.request", respond)
         core.handler_registry.register_handler(entry)
         started = time.perf_counter()
         for index in range(2048):
@@ -355,9 +359,7 @@ async def run_worker(args):
         names = set()
         for index in range(normal):
             name = f"benchmark_mixed_{index}"
-            entry = ApixEventHandler(receive, name=name)
-            entry.subscribe = [patterns[index % 2]]
-            entry.priority = index % 3
+            entry = new_handler(name, patterns[index % 2], receive, priority=index % 3)
             registry.register_handler(entry)
             names.add(name)
 
@@ -429,6 +431,37 @@ async def run_worker(args):
         for _ in range(200000):
             assert factory.get_event_pipe() is core.event_pipe
         return {"seconds": time.perf_counter() - started, "operations": 200000}
+
+    async def lifecycle_round(kind):
+        previous = factory._core
+        if previous is not None:
+            await stop(previous)
+        factory._core = None
+        core = factory.create_core()
+        try:
+            if kind == "close-waiters":
+                waiters = [subscription.EventWaiter(f"never.{index}") for index in range(256)]
+                started = time.perf_counter()
+                await core.close_core()
+                seconds = time.perf_counter() - started
+                assert all(waiter._future.result() is None for waiter in waiters)
+                assert not core.handler_registry.registry
+                return {"seconds": seconds, "operations": len(waiters), "closures": 1}
+            if kind == "start-stop":
+                await core.stop_core()
+            started = time.perf_counter()
+            for _ in range(512):
+                if kind == "start-stop":
+                    await core.start_core()
+                    await core.stop_core()
+                else:
+                    local = type(core).create_core()
+                    await local.close_core()
+            seconds = time.perf_counter() - started
+            assert core.state.value == ("stopped" if kind == "start-stop" else "created")
+            return {"seconds": seconds, "operations": 512}
+        finally:
+            await core.close_core()
 
     report = {
         "environment": {"python": sys.version, "platform": platform.platform(), "gc_enabled": gc.isenabled(),
@@ -529,6 +562,20 @@ async def run_worker(args):
             "capacity": 128, "rounds": rounds,
             "cache_audit": await mixed_wait_round(core, percent, audit=True),
         }
+    if hasattr(factory, "close_core"):
+        for kind in ("start-stop", "create-close", "close-waiters"):
+            name = f"lifecycle/{kind}"
+            if not wanted(name):
+                continue
+            await lifecycle_round(kind)
+            rounds = []
+            for _ in range(args.repeats):
+                gc.collect()
+                rounds.append(await lifecycle_round(kind))
+            report["scenarios"][name] = {
+                "workload": {"operations": 256 if kind == "close-waiters" else 512},
+                "rounds": rounds,
+            }
     core = await fresh_core(128)
     core = await fresh_core(128)
     for name in ("state/large-snapshots", "state/large-no-snapshots"):

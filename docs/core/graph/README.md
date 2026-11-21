@@ -2,11 +2,15 @@
 
 构图前调用 `create_core()`，执行前调用 `await start_core()`；graph 不通过 getter 自动创建或启动 core。应用结束时调用 `await close_core()`。详见[生命周期](../runtime-lifecycle.md)。
 
-core 关闭时，处理中的图调用沿现有取消契约结束，`invoke()` / `stream()` 的调用者收到 `CancelledError`。未派发事件直接丢弃后，关联图调用的等待收尾留待后续处理。stop 期间已安排的节点继续执行，后续图事件排队等待显式 start。
+core 关闭时，graph 通过 `add_close_task_done_callback()` 监听所属 core 的关闭 Task 完成，取消剩余未完成 invocation 的 completion，`invoke()` / `stream()` 的调用者收到 `CancelledError`。这也覆盖队列或 `_pending_dispatch` 中尚未分配给 handler chain 的图事件；事件本身仍直接丢弃，不补发 `on_cancelled`。普通 stop 不取消图调用，已安排的节点继续执行，后续图事件排队等待显式 start。
+
+发布下一条 dispatch 时，如果底层管道以 `CoreClosedError` 拒绝入队，graph 会取消仍活跃 invocation 的 completion，并保留发布异常；不会继续安排后续节点。已经成功入队、随后被清空的 dispatch 不会再经过这个发布失败分支。
 
 编译后的图绑定创建时的 pipe 和 handler registry。core 关闭后旧图不能迁移到新 core，业务操作会抛出 `CoreClosedError`；`decompose()` 仍可释放旧图资源，且不会注销新 core 的注册。重建 core 后应重新构图。
 
 Graph API 的主要入口是 `GraphManager`。它负责注册节点与 state 策略，`compile_graph()` 返回可执行的 `NodeGraph`。
+
+图领域异常 `GraphNodeError`、`InvalidNodeReturnsError` 和 `InvalidContextError` 从 `apixis.core.graph` 导出，顶层 `apixis` 也提供同名类型。
 
 ## 构建图
 
@@ -209,6 +213,8 @@ async def on_interrupted(block):
 
 `timeout` 使用一个期限，覆盖事件入队、前台 hook 处理和最终 Block 响应；期限到达返回 `None` 并关闭 Block。hook 自己抛出的 `TimeoutError` 仍按原异常传播。
 
+`post_and_wait()` 自行管理事件处理阶段的派发许可。其返回后，`interrupt()` 仅在等待尚未完成的 Block 时再次让出许可，使负责回复的事件 handler 即使在背压为 1 时也能执行。
+
 `Block` 常用接口：
 
 ```python
@@ -228,7 +234,7 @@ graph.decompose()
 
 `decompose(force=True)` 会中止 `running` context 并释放 handler / namespace；`force=False` 仅在仍有 `running` context 时抛异常。`pending` context 保持原状态，但之后通过已分解的图调用 `invoke()` / `stream()` 会抛异常。
 
-图的 dispatch handler、兜底中断 handler 和 `graph.add_interrupted_hook()` 注册的 hook 统一归入 `graph.handler_group`，分解或初始化失败时通过 group 索引批量注销。该组名包含 namespace 和 graph_id，namespace 复用时每个图实例的清理范围独立。
+图的 dispatch handler 和 `graph.add_interrupted_hook()` 注册的 hook 统一归入 `graph.handler_group`，分解或初始化失败时通过 group 索引批量注销。该组名包含 namespace 和 graph_id，namespace 复用时每个图实例的清理范围独立。分解时也会从所属 core 移除关闭完成回调，旧图不会被关闭回调继续持有。
 
 需要随图一起清理的自定义事件处理器，可显式加入此组：
 

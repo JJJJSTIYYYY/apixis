@@ -11,6 +11,46 @@ from apixis.core.event.factory import get_event_loop, get_handler_registry
 from apixis.core.event.subscription import waiter as waiter_module
 
 
+@pytest.mark.parametrize("outcome", ["result", "timeout", "cancel", "close", "finish"])
+async def test_terminal_paths_release_registration_once(monkeypatch, outcome):
+    registry = get_handler_registry()
+    original = registry.unregister_waiter
+    removed = []
+
+    def unregister(waiter):
+        removed.append(waiter)
+        original(waiter)
+
+    monkeypatch.setattr(registry, "unregister_waiter", unregister)
+    async with expect_event("cleanup.once", time_out=60) as waiter:
+        reader = asyncio.create_task(waiter.wait())
+        await asyncio.sleep(0)
+        if outcome == "result":
+            await post_event(event_name="cleanup.once")
+        elif outcome == "timeout":
+            waiter._expire()
+        elif outcome == "cancel":
+            reader.cancel()
+        elif outcome == "finish":
+            waiter.finish()
+        else:
+            waiter.close()
+        result = await asyncio.gather(reader, return_exceptions=True)
+        if outcome == "timeout":
+            assert isinstance(result[0], TimeoutError)
+        elif outcome in ("cancel", "close"):
+            assert isinstance(result[0], asyncio.CancelledError)
+        elif outcome == "finish":
+            assert result == [None]
+        else:
+            assert result[0].event_name == "cleanup.once"
+        waiter.close()
+    await asyncio.sleep(0)
+    assert removed == [waiter]
+    assert waiter not in registry._waiter_cache.waiters
+    assert waiter._timeout_handle is None
+
+
 @pytest.mark.parametrize("operation", ["wait", "get_result"])
 async def test_wait_preserves_registration_deadline(operation):
     registry = get_handler_registry()

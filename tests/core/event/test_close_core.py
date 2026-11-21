@@ -22,6 +22,92 @@ from apixis import (
 from apixis.core.event.base.event import EventType, create_event
 
 
+async def test_failed_consumer_is_logged_and_does_not_interrupt_closure(monkeypatch):
+    from apixis import ApixisCore
+    from apixis.core.event import factory
+
+    core = ApixisCore.create_core()
+    entered, cleaned, finish_cleanup = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    fail_consumer = asyncio.Event()
+    error = RuntimeError("consumer failed")
+    errors = Mock()
+
+    async def running(event):
+        entered.set()
+        await asyncio.Future()
+
+    async def cleanup(event):
+        cleaned.set()
+        await finish_cleanup.wait()
+
+    async def failing_get():
+        await fail_consumer.wait()
+        raise error
+
+    loop = asyncio.get_running_loop()
+    original_factory = loop.get_task_factory()
+    loop.set_task_factory(None)
+    with monkeypatch.context() as patch:
+        patch.setattr(factory, "_core", core)
+        patch.setattr("apixis.core.event.event_loop.Logger.error", errors)
+        ApixEventHandler(running, on_cancelled=cleanup).register("close.active")
+        await core.start_core()
+        await post_event(event_name="close.active")
+        await entered.wait()
+        await core.stop_core()
+        patch.setattr(core.event_pipe, "get", failing_get)
+        await core.start_core()
+        waiter = EventWaiter("never.produced")
+        pending = create_event(event_type=EventType.INFO, event_name="pending")
+        core.event_pipe.put_nowait(pending)
+        core.event_loop._pending_dispatch = core.event_pipe.get_nowait(), []
+        await post_event(event_name="queued")
+        consumer = core.event_loop._event_consumer_task
+        fail_consumer.set()
+        await asyncio.sleep(0)
+        assert consumer.done()
+        assert core.event_loop._event_consumer_task is consumer
+        loop.set_task_factory(asyncio.eager_task_factory)
+        closing = asyncio.create_task(core.close_core())
+        try:
+            async with asyncio.timeout(1):
+                await cleaned.wait()
+                # Waiter completion precedes joining the blocked cleanup hook.
+                assert await waiter.wait() is None
+            assert core.state is CoreState.CLOSING
+            assert core.event_pipe.empty()
+            assert core.event_loop._pending_dispatch is None
+            assert not closing.done()
+            finish_cleanup.set()
+            await closing
+            errors.assert_called_once()
+            assert "consumer failed" in errors.call_args.args[0]
+            assert core.state is CoreState.CLOSED
+            assert not core.event_loop._dispatch_tasks
+            assert not core.event_loop._background_handler_tasks
+            assert not core.handler_registry.registry
+            await asyncio.wait_for(core.event_pipe.join(), 1)
+        finally:
+            loop.set_task_factory(original_factory)
+            finish_cleanup.set()
+            await asyncio.gather(closing, return_exceptions=True)
+
+
+async def test_cleanup_failure_does_not_report_closed(monkeypatch):
+    from apixis import ApixisCore
+
+    core = ApixisCore.create_core()
+    original = core.handler_registry.close
+    error = RuntimeError("registration cleanup failed")
+    monkeypatch.setattr(core.handler_registry, "close", AsyncMock(side_effect=error))
+    with pytest.raises(RuntimeError) as raised:
+        await core.close_core()
+    assert raised.value is error
+    assert core.state is CoreState.CLOSING
+    assert core.event_pipe.closed
+    await original()
+
+
 async def until(predicate):
     async with asyncio.timeout(2):
         while not predicate():
@@ -97,7 +183,7 @@ async def test_close_notifies_all_handlers_despite_cleanup_failures(
 
     async def broken(event):
         notified.append("broken")
-        assert event.cancelled
+        assert event.cancelled is (not background)
         if failure == "error":
             raise ValueError("cleanup failed")
         raise asyncio.CancelledError("cleanup cancelled")
@@ -315,6 +401,39 @@ async def test_close_from_handler_and_its_cancel_hook_does_not_wait_for_itself(
         await asyncio.wait_for(close_core(), 1)
         assert notified.is_set()
         assert cleanup_event_runtime.state is CoreState.CLOSED
+    finally:
+        loop.set_task_factory(previous)
+
+
+@pytest.mark.parametrize("eager", [False, True], ids=["default", "eager"])
+async def test_first_consumer_turn_can_request_close_during_startup(
+    cleanup_event_runtime, eager,
+):
+    await close_core()
+    core = create_core()
+    notified = asyncio.Event()
+
+    async def cleanup(event):
+        await close_core()
+        notified.set()
+
+    async def run(event):
+        await close_core()
+
+    ApixEventHandler(run, on_cancelled=cleanup).register("startup.close")
+    await post_event(event_name="startup.close")
+    loop = asyncio.get_running_loop()
+    previous = loop.get_task_factory()
+    if eager:
+        loop.set_task_factory(asyncio.eager_task_factory)
+    try:
+        async with asyncio.timeout(1):
+            await start_core()
+            await close_core()
+        assert notified.is_set()
+        assert core.state is CoreState.CLOSED
+        assert core._start_task is None
+        assert not core.event_loop._dispatch_tasks
     finally:
         loop.set_task_factory(previous)
 

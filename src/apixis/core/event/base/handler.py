@@ -21,15 +21,17 @@ class ApixEventHandler:
     ``on_cancelled`` receives event cancellation notifications from the event
     loop, independently of the normal handler chain. Background cancellation
     only notifies the cancelled background handler.
-    Registration metadata is assigned by :func:`subscribe` or :meth:`register`.
+    Subscription patterns and exclusion filters are private immutable tuples.
+    Change them through :func:`subscribe` or :meth:`register`; inspect independent
+    metadata snapshots through :func:`get_handler_meta`.
     ``group`` defaults to ``"global"`` and identifies indexed batch removals.
     """
 
     id: str
     name: str
     group: str
-    subscribe: list[str]
-    filter_event: list[str]
+    _subscribe: tuple[str, ...]
+    _filter_event: tuple[str, ...]
     core_func: EventHandlerFunc
     on_accepted: EventHandlerFunc
     on_has_error: EventHandlerFunc
@@ -73,8 +75,8 @@ class ApixEventHandler:
         self.group = validate_non_empty_string(group, "Handler group")
         self.id = "handler-" + uuid4().hex
         self._register_order = -1
-        self.subscribe: list[str] = []
-        self.filter_event: list[str] = []
+        self._subscribe: tuple[str, ...] = ()
+        self._filter_event: tuple[str, ...] = ()
         self.priority: float | None = None
         self.between_handlers: tuple[str | None, str | None] | None = None
 
@@ -163,7 +165,7 @@ class ApixEventHandler:
                 f"error={error.exception_type}: {error.message}\n"
                 f"{error.traceback}"
             )
-            if event.cancelled and asyncio.current_task().cancelling():
+            if asyncio.current_task().cancelling() and (self.background or event.cancelled):
                 raise asyncio.CancelledError from exc
             if phase != "on_error" and self.on_error is not None:
                 await self._execute_func(self.on_error, "on_error", event, exc)
@@ -224,11 +226,12 @@ class ApixEventHandler:
         """Run cancellation cleanup without interrupting other notifications.
 
         The event loop calls this outside normal execution, then re-raises the
-        original cancellation. Each hook uses this handler's timeout. Cleanup
+        original cancellation. The runtime owns the event's cancellation state;
+        a background task's cancellation does not cancel its shared event.
+        Each hook uses this handler's timeout. Cleanup
         failures, including cancellation, are logged only: they do not invoke
         on_error, append business errors, or replace the original cancellation.
         """
-        event.cancelled = True
         timeout = self.time_out if time_out is None else validate_timeout(time_out, "time_out")
         if self.on_cancelled is None:
             return
@@ -268,6 +271,10 @@ class ApixEventHandler:
         defaults to 1 unless between_handlers is supplied.
         ``group=None`` preserves this instance's group; a non-empty string
         moves its registration to that group.
+
+        Matching configuration is private. Call register() again to change it;
+        get_handler_meta() returns independent lists for inspection. Changes to
+        supplied filter lists after registration do not affect matching.
 
         Execution options set to None preserve this instance's settings.
         Explicit values override them; non-positive time_out disables the

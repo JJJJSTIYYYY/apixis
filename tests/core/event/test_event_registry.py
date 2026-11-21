@@ -118,7 +118,7 @@ async def test_recording_occurs_once_after_dispatch_capacity_is_acquired(
         observed_in_handler.append(registry.get_registered_events())
 
     handler = ApixEventHandler(receive)
-    handler.subscribe = ["runtime.*"]
+    handler._subscribe = ('runtime.*',)
     handler.priority = 1
     handlers.register_handler(handler)
     event = make_event(name)

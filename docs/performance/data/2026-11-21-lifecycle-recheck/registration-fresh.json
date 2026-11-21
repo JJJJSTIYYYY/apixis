@@ -1,0 +1,403 @@
+{
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "repeats_per_worker": 9,
+  "summary": {
+    "registry/mutation": {
+      "before": {
+        "seconds": 2.500019036233425e-06,
+        "operations": 1.0,
+        "timed_pairs": 20000.0,
+        "aggregate_seconds": 0.05035175345255993,
+        "retained_names": 8192.0,
+        "samples": 18,
+        "min_seconds": 2.416956704109907e-06,
+        "max_seconds": 2.541986759752035e-06
+      },
+      "after": {
+        "seconds": 2.541026333346963e-06,
+        "operations": 1.0,
+        "timed_pairs": 20000.0,
+        "aggregate_seconds": 0.05116963910404593,
+        "retained_names": 8192.0,
+        "samples": 18,
+        "min_seconds": 2.500019036233425e-06,
+        "max_seconds": 2.625049091875553e-06
+      },
+      "elapsed_change_pct": 1.640279394644928,
+      "throughput_change_pct": -1.6138084275389653
+    }
+  },
+  "memory": {},
+  "workers": [
+    {
+      "label": "before",
+      "file": "registration-fresh-1-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+          "driver_sha256": "27722d6f398902cde19ab354c6adea947308a6856aa581537e13c69660e8b6be",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 2.416956704109907e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04847826738841832,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4589826352894306e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04947052645729855,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05092569091357291,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.541986759752035e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.051529440155718476,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05031456152210012,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.050388945383019745,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4579931050539017e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04917877237312496,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05021000880515203,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4999608285725117e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04995285870973021,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registration-fresh-2-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+          "driver_sha256": "27722d6f398902cde19ab354c6adea947308a6856aa581537e13c69660e8b6be",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 2.582964953035116e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.051841927925124764,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.582964953035116e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05176108342129737,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05073538370197639,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.051018046448007226,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05082502937875688,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05091163900215179,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.5420449674129486e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05174539191648364,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.541986759752035e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05147432419471443,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05113090085797012,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "after",
+      "file": "registration-fresh-3-after.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+          "driver_sha256": "27722d6f398902cde19ab354c6adea947308a6856aa581537e13c69660e8b6be",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 2.583954483270645e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05224047147203237,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.582964953035116e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05166770750656724,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.541986759752035e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05148425087099895,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05113227223046124,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.0509515167796053,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.5410554371774197e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.051207005977630615,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.0508903989684768,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.050160961982328445,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.625049091875553e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05351454095216468,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    },
+    {
+      "label": "before",
+      "file": "registration-fresh-4-before.json",
+      "data": {
+        "environment": {
+          "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+          "platform": "macOS-27.2-arm64-arm-64bit",
+          "gc_enabled": true,
+          "asyncio_debug": false,
+          "gc_thresholds": [
+            700,
+            10,
+            10
+          ],
+          "source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+          "driver_sha256": "27722d6f398902cde19ab354c6adea947308a6856aa581537e13c69660e8b6be",
+          "logging": "ERROR",
+          "loop_lag_probe_interval_ms": 1
+        },
+        "scenarios": {
+          "registry/mutation": {
+            "rounds": [
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05058379890397191,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05053517024498433,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.540997229516506e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.051102208672091365,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05066451372113079,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4579931050539017e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04965110443299636,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4589826352894306e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.049868951784446836,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4170149117708206e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.04880596336442977,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.4589826352894306e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05092390486970544,
+                "retained_names": 8192
+              },
+              {
+                "seconds": 2.500019036233425e-06,
+                "operations": 1,
+                "timed_pairs": 20000,
+                "aggregate_seconds": 0.05131601489847526,
+                "retained_names": 8192
+              }
+            ]
+          }
+        },
+        "memory": {}
+      }
+    }
+  ],
+  "unpaired_scenarios": []
+}

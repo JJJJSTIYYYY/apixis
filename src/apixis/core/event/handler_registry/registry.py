@@ -264,8 +264,8 @@ class ApixHandlerRegistry:
         # Exact subscriptions identify their own cache keys.
         event_names = (
             self.cached_chain
-            if any(is_glob_pattern(pattern) for pattern in handler.subscribe)
-            else (name for name in handler.subscribe if name in self.cached_chain)
+            if any(is_glob_pattern(pattern) for pattern in handler._subscribe)
+            else (name for name in handler._subscribe if name in self.cached_chain)
         )
         need_delete = []
         for event_name in event_names:
@@ -286,7 +286,7 @@ class ApixHandlerRegistry:
             name for name in candidates
             if not any(
                 fnmatchcase(event_name, pattern)
-                for pattern in self.registry[name].filter_event
+                for pattern in self.registry[name]._filter_event
             )
         ]
         chain.sort(key=self._handler_order.__getitem__)
@@ -368,7 +368,7 @@ class ApixHandlerRegistry:
     def _index_handler_patterns(self, handler: ApixEventHandler) -> None:
         exact_names = []
         glob_patterns = []
-        for pattern in handler.subscribe:
+        for pattern in handler._subscribe:
             if is_glob_pattern(pattern):
                 glob_patterns.append(pattern)
             else:
@@ -412,12 +412,12 @@ class ApixHandlerRegistry:
         if handler_entry.on_cancelled is not None and not callable(handler_entry.on_cancelled):
             raise TypeError("Handler on_cancelled must be callable.")
         subscriptions = self._normalise_patterns(
-            handler_entry.subscribe,
+            handler_entry._subscribe,
             argument_name="subscribe",
         )
         filters = (
-            self._normalise_patterns(handler_entry.filter_event, argument_name="filter_event",)
-            if handler_entry.filter_event else []
+            self._normalise_patterns(handler_entry._filter_event, argument_name="filter_event",)
+            if handler_entry._filter_event else []
         )
         return subscriptions, filters
 
@@ -426,8 +426,8 @@ class ApixHandlerRegistry:
     ) -> None:
         """Remove the old registration and record its validated replacement."""
         self.unregister_handler(handler.name, missing_ok=True)
-        handler.subscribe = subscriptions
-        handler.filter_event = filters
+        handler._subscribe = tuple(subscriptions)
+        handler._filter_event = tuple(filters)
         self._add_handler_record(handler)
 
     def register_handler(
@@ -536,12 +536,12 @@ class ApixHandlerRegistry:
         event_names = self._event_registry.get_registered_events()
         return [
             subscription
-            for subscription in handler.subscribe
+            for subscription in handler._subscribe
             if not any(
                 fnmatchcase(event_name, subscription)
                 and not any(
                     fnmatchcase(event_name, pattern)
-                    for pattern in handler.filter_event
+                    for pattern in handler._filter_event
                 )
                 for event_name in event_names
             )

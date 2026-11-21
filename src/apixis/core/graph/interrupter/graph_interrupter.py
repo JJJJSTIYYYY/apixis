@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from typing import Any, Callable
 
+from apixis.core.event.base import suspend_process
 from apixis.core.graph.context.manager import get_graph_context
 from apixis.core.graph.context.graph_context import GraphContext
 from apixis.core.graph.utils.namespace import (
@@ -126,6 +127,9 @@ async def interrupt(
                             f"Graph namespace `{namespace}` emitted a Block that was neither "
                             "resolved nor accepted by its interruption handlers."
                         ))
+                if not block.done:
+                    async with suspend_process():
+                        return await block
                 return await block
         except TimeoutError:
             # A hook can fail the Block with its own TimeoutError.

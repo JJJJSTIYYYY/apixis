@@ -1,5 +1,11 @@
 """Public API for Apixis's event-driven graph execution module."""
 
+from apixis.core.utils.exception import (
+    GraphNodeError,
+    InvalidNodeReturnsError,
+    InvalidContextError,
+)
+
 from apixis.core.graph.base import (
     GRAPH_DISPATCH,
     GRAPH_INTERRUPTED,
@@ -51,6 +57,9 @@ from apixis.core.graph.utils import (
 )
 
 __all__ = [
+    "GraphNodeError",
+    "InvalidNodeReturnsError",
+    "InvalidContextError",
     "GRAPH_DISPATCH",
     "GRAPH_INTERRUPTED",
     "GLOBALNS",

@@ -51,7 +51,7 @@ def _make_handler_entry(
     )
     entry.id = f"id_{name}"
     entry.name = name
-    entry.subscribe = list(subscribe or ["test.event"])
+    entry._subscribe = tuple(subscribe or ["test.event"])
     entry.priority = priority
     entry._register_order = register_order
     return entry
@@ -77,6 +77,45 @@ def _make_event(event_name="test.event", accepted=False):
 class TestStartStop:
     """Tests for start() and stop() lifecycle."""
 
+    async def test_close_cancels_eager_dispatch_before_ownership_registration(self):
+        registry = ApixHandlerRegistry(get_event_registry())
+        pipe = ApixEventPipe()
+        event_loop = ApixEventLoop(registry, pipe, get_event_registry())
+        entered = asyncio.Event()
+        cleanup = AsyncMock()
+        closing = []
+
+        async def run(event):
+            pipe.close()
+            registry.close_admission()
+            closing.append(asyncio.create_task(event_loop.close()))
+            entered.set()
+            await asyncio.Future()
+
+        handler = _make_handler_entry(callback=run)
+        handler.on_cancelled = cleanup
+        registry.register_handler(handler)
+        loop = asyncio.get_running_loop()
+        original_factory = loop.get_task_factory()
+        loop.set_task_factory(asyncio.eager_task_factory)
+        try:
+            await event_loop.start()
+            await pipe.put(_make_event())
+            await entered.wait()
+            _, pending = await asyncio.wait(closing, timeout=1)
+            assert not pending
+            closing[0].result()
+            cleanup.assert_awaited_once()
+            assert not event_loop._dispatch_tasks
+            assert not event_loop.is_running
+            await pipe.join()
+        finally:
+            for task in event_loop._dispatch_tasks:
+                task.cancel()
+            await asyncio.gather(*closing, return_exceptions=True)
+            await event_loop.stop()
+            loop.set_task_factory(original_factory)
+
     @pytest.mark.asyncio
     async def test_start_creates_consumer_task(self):
         """start() should create a consumer asyncio.Task."""
@@ -87,8 +126,8 @@ class TestStartStop:
         with patch.object(
             handler, "_event_consumer_loop", AsyncMock()
         ) as mock_loop:
-            await handler.start()
-            assert handler._event_consumer_task is not None
+            task = await handler.start()
+            assert task is handler._event_consumer_task
             mock_loop.assert_called_once()
 
         await handler.stop()
@@ -100,12 +139,9 @@ class TestStartStop:
         _reset_registry(registry)
         handler = ApixEventLoop(registry, ApixEventPipe(), get_event_registry())
 
-        with patch.object(handler, "_event_consumer_loop", AsyncMock()):
-            await handler.start()
-            task1 = handler._event_consumer_task
-            await handler.start()
-            task2 = handler._event_consumer_task
-            assert task1 is task2
+        task1 = await handler.start()
+        task2 = await handler.start()
+        assert task1 is task2
 
         await handler.stop()
 

@@ -5,11 +5,19 @@ from enum import Enum
 
 
 class CoreState(str, Enum):
-    """Lifecycle state; CLOSING and CLOSED belong to the terminal close phase."""
+    """Explicit construction, startup, consumption, stop and close states.
+
+    STARTING creates the consumer task. STARTED records task creation while
+    startup scheduling is unconfirmed; RUNNING follows its first scheduling
+    turn. STOPPING waits for consumption to stop, without stopping handlers.
+    CLOSING and CLOSED permanently reject new event work.
+    """
 
     CREATED = "created"
     STARTING = "starting"
+    STARTED = "started"
     RUNNING = "running"
+    STOPPING = "stopping"
     STOPPED = "stopped"
     CLOSING = "closing"
     CLOSED = "closed"

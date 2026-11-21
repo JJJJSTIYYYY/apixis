@@ -1,0 +1,67 @@
+{
+  "baseline_commit": "f09f6381cae8d593fe83ca34e4be6f86efd809f2",
+  "baseline_source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+  "current_source_sha256_excluding_version": "15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c",
+  "runtime_unchanged_during_measurements": true,
+  "environment": {
+    "python": "3.12.12 (main, Oct 28 2025, 11:52:25) [Clang 20.1.4 ]",
+    "platform": "macOS-27.2-arm64-arm-64bit",
+    "gc_enabled": true,
+    "asyncio_debug": false,
+    "gc_thresholds": [
+      700,
+      10,
+      10
+    ],
+    "source_sha256_excluding_version": "337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9",
+    "driver_sha256": "21017640a859b8a549dd1a598e8a8285926bf7ba7d11020f90057231ee922249",
+    "logging": "ERROR",
+    "loop_lag_probe_interval_ms": 1
+  },
+  "worker_environment": {
+    "PYTHONASYNCIODEBUG": "unset",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0"
+  },
+  "parameters": {
+    "repeats": 7,
+    "count": 512,
+    "nodes": 16,
+    "events": 32768,
+    "registry_hot_queries": 1000000,
+    "registry_cold_queries": 100000,
+    "mixed_listeners": 64,
+    "mixed_events": 512
+  },
+  "series": {
+    "main": {
+      "scenarios": 25,
+      "repeats_per_worker": 7,
+      "samples_per_version": 14,
+      "driver_sha256": "21017640a859b8a549dd1a598e8a8285926bf7ba7d11020f90057231ee922249"
+    },
+    "recheck": {
+      "scenarios": 5,
+      "repeats_per_worker": 15,
+      "samples_per_version": 30,
+      "driver_sha256": "21017640a859b8a549dd1a598e8a8285926bf7ba7d11020f90057231ee922249"
+    },
+    "registration": {
+      "scenarios": 1,
+      "repeats_per_worker": 9,
+      "samples_per_version": 18,
+      "driver_sha256": "9ce80a962b0bf3af1b1bb86460f5605f1db6c5509f858b7581ed311f6fed4d2b"
+    },
+    "registration-fresh": {
+      "scenarios": 1,
+      "repeats_per_worker": 9,
+      "samples_per_version": 18,
+      "driver_sha256": "27722d6f398902cde19ab354c6adea947308a6856aa581537e13c69660e8b6be"
+    }
+  },
+  "cache_audit": {
+    "healthy_scenarios": 13,
+    "registration_checks": 2,
+    "defects": 0
+  }
+}

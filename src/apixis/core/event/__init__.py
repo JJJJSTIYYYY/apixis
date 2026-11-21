@@ -22,9 +22,6 @@ from apixis.core.utils.exception import (
     CoreClosedError,
     EventHandlerNotRegisteredError,
     EventHandlerAlreadyRegisteredError,
-    GraphNodeError,
-    InvalidNodeReturnsError,
-    InvalidContextError,
 )
 from apixis.core.event.handler_registry import (
     ApixHandlerRegistry,
@@ -88,9 +85,6 @@ __all__ = [
     "ApixEventPipe",
     "EventHandlerNotRegisteredError",
     "EventHandlerAlreadyRegisteredError",
-    "GraphNodeError",
-    "InvalidNodeReturnsError",
-    "InvalidContextError",
     "ApixHandlerRegistry",
     "get_unmatched_subscriptions",
     "post_event",

@@ -13,11 +13,11 @@ def matches_handler(handler: ApixEventHandler, event_name: str) -> bool:
     """Return whether a handler accepts one exact, case-sensitive event."""
     subscribed = any(
         fnmatchcase(event_name, pattern)
-        for pattern in handler.subscribe
+        for pattern in handler._subscribe
     )
     return subscribed and not any(
         fnmatchcase(event_name, pattern)
-        for pattern in handler.filter_event
+        for pattern in handler._filter_event
     )
 
 

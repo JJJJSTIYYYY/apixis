@@ -46,9 +46,9 @@ async def cleanup_event_runtime(event_runtime_capacity, monkeypatch):
 
 
 @pytest.fixture
-def event_runtime_capacity():
+def event_runtime_capacity(request):
     """Keep the configured capacity unless a benchmark requests a fresh core."""
-    return None
+    return getattr(request, "param", None)
 
 
 @pytest.fixture

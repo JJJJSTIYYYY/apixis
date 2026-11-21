@@ -9,31 +9,59 @@ event core 分为五个阶段：**create → start → running → stop → clos
 | 阶段 | 方法 | 状态 | 行为 |
 | --- | --- | --- | --- |
 | create | `create_core()` | `CoreState.CREATED` | 同步构造组件，不启动任务或消费事件 |
-| start | `await start_core()` | `CoreState.STARTING` | 启动已有组件的事件消费者，不创建组件 |
+| start | `await start_core()` | `CoreState.STARTING` → `CoreState.STARTED` | 创建消费者 Task，并等待首轮调度确认，不创建组件 |
 | running | 启动成功 | `CoreState.RUNNING` | 消费队列，安排前台链与后台 handler |
-| stop | `await stop_core()` | `CoreState.STOPPED` | 只停止队列消费，允许再次 start |
+| stop | `await stop_core()` | `CoreState.STOPPING` → `CoreState.STOPPED` | 只停止队列消费，等待消费者退出后允许再次 start |
 | close | `await close_core()` | `CoreState.CLOSING` → `CoreState.CLOSED` | 永久禁入、取消、通知、汇合并释放注册 |
 
-关闭是异步清理，因此 close 阶段区分进行中和已完成。core 只用一个状态枚举表示生命周期，不另设 started/stopped/closing 布尔组合；同一把生命周期锁串行协调启动、停止和最终清理。并发 close 共享一次清理任务。
+生命周期使用八个状态：CREATED、STARTING、STARTED、RUNNING、STOPPING、STOPPED、CLOSING、CLOSED。STARTING 表示正在创建消费者 Task；STARTED 表示 Task 已创建、尚未完成首轮调度确认；RUNNING 表示消费者已获得首轮调度，允许正常等待队列或派发许可。eager 调度下消费者可能在 STARTED 之前就开始执行，因此 STARTED 不承诺协程尚未运行。STOPPING 表示已请求停止、正在等待消费者退出。
+
+core 只用一个状态枚举表示生命周期，不另设 started/stopped/closing 布尔组合。启动、停止和关闭各自记录一个共享操作 Task；调用者使用 shield 等待同一操作，取消某个调用者只取消其等待，不取消共享操作。不再使用生命周期锁。
+
+操作的等待关系是单向的：STOPPING 期间的新 start 先等待停止完成，再发起或加入下一次启动；停止 Task 等待已有启动 Task 收尾；关闭 Task 依次等待已有启动和停止 Task 收尾，再执行终态清理。已创建的启动 Task 不反过来等待停止或关闭 Task。
 
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED: create_core
     CREATED --> STARTING: start_core
-    CREATED --> STOPPED: stop_core
-    STARTING --> RUNNING: startup succeeds
-    STARTING --> STOPPED: startup fails or is cancelled
-    RUNNING --> STOPPED: stop_core / consumer exits
+    CREATED --> STOPPING: stop_core
+    STARTING --> STARTED: consumer task created
+    STARTED --> RUNNING: first scheduling turn confirmed
+    STARTING --> STOPPED: startup fails and consumer is stopped
+    STARTING --> STOPPING: stop_core
+    STARTED --> STOPPING: stop_core
+    STARTED --> STOPPED: consumer exits during startup
+    RUNNING --> STOPPING: stop_core
+    RUNNING --> STOPPED: consumer exits
+    STOPPING --> STOPPED: consumer stopped
     STOPPED --> STARTING: start_core
     CREATED --> CLOSING: close_core
     STARTING --> CLOSING: close_core
+    STARTED --> CLOSING: close_core
     RUNNING --> CLOSING: close_core
+    STOPPING --> CLOSING: close_core
     STOPPED --> CLOSING: close_core
     CLOSING --> CLOSED: notifications and cleanup finish
     CLOSED --> [*]
 ```
 
-重复 create 返回尚未关闭的同一实例；重复 start/stop 不重复创建消费者。未创建时 start 和 getter 抛出 `RuntimeError`，stop/close 直接返回。启动失败保留组件，允许重试。
+重复 create 返回尚未关闭的同一实例；重复 start/stop 不重复创建消费者。start 在生命周期操作中同时核对消费者是否存活，避免完成回调尚未执行时忽略显式重启。未创建时 start 和 getter 抛出 `RuntimeError`，stop/close 直接返回。启动失败保留组件，允许重试。
+
+启动失败后的消费者清理、停止操作，均在操作 Task 退出前收尾状态。消费者停止后，即使停止日志回调抛出异常，也进入 STOPPED，允许后续显式 start；异常仍向调用者传播。若期间已有关闭请求，保留 CLOSING，由关闭 Task 继续清理。
+
+`ApixEventLoop.start()` 返回当前消费者 Task，只负责消费者的创建、回收和错误记录。core 自行监听该 Task 的完成并维护 `CoreState`；消费者意外退出后进入 STOPPED，必须显式 start 才恢复。event loop 不提供 core 专用回调，也不直接修改 core 的状态。
+
+### 操作完成回调
+
+`core.add_close_task_done_callback(callback)` 添加同步回调，参数为已完成的原生关闭 Task，按添加顺序调用。注册可以发生在关闭前或 CLOSING 期间；关闭成功和失败都会通知，重复注册会重复调用。若 CLOSING 中的 Task 已失败，新增回调按 `call_soon` 调度。注册本身不触发关闭；重复 close 不重复通知。
+
+```python
+core.add_close_task_done_callback(lambda task: print("closure completed", task))
+```
+
+回调返回值忽略，回调异常交给 asyncio 的异常处理器，不中断其他回调。`remove_close_task_done_callback(callback)` 移除该回调的全部注册并返回移除数量；已安排的回调遵循原生 Task 的取消注册语义。CLOSED 后不可新增回调，仍可移除；成功关闭时清空回调注册以释放引用。启动和停止不提供完成回调接口。
+
+graph 注册关闭完成回调，在关闭 Task 结束后取消自己管理的剩余 invocation completion。普通 start/stop 不触发该回调，也不取消图调用；关闭不再仅为通知而额外创建停止 Task。graph 分解时注销该回调，event core 不识别 graph 类型。
 
 关闭后 start 抛出 `CoreClosedError`。只有等待 close 完成后，显式再次 create 才会构造新实例；关闭过程中 create 抛出 `RuntimeError`。旧组件引用永久关闭，不会随新 core 重开。
 
@@ -65,15 +93,17 @@ stop 只停止事件队列的消费：
 ## close 的取消顺序
 
 1. 状态立即进入 CLOSING；底层管道永久拒绝 `put()`、`put_nowait()`、`post_event()`，唤醒满队列上的发布者并抛出 `CoreClosedError`。handler registry 同时停止接受新注册。
-2. 立即向消费者、前台派发与后台 handler 任务发出取消请求。已运行任务沿协程内既有的取消路径执行清理；尚未进入协程的任务只回收资源，不补发取消通知。
+2. 创建共享关闭 Task。该 Task 先等待已有启动、停止 Task 收尾，启动失败不会中断关闭；启动和停止流程不得覆盖 CLOSING 状态。随后向消费者、前台派发与后台 handler 任务发出取消请求。已运行任务沿协程内既有的取消路径执行清理；尚未进入协程的任务只回收资源，不补发取消通知。
 3. 停止消费者后，直接清空事件队列。`_pending_dispatch` 虽已出队，但还未派发，单独丢弃并调用一次 `task_done()`。两者都不查询 handler、不执行业务或 `on_cancelled`，不增加事件分类或状态标记。
 4. 在途任务沿既有 `on_cancelled` 通知清理。实际事件的等待监听通过 `_cancel()` 保留 predicate 和请求关联，匹配后完成为 `None`。
 5. 遍历 `_waiter_cache` 显式记录的 waiter，对 `active=True` 的实例调用 `finish()`，直接执行 `_future.set_result(None)` 和 `close()`；不构造事件、不调用等待监听回调、不执行 predicate。此步骤在汇合所有业务清理之前完成，避免清理代码等待事件而阻塞 core 关闭。
-6. 汇合前台和后台任务，释放许可；最后清理注册与事件名，进入 CLOSED。关闭流程不创建单独的取消通知任务。
+6. 汇合前台和后台任务，释放许可；最后清理注册与事件名，进入 CLOSED。关闭 Task 完成后，按注册顺序调度完成回调，由 graph 等上层结束自己管理的剩余等待。关闭流程不创建单独的取消通知任务。
+
+消费者已有的运行异常统一由消费者 Task 完成回调记录，stop/close 不重新抛出该异常，也不返回异常对象。关闭 Task 完成全部组件清理后才进入 CLOSED。清理自身失败则保留 CLOSING，异常由共享关闭 Task 正常传播；重复关闭会等待同一个 Task，不隐式重试。成功进入 CLOSED 后，重复 close 直接返回。
 
 取消过程中 handler 即使吞掉取消或改抛其他异常，也不会继续执行后续业务 core 或业务 on_error；异常仍记录，清理由独立的 on_cancelled 完成。
 
-取消回调保持既有 `notify_cancelled()` 语义：异常（包括回调自行抛出的 `CancelledError`）只记录，不阻止其他通知。事件循环沿用每个取消回调 5 秒的通知上限。close 立即发出取消请求，返回则表示拥有的任务与通知已经清理完成。
+取消回调保持既有 `notify_cancelled()` 语义：异常（包括回调自行抛出的 `CancelledError`）只记录，不阻止其他通知。事件循环沿用每个取消回调 5 秒的通知上限。close 入口立即封闭准入，关闭 Task 在已有操作收尾后发出取消请求；返回表示拥有的任务与通知已经清理完成，core 释放操作 Task 的引用。
 
 调用方取消等待 close 的协程，不会中止共享清理。取消回调再次调用 close 时不等待自身；在 handler 中请求 close 的执行任务本身也会被取消。
 
@@ -94,6 +124,8 @@ stop 只停止事件队列的消费：
 `close()` 直接调用 `_future.cancel()`；注册 handler 时，`on_cancelled` 统一指向 `_cancel()`。原有 `_resolve()` 保持不变，负责正常结果的期限检查、predicate 和聚合。若等待任务本身被取消，asyncio 仍正常向其等待的 Future 传播取消。已经完成、超时或取消的 Future 不被关闭流程改写；尚未执行的超时回调会由先到达的直接完成操作清理。
 
 实际事件取消后，handler 的清理回调仍收到 `cancelled=True` 的原事件；waiter 的 `_cancel()` 使用 predicate 隔离并发同名请求，但匹配后只向等待方返回 `None`。取消一个请求不会提前完成其他同名请求的等待。
+
+`event.cancelled` 由事件循环在取消前台执行时设置。单个后台 handler 的取消只通知该 handler，不改变共享事件的取消状态；关闭时取消一个晚于前台完成的后台任务，也不会把已经完成的事件改成 cancelled。
 
 匹配事件尚未产生时，core 直接完成对应 waiter 的 Future，不存在合成事件、空 event_id 或特殊载荷约定。即使多 pattern 收集已经收到部分事件，关闭后的整个结果也是 `None`；已正常完成的收集仍保留原结果。
 

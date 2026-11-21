@@ -41,7 +41,8 @@ async def start_core() -> None:
     """Start or resume consumption using the explicitly created shared core.
 
     Never construct components or replace existing registrations. Repeated
-    calls share the lifecycle lock and do not duplicate the consumer. Returns
+    calls share the startup task and do not duplicate the consumer. Cancelling
+    a caller only cancels its wait. Returns
     after consumer startup, without waiting for event processing.
 
     Raises:
@@ -56,6 +57,8 @@ async def stop_core() -> None:
     """Stop queue consumption only, leaving admission and scheduled chains intact.
 
     Safe before creation and on repeated calls. Resume using start_core().
+    Concurrent callers share the stop operation; cancelling a caller's wait
+    does not cancel that operation.
     """
     if _core is not None:
         await _core.stop_core()
@@ -64,7 +67,7 @@ async def stop_core() -> None:
 async def close_core() -> None:
     """Cancel and close the shared core, including every active event waiter.
 
-    Seal the pipe and registration before cancelling foreground/background
+    Seal the pipe and registration, join startup/stop, then cancel foreground/background
     tasks. Running handler chains deliver on_cancelled; queued and pending
     events are discarded directly. Complete remaining event waiters before
     joining cleanup, so cleanup can itself await events.

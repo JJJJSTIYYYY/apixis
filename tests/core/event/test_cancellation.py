@@ -7,7 +7,9 @@ import pytest
 
 from apixis.core.event import ApixEventPipe, get_event_registry
 
-from apixis.core.event import ApixEvent, ApixEventHandler, EventType
+from apixis.core.event import (
+    ApixEvent, ApixEventHandler, EventType, close_core, post_and_wait, subscribe,
+)
 from apixis.core.event.event_loop import ApixEventLoop
 from apixis.core.event.handler_registry import ApixHandlerRegistry
 
@@ -27,7 +29,7 @@ def register(registry, name, core_func, **kwargs):
     """Register a handler through the public registry contract."""
     handler = ApixEventHandler(core_func, **kwargs)
     handler.name = name
-    handler.subscribe = ["cancel.test"]
+    handler._subscribe = ('cancel.test',)
     handler.priority = 1
     registry.register_handler(handler)
     return handler
@@ -48,6 +50,7 @@ async def test_cancelled_phase_notifies_entire_foreground_chain(phase, stop_when
 
     def cleanup(name):
         async def on_cancelled(event):
+            assert event.cancelled
             notified.append(name)
         return on_cancelled
 
@@ -93,6 +96,78 @@ async def test_cancelled_phase_notifies_entire_foreground_chain(phase, stop_when
     assert error.phase == phase
     assert error.message == "original cancellation"
     assert event.seen == (["before", "current"] if phase in ("core_func", "on_error") else ["before"])
+
+
+@pytest.mark.parametrize("cause", ["raise", "external"])
+async def test_background_cancellation_preserves_successful_foreground_event(
+    cleanup_event_runtime, cause,
+):
+    entered, cleaned = asyncio.Event(), asyncio.Event()
+    background_task = None
+    cancellation_states = []
+
+    async def background(event):
+        nonlocal background_task
+        background_task = asyncio.current_task()
+        entered.set()
+        if cause == "raise":
+            raise asyncio.CancelledError()
+        await asyncio.Future()
+
+    async def cleanup(event):
+        cancellation_states.append(event.cancelled)
+        cleaned.set()
+
+    subscribe("cancel.background", priority=10)(
+        ApixEventHandler(background, background=True, on_cancelled=cleanup)
+    )
+
+    @subscribe("cancel.background")
+    async def foreground(event):
+        await entered.wait()
+        if cause == "external":
+            background_task.cancel()
+        await cleaned.wait()
+        event.context = "foreground completed"
+
+    async with asyncio.timeout(1):
+        event = await post_and_wait(event_name="cancel.background")
+        await asyncio.gather(background_task, return_exceptions=True)
+
+    assert event is not None
+    assert event.context == "foreground completed"
+    assert not event.cancelled
+    assert not event.has_error
+    assert cancellation_states == [False]
+
+
+async def test_close_of_late_background_task_preserves_completed_event(cleanup_event_runtime):
+    entered = asyncio.Event()
+    cancellation_states = []
+
+    async def background(event):
+        entered.set()
+        await asyncio.Future()
+
+    async def cleanup(event):
+        cancellation_states.append(event.cancelled)
+
+    subscribe("cancel.completed", priority=10)(
+        ApixEventHandler(background, background=True, on_cancelled=cleanup)
+    )
+
+    @subscribe("cancel.completed")
+    async def foreground(event):
+        await entered.wait()
+
+    async with asyncio.timeout(1):
+        event = await post_and_wait(event_name="cancel.completed")
+        assert event is not None
+        assert not event.cancelled
+        await close_core()
+
+    assert not event.cancelled
+    assert cancellation_states == [False]
 
 
 @pytest.mark.parametrize("failure", ["error", "timeout", "cancel"])

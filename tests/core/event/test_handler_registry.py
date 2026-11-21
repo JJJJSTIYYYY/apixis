@@ -19,6 +19,7 @@ from apixis.core.event.subscription import (
     unsubscribe,
     get_unmatched_subscriptions,
     subscribe,
+    get_handler_meta,
 )
 from apixis.core.utils.exception import (
     EventHandlerAlreadyRegisteredError,
@@ -40,8 +41,8 @@ def make_entry(
     entry = ApixEventHandler(AsyncMock() if callback is None else callback)
     entry.name = name
     entry._register_order = 0
-    entry.subscribe = ["event.*"] if subscribe_patterns is None else subscribe_patterns
-    entry.filter_event = [] if filter_event is None else filter_event
+    entry._subscribe = tuple(["event.*"] if subscribe_patterns is None else subscribe_patterns)
+    entry._filter_event = tuple([] if filter_event is None else filter_event)
     entry.priority = priority
     entry.between_handlers = between_handlers
     return entry
@@ -73,7 +74,7 @@ async def test_instance_registration_routes_patterns_and_unregisters_all_subscri
     handler = make_entry("instance", callback=core)
     assert handler.register("Build.*", "ready", "Build.*", filter_event=["Build.private.*"]) is handler
     assert get_handler_registry().get_handler(handler.name) is handler
-    assert handler.subscribe == ["Build.*", "ready"]
+    assert handler._subscribe == ('Build.*', 'ready')
 
     for name in ("Build.done", "ready", "Build.private.done", "build.done"):
         await pipe.post_event(event_type=EventType.INFO, event_name=name)
@@ -102,7 +103,7 @@ def test_instance_reregistration_replaces_patterns_filters_and_ordering():
     middle.register("other.*")
     assert middle.priority == 1
     assert middle.between_handlers is None
-    assert middle.filter_event == []
+    assert middle._filter_event == ()
     assert get_handler_registry().get_handlers_chain_for_event("event.one") == ["first", "last"]
     assert get_handler_registry().get_handlers_chain_for_event("other.one") == ["middle"]
 
@@ -122,7 +123,7 @@ def test_failed_instance_registration_preserves_existing_settings(patterns, opti
     with pytest.raises(error):
         handler.register(*patterns, **options)
     assert get_handler_registry().get_handler(handler.name) is handler
-    assert handler.subscribe == ["old.*"]
+    assert handler._subscribe == ('old.*',)
     assert (handler.priority, handler.time_out, handler.background) == (10, 5, False)
     assert get_handler_registry().get_handlers_chain_for_event("old.one") == ["instance"]
     assert get_handler_registry().get_handlers_chain_for_event("new.one") == []
@@ -144,9 +145,34 @@ def test_instance_reregistration_preserves_execution_options():
     assert handler.stop_when_error is False
     assert handler.time_out == 2
     assert handler.background is True
-    assert handler.subscribe == ["new.*"]
-    assert handler.filter_event == ["new.skip"]
+    assert handler._subscribe == ('new.*',)
+    assert handler._filter_event == ('new.skip',)
     assert handler.priority == 1
+
+
+def test_matching_configuration_is_private_and_public_reregistration_is_isolated():
+    registry = get_handler_registry()
+    handler = ApixEventHandler(AsyncMock(), name="worker").register("old.*")
+    assert registry.get_handlers_chain_for_event("old.one") == ["worker"]
+    assert not hasattr(handler, "subscribe")
+    assert not hasattr(handler, "filter_event")
+
+    filters = ["new.skip"]
+    handler.register("new.*", filter_event=filters)
+    filters.clear()
+    metadata = get_handler_meta("worker")
+    metadata["subscribe"].append("old.*")
+    metadata["filter_event"].clear()
+
+    assert get_handler_meta("worker")["subscribe"] == ["new.*"]
+    assert get_handler_meta("worker")["filter_event"] == ["new.skip"]
+    assert registry.get_handlers_chain_for_event("old.one") == []
+    assert registry.get_handlers_chain_for_event("new.one") == ["worker"]
+    assert registry.get_handlers_chain_for_event("new.skip") == []
+    handler.unregister()
+    assert registry.get_handlers_for_event("old.one") == []
+    assert registry.get_handlers_for_event("new.one") == []
+    assert registry.get_handlers_for_event("new.skip") == []
 
 
 def test_instance_replacement_and_unregistration_use_handler_name():
@@ -482,8 +508,8 @@ def test_global_subscribe_builds_full_handler_metadata():
 
     entry = get_handler_registry().get_handler("handler")
     assert entry is not None
-    assert entry.subscribe == ["event.*"]
-    assert entry.filter_event == ["event.skip"]
+    assert entry._subscribe == ('event.*',)
+    assert entry._filter_event == ('event.skip',)
     assert entry.priority == 2.5
     assert entry.stop_when_error is False
     assert entry.time_out is None
@@ -645,7 +671,7 @@ def test_failed_instance_replacement_preserves_registration_and_cache(options):
     entry.name = "handler"
     subscribe("event.*", priority=5)(entry)
     metadata_fields = (
-        "subscribe", "filter_event", "priority", "between_handlers",
+        "_subscribe", "_filter_event", "priority", "between_handlers",
         "background", "stop_when_error", "time_out",
     )
     old_metadata = {name: deepcopy(getattr(entry, name)) for name in metadata_fields}
