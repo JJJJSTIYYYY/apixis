@@ -604,3 +604,47 @@ async def test_close_cannot_resume_business_after_cancellation_is_transformed(
     error_handler.assert_not_awaited()
     tail.assert_not_awaited()
     assert cleanup_event_runtime.state is CoreState.CLOSED
+
+
+@pytest.mark.parametrize("background", [False, True])
+@pytest.mark.parametrize("accepted", [False, True])
+async def test_close_stops_handler_phases_after_upstream_hook_swallows_cancellation(
+    cleanup_event_runtime, background, accepted,
+):
+    entered = asyncio.Event()
+    core_callback = AsyncMock()
+    accepted_callback = AsyncMock()
+    error_callback = AsyncMock()
+    cleanup = AsyncMock()
+
+    @subscribe("cancel.upstream", priority=2)
+    async def upstream(event):
+        raise ValueError("upstream failure")
+
+    async def on_has_error(event):
+        if accepted:
+            event.accept()
+        entered.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            pass
+
+    subscribe(
+        "cancel.upstream", name="downstream", priority=1,
+        background=background, stop_when_error=False,
+        on_has_error=on_has_error, on_accepted=accepted_callback,
+        on_error=error_callback, on_cancelled=cleanup,
+    )(core_callback)
+
+    await post_event(event_name="cancel.upstream")
+    await asyncio.wait_for(entered.wait(), 1)
+    await asyncio.wait_for(close_core(), 1)
+
+    core_callback.assert_not_awaited()
+    accepted_callback.assert_not_awaited()
+    error_callback.assert_not_awaited()
+    cleanup.assert_awaited_once()
+    event = cleanup.call_args.args[0]
+    assert "downstream" not in event.seen
+    assert cleanup_event_runtime.state is CoreState.CLOSED

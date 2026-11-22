@@ -1,12 +1,12 @@
 # 2026-11-21 生命周期重构性能复测
 
-相对最近提交 `f09f638`，当前工作区存在明确的生命周期操作耗时增加：独立复测中，start/stop 每轮约 39.35 → 156.85 微秒，创建加关闭约 44.04 → 53.95 微秒。常规事件发布、请求响应和 handler 热/冷查询的主对照变化均在约 ±1% 内。固定状态图、注册/注销存在约 1.5%–1.6% 的小幅耗时增加。
+相对 `f09f638`，本报告冻结的 after 快照存在明确的生命周期操作耗时增加：独立复测中，start/stop 每轮约 39.35 → 156.85 微秒，创建加关闭约 44.04 → 53.95 微秒。常规事件发布、请求响应和 handler 热/冷查询的主对照变化均在约 ±1% 内。固定状态图、注册/注销存在约 1.5%–1.6% 的小幅耗时增加。
 
-本次比较覆盖该提交之后全部未提交的运行时改动，不能把差值仅归于最近两处冗余清理。本轮只修改基准工具、保存测量报告，没有修改运行时代码。
+after 是 2026-11-21 测量时冻结的运行时，其源码指纹与后续提交 `a93d34e` 一致（排除 `_version.py`），不是最新工作区。比较包含相对基线的全部运行时差异，不能把差值仅归于两处冗余清理。测量过程中只修改基准工具、保存报告，未修改被测运行时。
 
 ## 测量方式
 
-- 基线从 `git archive f09f638 src` 提取；工作区源码单独复制并冻结。每组都使用同一驱动，按 before → after → after → before 串行运行四个独立进程，各组依次执行。
+- 基线从 `git archive f09f638 src` 提取；当时 after 源码单独复制并冻结。每组都使用同一驱动，按 before → after → after → before 串行运行四个独立进程，各组依次执行。
 - Python 3.12.12，macOS arm64，asyncio debug 关闭，GC 开启且阈值为 `[700,10,10]`，`PYTHONHASHSEED=0`。不固定 CPU 核心。
 - 主对照 25 项，每个 worker 先预热一轮再测七轮，每版 14 个样本；五项独立复测每个 worker 测 15 轮，每版 30 个样本。注册/注销两组放大复测各为九轮，每版 18 个样本。
 - graph、事件、混合监听及生命周期每个正式测量轮次之前调用 `gc.collect()`；registry/getter 在预热后连续采样。
@@ -84,25 +84,69 @@ Python 内存峰值基本一致：大快照约 27.46 MiB、无快照约 3.19 MiB
 
 - 缓存审计：13 个正常场景、两项受控重注册检查通过，缺陷数为零。
 - 所有 performance worker 的结果、容量、缓存及清理断言均通过。测量期间两版源码与共同驱动指纹保持不变。
-- [25 项主对照与全部 worker 样本](./data/2026-11-21-lifecycle-recheck/main.json)
-- [五项独立复测](./data/2026-11-21-lifecycle-recheck/recheck.json)
-- [复用实例注册/注销](./data/2026-11-21-lifecycle-recheck/registration.json)、[新对象逐对计时](./data/2026-11-21-lifecycle-recheck/registration-fresh.json)
-- [缓存审计](./data/2026-11-21-lifecycle-recheck/cache-audit.json)、[环境与指纹](./data/2026-11-21-lifecycle-recheck/validation.json)
-- [共同驱动](./data/2026-11-21-lifecycle-recheck/driver.py)、[复用实例驱动](./data/2026-11-21-lifecycle-recheck/registration_probe.py)、[新对象驱动](./data/2026-11-21-lifecycle-recheck/registration_fresh_probe.py)
-- [运行时相对基线的完整补丁](./data/2026-11-21-lifecycle-recheck/runtime.patch)、[文件校验](./data/2026-11-21-lifecycle-recheck/manifest.json)
+- [25 项主对照与全部 worker 样本](data/2026-11-21-lifecycle-recheck/main.json)
+- [五项独立复测](data/2026-11-21-lifecycle-recheck/recheck.json)
+- [复用实例注册/注销](data/2026-11-21-lifecycle-recheck/registration.json)、[新对象逐对计时](data/2026-11-21-lifecycle-recheck/registration-fresh.json)
+- [缓存审计](data/2026-11-21-lifecycle-recheck/cache-audit.json)、[环境与指纹](data/2026-11-21-lifecycle-recheck/validation.json)
+- [共同驱动](data/2026-11-21-lifecycle-recheck/driver.py)、[复用实例驱动](data/2026-11-21-lifecycle-recheck/registration_probe.py)、[新对象驱动](data/2026-11-21-lifecycle-recheck/registration_fresh_probe.py)
+- [运行时相对基线的完整补丁](data/2026-11-21-lifecycle-recheck/runtime.patch)、[文件校验](data/2026-11-21-lifecycle-recheck/manifest.json)
 
 ## 复现
 
-从 Git 提取基线 src，使用当前工作区或应用 runtime.patch 后的源码作为 after。以下命令在仓库根目录执行；复现归档驱动时，将它放入 after 树的 scripts/benchmark_runtime.py，使其相邻的 src 为被测 after。两个注册驱动同样放在该 scripts 目录。
+以下命令在仓库根目录执行，先从 `f09f638` 和归档补丁重建两版源码，再将三个归档驱动放在 after 树的 `scripts/` 中。比较入口根据驱动相邻的 `src/` 选择 after，因此不能直接在归档数据目录启动配对比较，也不能用当前 `scripts/benchmark_runtime.py` 替代归档驱动。
 
 ```bash
-env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 .venv/bin/python scripts/benchmark_runtime.py \
-  --baseline-source /tmp/apixis-before/src --output /tmp/apixis-main.json \
+apixis_perf_root=$(mktemp -d /tmp/apixis-lifecycle-perf.XXXXXX)
+mkdir -p "$apixis_perf_root/before" "$apixis_perf_root/after/scripts"
+git archive f09f638 src | tar -x -C "$apixis_perf_root/before"
+git archive f09f638 src | tar -x -C "$apixis_perf_root/after"
+git -C "$apixis_perf_root/after" apply \
+  "$PWD/docs/testing/performance/data/2026-11-21-lifecycle-recheck/runtime.patch"
+cp docs/testing/performance/data/2026-11-21-lifecycle-recheck/driver.py \
+  "$apixis_perf_root/after/scripts/benchmark_runtime.py"
+cp docs/testing/performance/data/2026-11-21-lifecycle-recheck/registration_probe.py \
+  "$apixis_perf_root/after/scripts/registration_probe.py"
+cp docs/testing/performance/data/2026-11-21-lifecycle-recheck/registration_fresh_probe.py \
+  "$apixis_perf_root/after/scripts/registration_fresh_probe.py"
+
+env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 \
+  .venv/bin/python "$apixis_perf_root/after/scripts/benchmark_runtime.py" \
+  --baseline-source "$apixis_perf_root/before/src" \
+  --output "$apixis_perf_root/main.json" \
   --repeats 7 --count 512 --nodes 16 --events 32768 \
   --registry-hot-queries 1000000 --registry-cold-queries 100000 \
   --mixed-listeners 64 --mixed-events 512
 ```
 
-独立复测使用相同参数、repeats=15，选择 `state/fixed-small`、`sleep/capacity-512`、`lifecycle/start-stop`、`lifecycle/create-close`、`lifecycle/close-waiters`。两项注册驱动均使用 repeats=9、`--scenario registry/mutation`。原始进程阶段文件的完整内容已内嵌各 comparison JSON，无需单独保留同内容的 worker 文件。
+重建 after 的运行时指纹应为 `15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c`，before 应为 `337c7d0d800df33aaeb76b45de1a760d7111c230b0c7f4f148c019ad9cca16f9`。算法按相对 `src/` 的文件名排序，对每个 Python 文件的相对路径和内容依次更新 SHA-256，跳过 `_version.py`；worker 的 `environment` 会记录同一指纹及驱动指纹。也可用 `git archive a93d34e src` 提取等价 after，仍须使用本报告的归档驱动。
 
-[性能说明](./README.md) · [生命周期契约](../core/runtime-lifecycle.md)
+在同一 shell 继续运行独立复测和注册负载，逐组串行执行：
+
+```bash
+env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 \
+  .venv/bin/python "$apixis_perf_root/after/scripts/benchmark_runtime.py" \
+  --baseline-source "$apixis_perf_root/before/src" \
+  --output "$apixis_perf_root/recheck.json" \
+  --repeats 15 --count 512 --nodes 16 --events 32768 \
+  --registry-hot-queries 1000000 --registry-cold-queries 100000 \
+  --mixed-listeners 64 --mixed-events 512 \
+  --scenario state/fixed-small --scenario sleep/capacity-512 \
+  --scenario lifecycle/start-stop --scenario lifecycle/create-close \
+  --scenario lifecycle/close-waiters
+
+env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 \
+  .venv/bin/python "$apixis_perf_root/after/scripts/registration_probe.py" \
+  --baseline-source "$apixis_perf_root/before/src" \
+  --output "$apixis_perf_root/registration.json" \
+  --repeats 9 --scenario registry/mutation
+
+env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 \
+  .venv/bin/python "$apixis_perf_root/after/scripts/registration_fresh_probe.py" \
+  --baseline-source "$apixis_perf_root/before/src" \
+  --output "$apixis_perf_root/registration-fresh.json" \
+  --repeats 9 --scenario registry/mutation
+```
+
+每个比较 JSON 内嵌四个 worker 的完整样本。新测量应单独保存并比较源码与驱动指纹，不能期待不同机器、Python 或系统负载下复现同一耗时数值。
+
+[性能说明](./README.md) · [生命周期设计](../../development/runtime-lifecycle.md)

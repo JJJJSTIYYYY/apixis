@@ -14,7 +14,7 @@
 
 [源码](https://github.com/JJJJSTIYYYY/Apixis) ·
 [问题](https://github.com/JJJJSTIYYYY/Apixis/issues) ·
-[API 参考](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md) ·
+[文档](docs/README.md) ·
 [示例](https://github.com/JJJJSTIYYYY/apixis-example)
 
 </div>
@@ -92,11 +92,12 @@ asyncio.run(master())
 
 ## 文档
 
-- [API 参考](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
-- [事件 API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/event/README.md)
-- [图 API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/README.md)
-- [状态与命令](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/state.md)
-- [工具与异常](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/utils/README.md)
+- [文档](docs/README.md)
+- [事件 API](docs/usage/event/README.md)
+- [图 API](docs/usage/graph/README.md)
+- [状态与命令](docs/usage/graph/state.md)
+- [工具与异常](docs/usage/utils/README.md)
+- [开发设计](docs/development/README.md) · [测试与复现](docs/testing/README.md) · [审查与修复](docs/audits/README.md)
 - **[使用示例](https://github.com/JJJJSTIYYYY/apixis-example)**
 
 ## 许可证
@@ -123,7 +124,7 @@ Event-driven graph orchestration for Python asyncio applications.
 
 [Source](https://github.com/JJJJSTIYYYY/Apixis) ·
 [Issues](https://github.com/JJJJSTIYYYY/Apixis/issues) ·
-[API Reference](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md) ·
+[Documentation](docs/README.md) ·
 [Example](https://github.com/JJJJSTIYYYY/apixis-example)
 
 </div>
@@ -195,11 +196,12 @@ asyncio.run(master())
 
 ## Documentation
 
-- [API reference](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/README.md)
-- [Event API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/event/README.md)
-- [Graph API](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/README.md)
-- [State and commands](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/graph/state.md)
-- [Utilities and exceptions](https://github.com/JJJJSTIYYYY/Apixis/blob/master/docs/core/utils/README.md)
+- [Usage guide](docs/usage/README.md)
+- [Event API](docs/usage/event/README.md)
+- [Graph API](docs/usage/graph/README.md)
+- [State and commands](docs/usage/graph/state.md)
+- [Utilities and exceptions](docs/usage/utils/README.md)
+- [Development design](docs/development/README.md) · [Tests and reproduction](docs/testing/README.md) · [Reviews and fixes](docs/audits/README.md)
 - **[Example](https://github.com/JJJJSTIYYYY/apixis-example)**
 
 ## License

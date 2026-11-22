@@ -12,4 +12,4 @@ python -m pytest
 python -m build
 ```
 
-See [README](../README.md) and [the API documentation](../docs/core/README.md).
+See [README](../README.md) and [the development design](../docs/development/README.md).

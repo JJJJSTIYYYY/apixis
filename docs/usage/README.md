@@ -1,10 +1,12 @@
-# 接口概览
+# 使用文档
 
-推荐应用代码直接从 `apixis` 导入接口。`apixis.core` 提供相同的核心接口；顶层还提供 `VERSION` 和 `__version__` 供查询版本。
+先阅读[快速开始](quickstart.md)和[生命周期](lifecycle.md)，再按任务查阅下面的接口。推荐应用代码直接从 `apixis` 导入接口。`apixis.core` 提供相同的核心接口；顶层还提供 `VERSION` 和 `__version__` 供查询版本。
 
 ```python
 from apixis import GraphManager, EventType, subscribe, __version__
 ```
+
+快速开始的完整示例可以直接保存为 Python 文件运行。接口页的短片段省略应用入口与资源清理，含 `await` 的片段应放入异步函数；发布、订阅和构图前先创建 core，需要消费事件时显式启动，退出时等待关闭。
 
 ## 事件系统
 
@@ -22,7 +24,7 @@ from apixis import GraphManager, EventType, subscribe, __version__
 | `wait_event()`、`expect_event()` | 等待外部事件，或先注册监听再运行上下文主体 |
 | `get_event_runtime_status()` | 查询不可变运行状态，不触发启动 |
 
-详见[五阶段生命周期](./runtime-lifecycle.md)、[事件 API](./event/README.md)、[处理器](./event/handlers.md)和[事件队列](./event/channels.md)。
+详见[生命周期](lifecycle.md)、[事件 API](./event/README.md)、[处理器](./event/handlers.md)和[事件队列](./event/channels.md)。
 
 ## 图执行
 
@@ -48,13 +50,6 @@ from apixis import GraphManager, EventType, subscribe, __version__
 
 应用通过生命周期、订阅、发布、等待、状态与元数据查询及图执行接口管理运行时。`get_core()` 保留状态和关闭回调接口；内部组件通过私有成员持有。
 
-以下实现不再从 `apixis`、`apixis.core` 或事件/图公开门面导出：
+使用 `subscribe()` 注册和配置 handler，使用 `get_handler_meta()` 查询独立元数据快照，使用 `unsubscribe()` 注销。通过 `get_graph_dispatch_name()` / `get_graph_interrupted_name()` 获取图的事件名称和插件边界，使用 `GraphContext` 和快照接口管理调用状态。
 
-| 内部实现 | 应用使用的接口 |
-| --- | --- |
-| core 实现类、event loop、pipe 和 registry 类及组件 getter | 生命周期函数、`get_core()`、`get_event_runtime_status()` |
-| handler 实现类、原始 `get_handler()` | `subscribe()` 配置名称、分组、执行选项和通知回调；`get_handler_meta()` 查询独立快照 |
-| namespace 登记表、申请/释放和验证函数、内部事件名前缀 | 编译和分解图；查询插件边界名称使用 `get_graph_dispatch_name()` / `get_graph_interrupted_name()` |
-| 状态复制、schema 解析和图定义校验工具 | 图的状态标记、编译、context 和快照接口 |
-
-handler 配置变化通过同名 `subscribe()` 替换，注销使用 `unsubscribe()`；不直接修改内部记录。内部模块路径供框架实现和组件测试使用，不属于应用接口，也不提供旧导出的兼容别名。
+以下划线开头的成员、内部实现类和组件 getter 供框架内部使用。组件归属和依赖设计见[开发文档](../development/README.md)。

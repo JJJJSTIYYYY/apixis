@@ -47,7 +47,7 @@ asyncio.run(main())
 
 `Command.update` 更新状态，`Command.goto` 指定下一步。返回普通字典只更新状态并结束当前分支。`with graph` 在退出时释放图的注册资源。
 
-继续阅读：[构图与执行](./core/graph/README.md)、[状态与下一跳](./core/graph/state.md)。
+继续阅读：[构图与执行](./graph/README.md)、[状态与下一跳](./graph/state.md)。
 
 ## 发布和处理事件
 
@@ -88,7 +88,7 @@ asyncio.run(main())
 
 `subscribe()` 注册异步处理函数，`post_event()` 创建并发布事件。示例使用 `asyncio.Event` 等待应用需要的处理结果；等待本次事件全部前台处理结束可使用 `post_and_wait()`。
 
-共享 event core 服务整个应用，由应用入口显式创建、启动和关闭。stop 仅暂停队列消费，start 恢复消费；getter 不创建或启动组件。详见[五阶段生命周期](./core/runtime-lifecycle.md)。继续阅读：[事件 API](./core/event/README.md)、[事件处理器](./core/event/handlers.md)。
+共享 event core 服务整个应用，由应用入口显式创建、启动和关闭。stop 仅暂停队列消费，start 恢复消费；getter 不创建或启动组件。详见[生命周期](./lifecycle.md)。继续阅读：[事件 API](./event/README.md)、[事件处理器](./event/handlers.md)。
 
 ## 调整运行参数
 
@@ -103,6 +103,6 @@ APIXIS:
     show_event_dispatch: false
 ```
 
-配置在导入时读取，修改后需要重启应用。完整选项见[配置](./core/config/README.md)。
+配置在导入时读取，修改后需要重启应用。完整选项见[配置](./config/README.md)。
 
-[返回文档首页](./README.md)
+[返回文档首页](../README.md)

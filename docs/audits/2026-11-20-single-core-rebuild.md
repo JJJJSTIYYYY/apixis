@@ -1,6 +1,6 @@
 # 共享 core 重建记录
 
-此页保留初次重建的历史契约。后续显式创建、纯同步 getter、stop/close 分离及等待取消语义以[当前生命周期](./runtime-lifecycle.md)为准。
+此页保留初次重建的历史契约。后续显式创建、纯同步 getter、stop/close 分离及等待取消语义以[当前生命周期](../development/runtime-lifecycle.md)为准。
 
 本轮以 `5049c7d` 的父提交 `f8e885d` 还原工作树，再重建后续独立的功能、优化和修复。原提交历史保留，用于逐项核对。
 
@@ -75,6 +75,6 @@ git diff --check
 
 本轮保留正常注册路径的行为。应用更新注册信息使用 `subscribe()` 或 handler 的 `register()`，历史审计项仍单独记录在工具输出的 findings 中。
 
-[事件 API](./event/README.md) · [图 API](./graph/README.md) · [测试说明](../../tests/README.md)
+[事件 API](../usage/event/README.md) · [图 API](../usage/graph/README.md) · [测试说明](../../tests/README.md)
 
-重建后的性能对照与查询入口后续优化见[性能核对](../performance/2026-11-20-single-core-recheck.md)和[查询入口优化](../performance/2026-11-20-handler-query-optimization.md)。
+重建后的性能对照与查询入口后续优化见[性能核对](../testing/performance/2026-11-20-single-core-recheck.md)和[查询入口优化](2026-11-20-handler-query-optimization.md)。

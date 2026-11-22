@@ -6,7 +6,7 @@
 
 当前架构的主要职责已经分开：工厂管理共享实例，`ApixisCore` 协调生命周期，event loop 消费和派发，registry 管理路由与等待器登记，waiter 管理自己的 Future，graph 管理 invocation 的完成。**没有发现 event core 为 graph 增加类型识别、补充事件、专用 listener 或反向导入的兼容路径。**
 
-初始检查确认 4 项 P2 运行时问题，其中 **F2–F5 均已修复**；3 项 P3 清理问题中 **D1 已修复，D2、D3 待处理**。风险集中在异常发生后的资源释放，以及可变对象与索引/句柄之间的一致性，不宜靠继续增加标记位解决。
+初始检查确认 4 项 P2 运行时问题，其中 **F2–F5 均已修复**；3 项 P3 清理问题中 **D1 已修复、D3 文档已对齐，D2 保留为不予修复的已知边界**。风险集中在异常发生后的资源释放，以及可变对象与索引/句柄之间的一致性，不宜靠继续增加标记位解决。
 
 | 编号 | 优先级 | 确认的问题 | 可见后果 |
 | --- | --- | --- | --- |
@@ -15,10 +15,10 @@
 | F4 | P2，已修复 | waiter 的取消分支没有执行固定期限检查 | 相同的零超时等待在默认/eager 调度下结果不同 |
 | F5 | P2，已修复 | 已获取的 stream writer 没有发送时的终态约束 | abort 后仍输出；稍晚发送则抛关闭异常 |
 | D1 | P3，已修复 | 基准脚本连续创建相同 core 两次 | 无意义的创建、关闭、重建 |
-| D2 | P3 | 日志开关没有类型校验 | YAML 字符串 `"false"` 实际启用逐事件输出 |
-| D3 | P3 | 当前配置文档残留多线程契约 | 用户可能按已删除的队列/线程模型设计应用 |
+| D2 | P3，不予修复 | 日志开关没有类型校验 | YAML 字符串 `"false"` 实际启用逐事件输出 |
+| D3 | P3，文档已对齐 | 当前配置文档残留多线程契约 | 用户可能按已删除的队列/线程模型设计应用 |
 
-P2 表示功能、资源收尾或公开语义不一致；P3 表示低风险冗余、边界或文档问题。以下均基于当前源码和实际复现，不将维护性候选计入缺陷数量。问题编号保留原编号，便于对照讨论。
+P2 表示功能、资源收尾或公开语义不一致；P3 表示低风险冗余、边界或文档问题。初始问题基于 `a93d34e` 源码和实际复现，后续状态在对应条目更新；不将维护性候选计入缺陷数量。问题编号保留原编号，便于对照讨论。
 
 ## 范围与验证
 
@@ -118,8 +118,8 @@ core.handler_registry.get_handlers_for_event("alpha")  # KeyError: 'original'
 | 编号 | 位置 | 证据与处理方向 |
 | --- | --- | --- |
 | D1 | [benchmark_runtime.py:579](../../scripts/benchmark_runtime.py#L579) | 连续两次 `core = await fresh_core(128)`；第二次立即关闭刚创建的实例，已删除一次重复创建。发生在计时区间外，不能据此否定已有性能数据。 |
-| D2 | [core_config.py:30](../../src/apixis/core/config/core_config.py#L30) | 临时 YAML 的 `show_event_dispatch: "false"` 导入后得到 `str` 且 truthy。应在配置加载边界要求 bool，不在派发热路径加验证。 |
-| D3 | [配置文档:31](../core/config/README.md#L31)、[配置文档:37](../core/config/README.md#L37) | 仍描述跨线程接收队列、每线程独立 core、容量通知；当前实现已删除。只更新现行说明，历史迁移文档不必抹除。 |
+| D2 | [core_config.py:30](../../src/apixis/core/config/core_config.py#L30) | 临时 YAML 的 `show_event_dispatch: "false"` 导入后得到 `str` 且 truthy。保留现有实现，不予修复；[配置指南](../usage/config/README.md#事件日志输出)明确要求使用 YAML 布尔值并说明现有真值行为。 |
+| D3 | [配置文档](../usage/config/README.md#队列与并发) | 初始文档仍描述跨线程接收队列、每线程独立 core、容量通知。使用指南已对齐为共享 core 的本地队列和前台派发许可；历史迁移记录保留原背景。 |
 
 ### 维护性候选，不计作行为缺陷
 
@@ -142,7 +142,7 @@ core.handler_registry.get_handlers_for_event("alpha")  # KeyError: 'original'
 | waiter 的计算型 active、`_registry=None` 注销保护 | Future 是唯一终态；成功注销后释放引用，避免重复注销；失败时保留引用供重试。 |
 | handler 汇合前结束 waiter，最终 registry 再关闭 | 前者解除清理代码等待事件的依赖，后者负责组件终态收尾。 |
 | suspend_process 的 owner/child 与恢复协调 | 子任务取消时需要恢复仍存活父链的许可；父链结束时又不能等待子任务重新拿许可。 |
-| graph 捕获所属 core 的 pipe/registry，使用 close 完成回调 | 防止旧图清理新 core；上层自行结束 completion，保持依赖方向。 |
+| graph 绑定所属 core，通过公共事件接口工作并使用 close 完成回调 | 防止旧图清理新 core；上层自行结束 completion，保持依赖方向。 |
 | graph interrupt 的 post_and_wait 与独立 Block 等待 | 前者等待 hook 处理并借出许可，后者等待被业务接管的 Block；职责不同。 |
 | 状态复制与 checkpoint 复制 | 当前执行隔离和历史恢复隔离是不同需求；KeepRef 已表达显式共享，不宜一并去掉深拷贝。 |
 
@@ -162,7 +162,7 @@ core.handler_registry.get_handlers_for_event("alpha")  # KeyError: 'original'
 
 ## 建议顺序
 
-F4、F5 和 D1 已完成。后续仅剩 D2 配置边界校验与 D3 配置文档清理。
+F2–F5 和 D1 已完成，D3 已通过文档对齐处理。D2 不予修复，配置指南说明现有类型处理边界；后续若改变布尔校验契约，应作为单独的代码变更。
 
 不建议重写整个 core、再增加一组生命周期布尔标记，或为了结束 graph 而向 event core 填入 graph 专用兼容逻辑。
 
@@ -170,12 +170,6 @@ F4、F5 和 D1 已完成。后续仅剩 D2 配置边界校验与 D3 配置文档
 
 初始基线源码指纹（沿用仓库缓存审计的算法，排除 `_version.py`）：`15e276d137e09fbe593ad85893980b4ba814f35ace44fdbbcd7513650a51363c`。完整命令、46 个模块清单和基线验证结果见 [validation.json](./data/2026-11-22/validation.json)；基线复现结果见 [findings.json](./data/2026-11-22/findings.json)，覆盖明细见 [coverage-summary.json](./data/2026-11-22/coverage-summary.json)。这些快照不代表后续修复后的运行结果。原始探针使用了当时公开的内部接口，应配合基线源码运行；当前公开边界验证使用 tests/test_public_api.py。
 
-```bash
-.venv/bin/python docs/audits/data/2026-11-22/reproduce_findings.py
-.venv/bin/python docs/audits/data/2026-11-22/lifecycle_matrix.py
-.venv/bin/python scripts/audit_handler_chain_cache.py --output /tmp/apixis-cache-audit.json
-.venv/bin/python -m pytest -q --asyncio-debug --maxfail=1 -o faulthandler_timeout=45
-.venv/bin/python -m ruff check .
-```
+复跑命令见[历史诊断复现指南](../testing/reproduction.md#2026-年-11-月-22-日诊断基线)：先提取 `a93d34e` 的 `src/`，通过 `PYTHONPATH` 选择它，再运行归档探针和 972 组生命周期矩阵。探针末尾的 `quoted_false_config` 子进程会自行改回仓库 `src/`，这个字段属于当前检出的配置加载器，其余缺陷场景属于选定的历史基线。
 
-完整测试与生命周期矩阵通过，只证明已覆盖的路径；F2–F5、D1 按上述方案完成修复，D2、D3 仍待处理。
+当前测试和缓存验证入口分别见[测试指南](../testing/README.md)与[缓存验证](../testing/performance/README.md#当前缓存验证)。完整测试与生命周期矩阵通过，只证明已覆盖的路径。F2–F5、D1 按上述方案完成修复，D3 文档已对齐，D2 保留为不予修复的已知边界。

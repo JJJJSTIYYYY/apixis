@@ -11,11 +11,11 @@ await post_event(event_type=EventType.INFO, event_name="demo.event", context={"v
 result = await post_and_wait(event_name="demo.event", context={"value": 2})
 ```
 
-调用前先显式 create_core、注册处理函数并 start_core。
+先显式 `create_core()`。入队不要求已经启动，也不要求业务订阅存在；`start_core()` 开始消费后才会执行处理。需要等待业务结果时，应先注册相关订阅并启动消费。`post_and_wait()` 自带 processed 监听，即使没有业务订阅，也能在事件被消费后返回本次事件。
 
 `post_event()` 等待事件成功入队，队列满时等待空位；返回时不保证处理结束。`post_and_wait()` 等待本次事件的前台处理结束，后台 handler 不在等待范围内。在 handler 内发布或等待事件时，这些接口会协调派发许可，避免占着许可等待其他事件。
 
-需要等待外部事件时使用 `wait_event()`；需要保证监听先注册再发布请求时使用 `expect_event()`。
+需要等待外部事件时使用 `wait_event()`；需要先注册监听、再运行其他操作时使用 `expect_event()`。
 
 ## 容量与状态
 
@@ -34,8 +34,8 @@ print(status.event_queue_size, status.event_queue_capacity)
 
 `stop_core()` 只暂停消费，保留队列，仍允许发布。队列满时发布会继续等待，直到显式 start_core 恢复消费或 close_core 关闭。
 
-`close_core()` 永久拒绝发布，等待满队列空位的发布者也会收到 `CoreClosedError`。业务主动取消发布任务仍为 `CancelledError`。关闭直接丢弃尚未派发的事件，不为它们补发取消通知；已经处理中的事件通过原有 on_cancelled 清理，剩余事件等待器返回 None。
+`close_core()` 永久拒绝发布，等待满队列空位的发布者也会收到 `CoreClosedError`。业务主动取消发布任务仍为 `CancelledError`。关闭直接丢弃尚未派发的事件，不为它们补发取消通知；已经处理中的事件通过 `on_cancelled` 清理，剩余事件等待器返回 `None`。等待器的返回与业务清理可能交错，应用入口等待 `close_core()` 才能确认整体清理完成。
 
 关闭旧 core 后，应用显式 create_core 构造新实例，并重新注册订阅和图。
 
-[完整生命周期](../runtime-lifecycle.md) · [事件 API](./README.md) · [配置](../config/README.md) · [文档首页](../../README.md)
+[生命周期](../lifecycle.md) · [事件 API](./README.md) · [配置](../config/README.md) · [接口概览](../README.md)

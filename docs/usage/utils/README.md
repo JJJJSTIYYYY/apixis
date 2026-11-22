@@ -6,9 +6,9 @@
 
 | 异常 | 含义 |
 | --- | --- |
-| `CoreClosedError` | core 已开始关闭，或旧 pipe / registry 拒绝继续接收工作 |
-| `BlockHookNotRegisteredError` | 图发生中断，但没有可执行的中断处理器 |
-| `BlockNotResolvedError` | 中断处理器返回时，Block 既未完成也未被接管 |
+| `CoreClosedError` | core 已开始关闭，拒绝新的发布、注册或图调用 |
+| `BlockHookNotRegisteredError` | 中断事件完成前台处理后，无错误且未被接受，Block 未完成，`event.seen` 仍为空 |
+| `BlockNotResolvedError` | 中断事件无错误且未被接受，Block 未完成也未被接管，`event.seen` 已有业务处理器记录 |
 | `EventHandlerAlreadyRegisteredError` | 禁止覆盖时注册了同名处理器 |
 | `EventHandlerNotRegisteredError` | 所需处理器尚未注册 |
 | `GraphNodeError` | 图节点执行错误 |
@@ -16,6 +16,8 @@
 | `InvalidNodeReturnsError` | 节点返回值不符合要求 |
 
 参数校验还可能抛出 `ValueError` 或 `TypeError`。异步取消使用 `asyncio.CancelledError`，不属于普通 `Exception`。
+
+中断事件的普通订阅也会影响 `seen`，具体接管方式见[图中断](../graph/README.md#interrupt--block)。已经接纳的图调用在 core 关闭时可能以 `CancelledError` 结束；新调用的准入错误为 `CoreClosedError`。
 
 ## 输出日志
 
@@ -56,4 +58,4 @@ Logger.set_debug(None)  # 停用该等级
 
 `APIXIS.LOG.show_event_dispatch` 仍控制事件分发时的直接 `print`，与日志回调独立。
 
-[日志配置](../config/README.md) · [文档首页](../../README.md)
+[日志配置](../config/README.md) · [接口概览](../README.md)

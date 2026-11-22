@@ -31,3 +31,7 @@
 - Avoid cross-module dependencies on private implementation details.
 - Keep domain-specific logic within its owning module; extract only functionality with genuine reuse potential.
 - Preserve clear dependency direction and avoid circular dependencies.
+
+## Documentation
+
+Follow the documentation structure, audience boundaries, and verification rules in [docs/README.md](docs/README.md#文档编写要求) when writing or reorganizing project documentation.

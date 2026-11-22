@@ -1,8 +1,8 @@
 # 2026-11-20 显式生命周期验证
 
-对照 `a2a288a` 与 validation.json 源码指纹对应的工作区快照，验证显式 create/start/stop/close、纯同步 getter 和终止取消。生命周期契约见[五阶段说明](../core/runtime-lifecycle.md)。
+对照 `a2a288a` 与 validation.json 源码指纹对应的历史 after 快照，验证显式 create/start/stop/close、纯同步 getter 和终止取消。生命周期契约见[五阶段说明](../../development/runtime-lifecycle.md)。
 
-EventWaiter 使用普通 asyncio Future：close 直接 cancel，on_cancelled 调用 _resolve，不改变 asyncio 的任务取消传播。graph 固定引用创建时的组件，不能跨已关闭 core 迁移。
+该阶段的 EventWaiter 使用普通 asyncio Future：close 直接 cancel，on_cancelled 调用 _resolve，不改变 asyncio 的任务取消传播。当时 graph 固定引用创建时的组件，不能跨已关闭 core 迁移。
 
 后续将 waiter 的取消通知分离为 `_cancel()`、取消等待统一返回 `None`，恢复原有 `_resolve()`，改为直接完成活跃 waiter，把 waiter 注册、注销收回 registry 统一管理，并将未派发事件改为直接丢弃，删除额外取消通知任务。下列性能、安装和验证记录对应这些调整前的快照；原始数据与源码指纹保留，不代表后续修改已重新计时。
 
@@ -50,14 +50,26 @@ EventWaiter 使用普通 asyncio Future：close 直接 cancel，on_cancelled 调
 
 ## 证据与复现
 
-- [十项主对照及全部进程样本](./data/2026-11-20-lifecycle/comparison.json)
-- [请求响应独立复测](./data/2026-11-20-lifecycle/request-reply-recheck.json)
-- [缓存审计及历史 findings](./data/2026-11-20-lifecycle/cache-audit.json)
-- [源码指纹和验证记录](./data/2026-11-20-lifecycle/validation.json)
-- [相同基准驱动](./data/2026-11-20-lifecycle/driver.py)、[eager 测试插件](./data/2026-11-20-lifecycle/eager_plugin.py)和[文件校验](./data/2026-11-20-lifecycle/manifest.json)
+- [十项主对照及全部进程样本](data/2026-11-20-lifecycle/comparison.json)
+- [请求响应独立复测](data/2026-11-20-lifecycle/request-reply-recheck.json)
+- [缓存审计及历史 findings](data/2026-11-20-lifecycle/cache-audit.json)
+- [源码指纹和验证记录](data/2026-11-20-lifecycle/validation.json)
+- [相同基准驱动](data/2026-11-20-lifecycle/driver.py)、[eager 测试插件](data/2026-11-20-lifecycle/eager_plugin.py)和[文件校验](data/2026-11-20-lifecycle/manifest.json)
 
-基线可从 `git archive a2a288a src` 提取。仓库根目录运行比较时使用 `scripts/benchmark_runtime.py --baseline-source /tmp/before/src`；上述十项通过重复的 --scenario 参数选择，repeats=5，events=32768，registry-hot-queries=1000000，registry-cold-queries=100000，mixed-listeners=64，mixed-events=512。请求响应复测只选择 event/request-reply，repeats=15。
+基线可以直接提取；以下命令只重测基线的请求响应场景。
 
-eager 插件通过 PYTHONPATH 加入它所在目录，再用 `pytest -p eager_plugin --asyncio-debug` 运行 validation.json 中列出的五个测试文件。归档基准驱动支持 --worker-source；配对入口使用仓库根目录的脚本。
+```bash
+apixis_lifecycle_root=$(mktemp -d /tmp/apixis-lifecycle-baseline.XXXXXX)
+git archive a2a288a src | tar -x -C "$apixis_lifecycle_root"
+env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 \
+  .venv/bin/python docs/testing/performance/data/2026-11-20-lifecycle/driver.py \
+  --worker-source "$apixis_lifecycle_root/src" \
+  --output "$apixis_lifecycle_root/before-request-reply.json" \
+  --repeats 15 --scenario event/request-reply
+```
 
-[生命周期](../core/runtime-lifecycle.md) · [性能说明](./README.md)
+after 指纹为 `8f34f5d66ddd21f92ab0f609aa47ea59b0d37a8b37dc92731587c5861bd3a06a`（不含版本文件），归档未保留对应的完整源码树。若另行取得该快照，应将归档 `driver.py` 放在 after 树的 `scripts/` 中，通过 `--baseline-source` 指向提取的基线；不能使用当前源码或当前比较脚本替代历史输入。主对照十项通过重复的 `--scenario` 选择，参数为 repeats=5、events=32768、registry-hot-queries=1000000、registry-cold-queries=100000、mixed-listeners=64、mixed-events=512。请求响应复测只选择 `event/request-reply`，repeats=15。
+
+历史 eager 结果使用归档插件和 validation 中列出的五个测试文件；重现当时通过数量还需要相应的测试文件快照。当前源码的 eager 回归入口见[问题复现指南](../reproduction.md#eager-调度)。
+
+[生命周期](../../development/runtime-lifecycle.md) · [性能说明](./README.md)

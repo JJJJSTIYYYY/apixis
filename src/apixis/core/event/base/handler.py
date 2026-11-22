@@ -111,6 +111,8 @@ class ApixEventHandler:
         once. A failure in ``on_error`` is recorded without recursive handling.
         Successful error handling does not remove the original error or retry
         the failed function. Cancellation propagates without calling on_error.
+        Cancellation is checked after each callback returns, so swallowing it
+        cannot resume subsequent handler phases.
         Background exceptions still invoke on_error but never enter error_stack;
         background cancellation propagates without on_error or an error record.
         """
@@ -145,6 +147,8 @@ class ApixEventHandler:
             else:
                 async with asyncio.timeout(self._time_out):
                     await func(event, *args)
+            if asyncio.current_task().cancelling() and (self._background or event.cancelled):
+                raise asyncio.CancelledError
         except asyncio.CancelledError as exc:
             error = ApixEventError(
                 handler_name=self._name,

@@ -83,15 +83,15 @@ env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/ben
   --scenario event/mixed-wait-50 --scenario event/mixed-wait-75 --scenario event/mixed-wait-100
 
 env -u PYTHONASYNCIODEBUG PYTHONDONTWRITEBYTECODE=1 .venv/bin/python \
-  docs/performance/data/2026-11-20-single-core/benchmark_handler_queries.py \
+  docs/testing/performance/data/2026-11-20-single-core/benchmark_handler_queries.py \
   --source src --label after --repeats 9 --output /tmp/waiter-query-after.json
 ```
 
 第二个命令是单 worker，配对复现时按 before/after/after/before 指定对应源码，各输出不同文件。
 
-- [九项共同场景和全部 worker 样本](./data/2026-11-20-single-core/handler-query-optimization.json)
-- [含等待者查询和全部 worker 样本](./data/2026-11-20-single-core/handler-query-optimization-waiters.json)
-- [精确补丁](./data/2026-11-20-single-core/handler-query-optimization.patch)与[源码、驱动和正确性核对](./data/2026-11-20-single-core/handler-query-optimization-proof.json)
-- [共同驱动](./data/2026-11-20-single-core/driver.py)、[等待者查询驱动](./data/2026-11-20-single-core/benchmark_handler_queries.py)与[文件校验](./data/2026-11-20-single-core/manifest.json)
+- [九项共同场景和全部 worker 样本](../testing/performance/data/2026-11-20-single-core/handler-query-optimization.json)
+- [含等待者查询和全部 worker 样本](../testing/performance/data/2026-11-20-single-core/handler-query-optimization-waiters.json)
+- [精确补丁](../testing/performance/data/2026-11-20-single-core/handler-query-optimization.patch)与[源码、驱动和正确性核对](../testing/performance/data/2026-11-20-single-core/handler-query-optimization-proof.json)
+- [共同驱动](../testing/performance/data/2026-11-20-single-core/driver.py)、[等待者查询驱动](../testing/performance/data/2026-11-20-single-core/benchmark_handler_queries.py)与[文件校验](../testing/performance/data/2026-11-20-single-core/manifest.json)
 
-[性能说明](./README.md) · [优化前的回退定位](./2026-11-20-handler-query-cause.md)
+[性能说明](../testing/performance/README.md) · [优化前的回退定位](./2026-11-20-handler-query-cause.md)

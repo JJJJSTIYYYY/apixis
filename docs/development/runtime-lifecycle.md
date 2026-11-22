@@ -1,4 +1,6 @@
-# Event core 生命周期
+# Event core 生命周期设计
+
+应用调用方法见[生命周期使用指南](../usage/lifecycle.md)。本页说明状态、共享任务、组件清理和等待器终态的设计。
 
 event core 分为五个阶段：**create → start → running → stop → close**。工厂提供四类生命周期方法：`create_core()`、`start_core()`、`stop_core()`、`close_core()`，运行阶段由启动成功后进入。
 
@@ -70,20 +72,6 @@ graph 注册关闭完成回调，在关闭 Task 结束后取消自己管理的�
 
 关闭后 start 抛出 `CoreClosedError`。只有等待 close 完成后，显式再次 create 才会构造新实例；关闭过程中 create 抛出 `RuntimeError`。旧组件引用永久关闭，不会随新 core 重开。
 
-## 显式创建与同步读取
-
-```python
-from apixis import create_core, get_core
-
-core = create_core()
-assert get_core() is core
-print(core.state)
-```
-
-`get_core()` 只同步读取已创建的 core，不创建组件、不安排启动，也不恢复消费。应用可以读取 state、调用生命周期方法，以及注册/移除关闭完成回调。core 的管道、注册表和 event loop 都是私有组件，不公开组件 getter 或实现类；应用通过发布、订阅、等待和状态查询接口使用事件系统。
-
-先 create，再导入使用订阅装饰器或构图的业务模块；订阅注册与 graph 编译都不会隐式启动。也可以在应用入口中 create 后再注册业务函数。应用在需要消费时显式 start。
-
 ## stop 与 start 可逆
 
 stop 只停止事件队列的消费：
@@ -100,9 +88,8 @@ stop 只停止事件队列的消费：
 1. 状态立即进入 CLOSING；底层管道永久拒绝 `put()`、`put_nowait()`、`post_event()`，唤醒满队列上的发布者并抛出 `CoreClosedError`。handler registry 同时停止接受新注册。
 2. 创建共享关闭 Task。该 Task 先等待已有启动、停止 Task 收尾，启动失败不会中断关闭；启动和停止流程不得覆盖 CLOSING 状态。随后向消费者、前台派发与后台 handler 任务发出取消请求。已运行任务沿协程内既有的取消路径执行清理；尚未进入协程的任务只回收资源，不补发取消通知。
 3. 停止消费者后，直接清空事件队列。`_pending_dispatch` 虽已出队，但还未派发，单独丢弃并调用一次 `task_done()`。两者都不查询 handler、不执行业务或 `on_cancelled`，不增加事件分类或状态标记。
-4. 在途任务沿既有 `on_cancelled` 通知清理。实际事件的等待监听通过 `_cancel()` 保留 predicate 和请求关联，匹配后完成为 `None`。
-5. 遍历 `_waiter_cache` 显式记录的 waiter，对 `active=True` 的实例调用 `finish()`，直接执行 `_future.set_result(None)` 和 `close()`；不构造事件、不调用等待监听回调、不执行 predicate。此步骤在汇合所有业务清理之前完成，避免清理代码等待事件而阻塞 core 关闭。
-6. 汇合前台和后台任务，释放许可；最后清理注册与事件名，进入 CLOSED。关闭 Task 完成后，按注册顺序调度完成回调，由 graph 等上层结束自己管理的剩余等待。关闭流程不创建单独的取消通知任务。
+4. 遍历 `_waiter_cache` 显式记录的 waiter，对仍活跃的实例调用 `finish()`，直接完成为 `None` 并注销；不构造事件、不调用监听回调或 predicate。在途任务同时可沿既有 `on_cancelled` 执行清理，真实事件的等待监听通过 `_cancel()` 核对期限和 predicate 后完成。两条路径可以交错，不保证取消通知先于 waiter 返回；直接完成安排在汇合业务任务之前，避免清理代码等待事件而阻塞关闭。
+5. 汇合前台和后台任务，释放许可；最后清理注册与事件名，进入 CLOSED。关闭 Task 完成后，按注册顺序调度完成回调，由 graph 等上层结束自己管理的剩余等待。关闭流程不创建单独的取消通知任务。
 
 消费者已有的运行异常统一由消费者 Task 完成回调记录，stop/close 不重新抛出该异常，也不返回异常对象。关闭 Task 完成全部组件清理后才进入 CLOSED。清理自身失败或取消则保留 CLOSING，异常正常传播；再次 close 时重试，只有尚在执行的关闭 Task 才由并发调用共享。成功进入 CLOSED 后，重复 close 会重新执行关闭流程，不重新开放准入，已释放的回调注册也不会恢复。
 
@@ -110,16 +97,16 @@ stop 只停止事件队列的消费：
 
 取消过程中 handler 即使吞掉取消或改抛其他异常，也不会继续执行后续业务 core 或业务 on_error；异常仍记录，清理由独立的 on_cancelled 完成。
 
-取消回调保持既有 `notify_cancelled()` 语义：异常（包括回调自行抛出的 `CancelledError`）只记录，不阻止其他通知。事件循环沿用每个取消回调 5 秒的通知上限。close 入口立即封闭准入，关闭 Task 在已有操作收尾后发出取消请求；返回表示拥有的任务与通知已经清理完成，core 释放操作 Task 的引用。
+取消回调保持既有 `notify_cancelled()` 语义：异常（包括回调自行抛出的 `CancelledError`）只记录，不阻止其他通知。事件循环沿用每个取消回调 5 秒的协作式超时，与 handler 的 `time_out` 独立；吞掉超时取消且不返回的回调仍会阻止汇合。close 入口立即封闭准入，关闭 Task 在已有操作收尾后发出取消请求；返回表示拥有的任务与通知已经清理完成，core 释放操作 Task 的引用。
 
-调用方取消等待 close 的协程，不会中止共享清理。取消回调再次调用 close 时不等待自身；在 handler 中请求 close 的执行任务本身也会被取消。
+调用方取消等待 close 的协程，不会中止共享清理。受管理的前台或后台取消回调直接 `await close_core()` 时不等待自身；另建子 Task 再等待关闭不在这项重入识别范围内，会形成父子互等，通常由取消回调的超时打断。当前保留该边界，不增加子任务追踪。在 handler 中请求 close 的执行任务本身也会被取消。
 
 ## EventWaiter 的两类取消
 
 | 来源 | Future 终态 | 等待结果 |
 | --- | --- | --- |
 | `EventWaiter.close()`、业务取消等待、正常退出未完成的等待上下文 | cancelled | `CancelledError` |
-| 固定注册期限到达 | exception | `TimeoutError` |
+| 超时定时器执行，或匹配/真实取消发现期限已到，且 Future 仍 pending | exception | `TimeoutError` |
 | 匹配事件的 `on_cancelled` 通知或 core 关闭直接完成 | result | `None`，单 pattern 和多 pattern 一致 |
 
 `EventWaiter` 使用普通 asyncio Future，并直接等待它。`active` 是只读 property，直接返回 `not _future.done()`，不维护额外状态标记。`finish()` 在调用方确认 active 后，执行 `_future.set_result(None)`，再调用 `close()` 注销监听和计时器。真实事件的 `_cancel()` 与 core 关闭都复用这个操作；core 关闭不产生任何补充通知。
@@ -128,9 +115,9 @@ stop 只停止事件队列的消费：
 
 单独按名称或组移除临时 handler 时，registry 同步更新 waiter 的归属记录，保留仍活跃 Future 的关闭追踪。handler 被同名替换后，旧 waiter 的后续清理不会删除替代者。普通 handler 使用 `register_handler()`，waiter 使用 `register_waiter()`；普通注册不接受 point。图中断通过 `post_and_wait()` 等待用户 hook 处理结束，再检查 Block 是否已完成或接受，不再创建兜底 handler 或独立 listener。
 
-`close()` 直接调用 `_future.cancel()`；注册 handler 时，`on_cancelled` 统一指向 `_cancel()`。原有 `_resolve()` 保持不变，负责正常结果的期限检查、predicate 和聚合。若等待任务本身被取消，asyncio 仍正常向其等待的 Future 传播取消。已经完成、超时或取消的 Future 不被关闭流程改写；尚未执行的超时回调会由先到达的直接完成操作清理。
+`close()` 直接调用 `_future.cancel()`；注册 handler 时，`on_cancelled` 统一指向 `_cancel()`。`_resolve()` 负责正常结果的期限检查、predicate 和聚合。真实事件的 `_cancel()` 同样先核对期限，过期后置为 `TimeoutError` 并跳过 predicate；core 直接 `finish()` 不核对期限，仍 pending 时可以先得到 `None`。若等待任务本身被取消，asyncio 仍正常向其等待的 Future 传播取消。已经完成、超时或取消的 Future 不被关闭流程改写；尚未执行的超时回调会由先到达的直接完成操作清理。
 
-实际事件取消后，handler 的清理回调仍收到 `cancelled=True` 的原事件；waiter 的 `_cancel()` 使用 predicate 隔离并发同名请求，但匹配后只向等待方返回 `None`。取消一个请求不会提前完成其他同名请求的等待。
+前台事件取消后，handler 的清理回调仍收到 `cancelled=True` 的原事件；waiter 的 `_cancel()` 使用 predicate 隔离并发同名请求，但匹配后只向等待方返回 `None`。取消一个请求不会提前完成其他同名请求的等待。
 
 `event.cancelled` 由事件循环在取消前台执行时设置。单个后台 handler 的取消只通知该 handler，不改变共享事件的取消状态；关闭时取消一个晚于前台完成的后台任务，也不会把已经完成的事件改成 cancelled。
 
@@ -140,33 +127,6 @@ stop 只停止事件队列的消费：
 
 `EventWaiter.close()` 继续调用 `_future.cancel()`，代表业务主动放弃结果；它与超时/框架关闭不是同一条路径。
 
-## 应用入口
+实现入口：[core 协调](../../src/apixis/core/event/core.py)、[工厂与状态读取](../../src/apixis/core/event/factory.py)、[事件循环关闭](../../src/apixis/core/event/event_loop.py)、[waiter 终态](../../src/apixis/core/event/subscription/waiter.py)。
 
-```python
-import asyncio
-from apixis import create_core, start_core, stop_core, close_core, subscribe, post_and_wait
-
-
-async def main():
-    create_core()
-
-    @subscribe("job")
-    async def handle(event):
-        print(event.context)
-
-    try:
-        await start_core()
-        await post_and_wait(event_name="job", context={"value": 1})
-        await stop_core()
-        # 暂停期间可继续注册和入队；只有显式 start 才恢复消费。
-        await start_core()
-    finally:
-        await close_core()
-
-
-asyncio.run(main())
-```
-
-`get_event_runtime_status()` 同步返回不可变快照，包含 `state` 和各组件工作计数，不创建或启动 core。未创建时 `initialized=False`、`state=None`；关闭实例在下一次 create 前仍可检查。
-
-[事件 API](./event/README.md) · [事件队列](./event/channels.md) · [接口概览](./README.md)
+[开发文档](README.md) · [事件派发设计](event-dispatch.md) · [生命周期使用指南](../usage/lifecycle.md)
